@@ -1,0 +1,64 @@
+{
+  "name": "skelion-vscode",
+  "publisher": "adity",
+  "displayName": "Skelion Agent",
+  "description": "VS Code panel for Skelion authentication & billing",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "activationEvents": [
+    "onCommand:skelion.openPanel",
+    "onView:dashboard"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "skelion.openPanel",
+        "title": "Skelion: Open Dashboard"
+      },
+      {
+        "command": "skelion.instantDevLogin",
+        "title": "Skelion: Instant Dev Sign In (Aditya)"
+      },
+      {
+        "command": "skelion.openMasterDashboard",
+        "title": "Skelion: Open Master Admin Control Dashboard"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "skelion",
+          "title": "Skelion",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "skelion": [
+        {
+          "type": "webview",
+          "id": "dashboard",
+          "name": "Dashboard"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --allow-missing-repository"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aditya-9-6/Skelion.git"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.88.0",
+    "@vscode/vsce": "2.24.0"
+  }
+}

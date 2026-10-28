@@ -1,0 +1,21 @@
+version: "3.9"
+services:
+  skelion-control:
+    build:
+      context: .
+      dockerfile: Dockerfile.skelion
+    env_file: .env.skelion
+    ports:
+      - "8002:8002"
+    depends_on:
+      - redis
+  skelion-edge:
+    image: python:3.12-slim
+    command: "python helios_edge/proxy_server.py"
+    env_file: .env.skelion
+    ports:
+      - "8080:8080"
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"

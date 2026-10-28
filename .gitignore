@@ -1,0 +1,26 @@
+# Ignore virtual environment
+.venv/
+env/
+venv/
+
+# Environment files
+.env
+.env.skelion
+*.env
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Node modules & packaging
+node_modules/
+*.vsix
+package-lock.json
+
+# Scratch
+scratch/

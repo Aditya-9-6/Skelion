@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "skelion": {
+      "command": "python",
+      "args": [
+        "-m",
+        "skelion_mcp.server"
+      ],
+      "env": {
+        "SKELION_API_URL": "http://127.0.0.1:8002",
+        "SKELION_API_KEY": "${env:SKELION_API_KEY}"
+      }
+    }
+  }
+}

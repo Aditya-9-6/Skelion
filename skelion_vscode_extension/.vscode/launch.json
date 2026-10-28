@@ -1,0 +1,17 @@
+{
+  // VS Code Extension Development launch configuration
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "extensionHost",
+      "request": "launch",
+      "name": "Run Skelion Extension",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      // Optional – automatically rebuild on changes
+      "preLaunchTask": "npm: compile"
+    }
+  ]
+}

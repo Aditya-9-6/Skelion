@@ -1,0 +1,66 @@
+name: Skelion Autonomous Replay CI
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  replay-verification:
+    name: ⚡ Skelion Replay Sandbox Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Execute Replay Sandbox Verification
+        id: replay_test
+        run: |
+          python -m pytest tests/test_replay_sandbox.py tests/test_pr_bot.py -v
+
+      - name: Generate Skelion Diagnostic PR Card
+        if: always()
+        run: |
+          python -c "
+          import sys, os
+          sys.path.insert(0, '.')
+          from skelion_agent.models import Incident
+          from skelion_agent.pr_comment_bot import generate_pr_diagnostic_card
+          
+          inc = Incident(
+              id='inc_ci_replay',
+              org_id='org_ci',
+              route_path='POST /api/v1/orders/checkout',
+              http_method='POST',
+              status_code=500,
+              error_summary='TypeError in checkout controller intercepted by Fail-Open DevProxy',
+              fingerprint='fp_ci_verified_001',
+          )
+          
+          diff = '''--- a/src/controllers/checkout.js
+          +++ b/src/controllers/checkout.js
+          @@ -12,2 +12,6 @@
+          +  if (!req.body || !req.body.payment_method_id) {
+          +    return res.status(200).json({ status: 'buffered_pending_payment' });
+          +  }
+          '''
+          
+          card = generate_pr_diagnostic_card(inc, pr_url='${{ github.event.pull_request.html_url || \"Local-Verification\" }}', proposed_diff=diff)
+          
+          summary_file = os.getenv('GITHUB_STEP_SUMMARY')
+          if summary_file:
+              with open(summary_file, 'a', encoding='utf-8') as f:
+                  f.write(card)
+          print(card)
+          "

@@ -1,0 +1,37 @@
+{
+  "license_format": "skelion-ed25519-v1",
+  "kid": "skelion_root_2026_v1",
+  "payload": {
+    "v": 1,
+    "license_id": "lic_849799f51989",
+    "org_id": "aditya_labs",
+    "sku": "local",
+    "plan": "local_team",
+    "limits": {
+      "projects": 5,
+      "seats": 999,
+      "retention_days": 90
+    },
+    "features": [
+      "proxy_capture",
+      "redaction",
+      "incident_fingerprinting",
+      "audit_cli",
+      "fix_generation",
+      "replay_verify",
+      "byo_llm",
+      "pr_bot",
+      "slack",
+      "mcp",
+      "team_dashboard"
+    ],
+    "issued_at": "2026-10-24T17:14:38.192530+00:00",
+    "expires_at": "2027-10-24T17:14:38.192530+00:00",
+    "grace_days": 7,
+    "customer": {
+      "name": "Aditya AI Labs",
+      "email": "admin@aditya-enterprise.io"
+    }
+  },
+  "signature": "c2c40a79e269ac28f4cbead5104b514b5e585188565a1fe00bcaf966b08b029ed5a59d3322fdecea2317ca31d6e2848d01521be7495ed5ff1dfd749e0bbbd80d"
+}

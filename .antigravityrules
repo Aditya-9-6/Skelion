@@ -1,0 +1,5 @@
+# SKELION UNIFIED WORKSPACE RULES (DEVPROXY + GOSSIPMESH)
+1. TARGET REPOSITORY: Code lives in workspace mapped to `https://github.com/Aditya-9-6/Skelion.git`.
+2. CONFIG DEFAULTS MANDATE: `skelion_control/config.py` MUST define a single `Settings` class with safe default values for all fields (`SECRET_KEY`, `ENCRYPTION_KEY`, `DATABASE_URL="sqlite:///skelion.db"`, `REDIS_URL="redis://localhost:6379/0"`, `STRIPE_API_KEY="sk_test_mock"`, `GITHUB_APP_ID="0"`) so the server boots with zero environment variables set.
+3. TIMEZONE & REDIS SAFETY: All SQLModel datetime fields MUST use `datetime.now(timezone.utc)`. All Redis calls MUST be wrapped in `try/except Exception` so Skelion works seamlessly without Redis installed.
+4. PORT STANDARDIZATION: Control Plane runs on `127.0.0.1:8002`. Edge Proxy runs on `127.0.0.1:8080`.
