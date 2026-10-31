@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, Set, Optional, Tuple
+from typing import Dict, Set, Optional, Tuple, Generator
 
 
 class VectorClock:
@@ -31,6 +31,10 @@ class VectorClock:
         with self._lock:
             return dict(self._clock)
 
+    def items(self) -> List[Tuple[str, int]]:
+        with self._lock:
+            return list(self._clock.items())
+
     def delta(self, known_clock: Dict[str, int]) -> Dict[str, int]:
         """
         Returns a zero-copy or minimal delta dictionary containing entries
@@ -42,6 +46,16 @@ class VectorClock:
                 if ts > known_clock.get(node, 0):
                     d[node] = ts
             return d
+
+    def delta_iter(self, known_clock: Dict[str, int]) -> Generator[Tuple[str, int], None, None]:
+        """
+        Zero-allocation generator yielding entries from this clock that are
+        ahead of or unknown to `known_clock`.
+        """
+        with self._lock:
+            for node, ts in self._clock.items():
+                if ts > known_clock.get(node, 0):
+                    yield node, ts
 
     def compare(self, other_clock: Dict[str, int]) -> str:
         """
