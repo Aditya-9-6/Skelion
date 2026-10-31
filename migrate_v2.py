@@ -2,7 +2,6 @@
 import sqlite3
 from sqlmodel import SQLModel
 from skelion_agent.database import get_engine
-from skelion_agent import models
 
 # 1. Create all newly defined tables
 SQLModel.metadata.create_all(get_engine())

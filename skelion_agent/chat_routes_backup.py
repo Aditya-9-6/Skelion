@@ -1,5 +1,5 @@
-with open('skelion_agent/chat_routes.py', 'r', encoding='utf-8') as f:
-    text = f.read().replace('\r\n', '\n')
+with open("skelion_agent/chat_routes.py", "r", encoding="utf-8") as f:
+    text = f.read().replace("\r\n", "\n")
 
 old_sug = """    # Query only unresolved incidents for the active org or default org
     incidents = db.exec(
@@ -34,7 +34,7 @@ new_sug = """    # Query only unresolved incidents for the active org or default
 assert old_sug in text, "old_sug not found!"
 text = text.replace(old_sug, new_sug, 1)
 
-with open('skelion_agent/chat_routes.py', 'w', encoding='utf-8') as f:
+with open("skelion_agent/chat_routes.py", "w", encoding="utf-8") as f:
     f.write(text)
 
 print("Updated fallback in get_autofix_suggestions!")

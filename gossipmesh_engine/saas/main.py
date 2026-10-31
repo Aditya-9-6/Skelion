@@ -14,6 +14,7 @@ app = FastAPI(title="GossipMesh SaaS", version="0.1.0")
 app.include_router(metrics_router, prefix="/metrics", tags=["metrics"])
 app.include_router(webhook_router, prefix="/webhooks", tags=["webhooks"])
 
+
 # Root endpoint for health check
 @app.get("/", summary="Health check")
 async def health_check():

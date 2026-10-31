@@ -14,10 +14,10 @@ from typing import Dict, Any, Optional
 
 # Global pricing parameters
 VERSION = 3
-FX_INR_PER_USD = 86.0            # Used for cost-basis estimates
-CREDIT_INR_VALUE = 1.0           # 1 credit = 1 INR of usage value
-MARKUP_ON_COST = 3.0             # Debit = actual_cost * 3
-OVERHEAD_ON_COST = 0.15          # Retries, network failures, container compute
+FX_INR_PER_USD = 86.0  # Used for cost-basis estimates
+CREDIT_INR_VALUE = 1.0  # 1 credit = 1 INR of usage value
+MARKUP_ON_COST = 3.0  # Debit = actual_cost * 3
+OVERHEAD_ON_COST = 0.15  # Retries, network failures, container compute
 FREE_TIER_BUDGET_INR_PER_MONTH = 5000
 
 # Hosted Plans (we run LLM & infrastructure; plans include usage credits)
@@ -35,10 +35,10 @@ HOSTED_PLANS: Dict[str, Dict[str, Any]] = {
     "hosted_lite": {
         "id": "hosted_lite",
         "name": "Skelion AI Lite (Pilot 30% Off)",
-        "price_inr": 559,               # 30% discount off standard ₹799
+        "price_inr": 559,  # 30% discount off standard ₹799
         "annual_price_inr": 5590,
         "credits": 500,
-        "models": ["economy"],          # Exclusively uses free AI tier (Skelion AI Lite)
+        "models": ["economy"],  # Exclusively uses free AI tier (Skelion AI Lite)
         "seats": 1,
         "projects": 2,
         "retention_days": 14,
@@ -209,14 +209,12 @@ PLAN_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     "hosted_team": {"price": 3999, "quota": 4500},
     "hosted_business": {"price": 9999, "quota": 12500},
     "hosted_enterprise": {"price": 40000, "quota": 50000},
-
     # Local v3 canonical IDs
     "local_community": {"price": 0, "quota": 0},
     "local_solo": {"price": 999, "quota": 0},
     "local_team": {"price": 4999, "quota": 0},
     "local_business": {"price": 14999, "quota": 0},
     "local_enterprise": {"price": 40000, "quota": 0},
-
     # Legacy aliases mapped to v3 equivalents
     "pilot": {"price": 0, "quota": 50},
     "starter": {"price": 799, "quota": 800},
@@ -228,9 +226,15 @@ PLAN_DEFINITIONS: Dict[str, Dict[str, Any]] = {
 
 # Model token pricing tiers (USD per 1M tokens: input, output)
 MODEL_TIER_RATES = {
-    "economy": {"input": 0.30, "output": 2.00},   # e.g. GPT-4o Mini, Gemini 1.5 Flash
-    "standard": {"input": 1.50, "output": 9.00},  # e.g. Claude 3.5 Sonnet standard, GPT-4o standard
-    "premium": {"input": 3.00, "output": 15.00},  # e.g. Claude 3.5 Opus, specialized fine-tunes
+    "economy": {"input": 0.30, "output": 2.00},  # e.g. GPT-4o Mini, Gemini 1.5 Flash
+    "standard": {
+        "input": 1.50,
+        "output": 9.00,
+    },  # e.g. Claude 3.5 Sonnet standard, GPT-4o standard
+    "premium": {
+        "input": 3.00,
+        "output": 15.00,
+    },  # e.g. Claude 3.5 Opus, specialized fine-tunes
 }
 
 
@@ -241,15 +245,19 @@ def calculate_action_debit(
     sandbox_minutes: float = 0.0,
 ) -> int:
     """Calculate debited credits using the strict Cost x 3 Rule (§4.1).
-    
+
     cost = token_cost + sandbox_compute + 15% overhead
     debit = ceil(cost_inr * 3)
     Guarantees ~60-67% gross margin across all runs.
     """
     tier_rates = MODEL_TIER_RATES.get(model_tier, MODEL_TIER_RATES["standard"])
-    token_cost_usd = (tokens_in / 1_000_000.0) * tier_rates["input"] + (tokens_out / 1_000_000.0) * tier_rates["output"]
-    sandbox_cost_usd = (sandbox_minutes / 60.0) * 0.05  # ~$0.05/hr micro-container share
-    
+    token_cost_usd = (tokens_in / 1_000_000.0) * tier_rates["input"] + (
+        tokens_out / 1_000_000.0
+    ) * tier_rates["output"]
+    sandbox_cost_usd = (
+        sandbox_minutes / 60.0
+    ) * 0.05  # ~$0.05/hr micro-container share
+
     subtotal_usd = token_cost_usd + sandbox_cost_usd
     subtotal_inr = subtotal_usd * FX_INR_PER_USD
     actual_cost_inr = subtotal_inr * (1.0 + OVERHEAD_ON_COST)

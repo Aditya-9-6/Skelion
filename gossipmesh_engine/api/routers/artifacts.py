@@ -12,9 +12,17 @@ router = APIRouter()
 
 @router.get("/{artifact_id}")
 def get_artifact(
-    artifact_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    artifact_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
-    artifact = db.query(Artifact).join(Job).join(Workflow).filter(Artifact.id == artifact_id).first()
+    artifact = (
+        db.query(Artifact)
+        .join(Job)
+        .join(Workflow)
+        .filter(Artifact.id == artifact_id)
+        .first()
+    )
 
     if not artifact:
         # Standard fast API response usually uses HTTPException but codebase leverages custom exceptions usually.

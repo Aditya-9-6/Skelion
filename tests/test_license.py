@@ -1,8 +1,5 @@
 # tests/test_license.py — Offline Ed25519 License Verification Acceptance Tests
 
-import json
-from datetime import datetime, timedelta, timezone
-import pytest
 
 from license.issuer import issue_license
 from license.verifier import verify_license_offline
@@ -60,7 +57,7 @@ def test_expired_license_grace_period():
         customer_email="cto@startup.io",
         plan_id="local_business",
         duration_days=-1,  # Expired 1 day ago
-        grace_days=7,      # Has 7 days grace period
+        grace_days=7,  # Has 7 days grace period
     )
 
     res = verify_license_offline(signed_license)

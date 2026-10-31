@@ -1,6 +1,3 @@
-import time
-
-
 class RTOEstimator:
     def __init__(self, initial_rto: float = 1.0):
         self.rto = initial_rto

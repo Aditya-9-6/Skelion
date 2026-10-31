@@ -1,6 +1,5 @@
-import time
-from typing import Optional, Callable
-from fastapi import Request, Response, Depends, HTTPException
+from typing import Optional
+from fastapi import Request, Response
 import jwt
 
 from gossipmesh.core.rate_limit import RateLimiter
@@ -37,7 +36,9 @@ def get_identifier(request: Request) -> str:
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            )
             user_id = payload.get("sub")
             if user_id:
                 return f"user:{user_id}"

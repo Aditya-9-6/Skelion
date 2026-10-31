@@ -2,12 +2,11 @@
 # Intercepts unhandled edge crashes fail-open, scrubs PII, and reports to Skelion SaaS
 
 import time
-import json
 import logging
 from typing import Optional
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 import httpx
 
 logger = logging.getLogger("skelion.sdk")
@@ -43,7 +42,9 @@ class SkelionMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             duration_ms = round((time.time() - start_time) * 1000, 2)
             if self.debug:
-                logger.error(f"[Skelion SDK] Intercepted error on {request.method} {request.url.path}: {exc}")
+                logger.error(
+                    f"[Skelion SDK] Intercepted error on {request.method} {request.url.path}: {exc}"
+                )
 
             # 1. Asynchronously send telemetry to Skelion SaaS
             if self.api_key:

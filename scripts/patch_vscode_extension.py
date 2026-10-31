@@ -1,11 +1,9 @@
-import os
-
-ext_path = r'g:\My Drive\helios\skelion_vscode_extension\src\extension.ts'
-with open(ext_path, 'r', encoding='utf-8') as f:
+ext_path = r"g:\My Drive\helios\skelion_vscode_extension\src\extension.ts"
+with open(ext_path, "r", encoding="utf-8") as f:
     ts = f.read()
 
 # 1. Update formatMarkdown
-old_format = '''    function formatMarkdown(raw) {
+old_format = """    function formatMarkdown(raw) {
       if (!raw) return '';
       let s = escapeHtml(raw);
       const b3 = String.fromCharCode(96) + String.fromCharCode(96) + String.fromCharCode(96);
@@ -24,9 +22,9 @@ old_format = '''    function formatMarkdown(raw) {
       s = s.replace(/^- (.*$)/gim, '&bull; $1');
       s = s.split(String.fromCharCode(10)).join('<br>');
       return s;
-    }'''
+    }"""
 
-new_format = '''    function formatMarkdown(raw) {
+new_format = """    function formatMarkdown(raw) {
       if (!raw) return '';
       let s = escapeHtml(raw);
       const b3 = String.fromCharCode(96) + String.fromCharCode(96) + String.fromCharCode(96);
@@ -71,16 +69,16 @@ new_format = '''    function formatMarkdown(raw) {
       s = s.replace(/^- (.*$)/gim, '&bull; $1');
       s = s.split(String.fromCharCode(10)).join('<br>');
       return s;
-    }'''
+    }"""
 
 # 2. Update Click handler for applyDiffFromCode, copyCode, openExternalPR
-old_click = '''        case 'applyPatch': {
+old_click = """        case 'applyPatch': {
           const key = target.getAttribute('data-patch-key');
           if (key) triggerApplyPatch(key);
           break;
-        }'''
+        }"""
 
-new_click = '''        case 'applyPatch': {
+new_click = """        case 'applyPatch': {
           const key = target.getAttribute('data-patch-key');
           if (key) triggerApplyPatch(key);
           break;
@@ -113,18 +111,18 @@ new_click = '''        case 'applyPatch': {
             vscode.postMessage({ type: 'openExternal', url: url });
           }
           break;
-        }'''
+        }"""
 
 # 3. Update sendPrompt for create_file and open_pr
-old_stream = '''                } else if (data.name === 'edit_file' && data.args) {
+old_stream = """                } else if (data.name === 'edit_file' && data.args) {
                   const pKey = 'patch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
                   window.activeDiffPatches[pKey] = { patch: data.args.patch, path: data.args.path };
                   const card = document.createElement('div');
                   card.className = 'diff-card';
                   card.innerHTML = '<b>🛠️ Proposed Diff:</b> <code>' + escapeHtml(data.args.path) + '</code><br><small style="color:#8b949e;">' + escapeHtml(data.args.description) + '</small><br><button class="action-btn" style="margin-top:6px; font-size:11px;" data-action="applyPatch" data-patch-key="' + pKey + '">Accept & Apply</button>';
-                  chatBox.appendChild(card);'''
+                  chatBox.appendChild(card);"""
 
-new_stream = '''                } else if ((data.name === 'edit_file' || data.name === 'create_file') && data.args) {
+new_stream = """                } else if ((data.name === 'edit_file' || data.name === 'create_file') && data.args) {
                   const pKey = 'patch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
                   window.activeDiffPatches[pKey] = { patch: data.args.patch, path: data.args.path };
                   const card = document.createElement('div');
@@ -137,28 +135,28 @@ new_stream = '''                } else if ((data.name === 'edit_file' || data.na
                   card.className = 'diff-card';
                   card.style.borderColor = '#388bfd';
                   card.innerHTML = '<b>🚀 GitHub PR Created:</b> <a href="' + escapeHtml(data.args.pr_url) + '" target="_blank" style="color:#58a6ff; font-weight:bold;">' + escapeHtml(data.args.pr_url) + '</a><br><small style="color:#8b949e;">Branch: <code>' + escapeHtml(data.args.branch) + '</code> | 0 regressions</small><br><button class="action-btn" style="margin-top:6px; font-size:11px; background:#238636; color:#fff;" data-action="openExternalPR" data-url="' + escapeHtml(data.args.pr_url) + '">🔗 Open Pull Request on GitHub</button>';
-                  chatBox.appendChild(card);'''
+                  chatBox.appendChild(card);"""
 
 # 4. Update extension host message handler for openExternal
-old_host = '''                case 'openCheckout': {'''
-new_host = '''                case 'openExternal': {
+old_host = """                case 'openCheckout': {"""
+new_host = """                case 'openExternal': {
                     if (msg.url) {
                         vscode.env.openExternal(vscode.Uri.parse(msg.url));
                     }
                     break;
                 }
 
-                case 'openCheckout': {'''
+                case 'openCheckout': {"""
 
-norm_ts = ts.replace('\r\n', '\n')
-old_format = old_format.replace('\r\n', '\n')
-new_format = new_format.replace('\r\n', '\n')
-old_click = old_click.replace('\r\n', '\n')
-new_click = new_click.replace('\r\n', '\n')
-old_stream = old_stream.replace('\r\n', '\n')
-new_stream = new_stream.replace('\r\n', '\n')
-old_host = old_host.replace('\r\n', '\n')
-new_host = new_host.replace('\r\n', '\n')
+norm_ts = ts.replace("\r\n", "\n")
+old_format = old_format.replace("\r\n", "\n")
+new_format = new_format.replace("\r\n", "\n")
+old_click = old_click.replace("\r\n", "\n")
+new_click = new_click.replace("\r\n", "\n")
+old_stream = old_stream.replace("\r\n", "\n")
+new_stream = new_stream.replace("\r\n", "\n")
+old_host = old_host.replace("\r\n", "\n")
+new_host = new_host.replace("\r\n", "\n")
 
 if old_format in norm_ts:
     norm_ts = norm_ts.replace(old_format, new_format, 1)
@@ -184,7 +182,7 @@ if old_host in norm_ts:
 else:
     print("Failed to find old_host!")
 
-with open(ext_path, 'w', encoding='utf-8', newline='\r\n') as f:
-    f.write(norm_ts.replace('\n', '\r\n'))
+with open(ext_path, "w", encoding="utf-8", newline="\r\n") as f:
+    f.write(norm_ts.replace("\n", "\r\n"))
 
 print("Updated extension.ts successfully.")

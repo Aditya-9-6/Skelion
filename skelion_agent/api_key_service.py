@@ -4,7 +4,6 @@ import os
 import hashlib
 import secrets
 from typing import Optional, Tuple
-from datetime import datetime, timezone
 from fastapi import Header, HTTPException, Depends, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
@@ -50,7 +49,9 @@ async def get_org_from_api_key_or_jwt(
 
     if not token_str:
         if os.getenv("SKELION_ALLOW_DEV_FALLBACK", "false").lower() in ("true", "1"):
-            dev_org = db.exec(select(Organization).where(Organization.github_username == "Aditya-9-6")).first()
+            dev_org = db.exec(
+                select(Organization).where(Organization.github_username == "Aditya-9-6")
+            ).first()
             if dev_org:
                 return dev_org
             default_org = db.exec(select(Organization)).first()
@@ -59,7 +60,11 @@ async def get_org_from_api_key_or_jwt(
         raise HTTPException(status_code=401, detail="API Key or Bearer Token required")
 
     # 1. Check if token is an API key (starts with skl_)
-    if token_str.startswith("skl_live_") or token_str.startswith("skl_test_") or token_str.startswith("skl_"):
+    if (
+        token_str.startswith("skl_live_")
+        or token_str.startswith("skl_test_")
+        or token_str.startswith("skl_")
+    ):
         key_hash = hash_api_key(token_str)
         api_key = db.exec(
             select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active == True)
@@ -72,7 +77,9 @@ async def get_org_from_api_key_or_jwt(
             ).first()
             if legacy_org:
                 return legacy_org
-            raise HTTPException(status_code=401, detail="Invalid or revoked Skelion API key")
+            raise HTTPException(
+                status_code=401, detail="Invalid or revoked Skelion API key"
+            )
 
         # Update last used timestamp
         api_key.last_used_at = utc_now()
@@ -81,12 +88,16 @@ async def get_org_from_api_key_or_jwt(
 
         org = db.get(Organization, api_key.org_id)
         if not org:
-            raise HTTPException(status_code=401, detail="Organization associated with API key not found")
+            raise HTTPException(
+                status_code=401, detail="Organization associated with API key not found"
+            )
         return org
 
     # 2. Check if token is dev/default
     if token_str in ("dev", "default", "test"):
-        dev_org = db.exec(select(Organization).where(Organization.github_username == "Aditya-9-6")).first()
+        dev_org = db.exec(
+            select(Organization).where(Organization.github_username == "Aditya-9-6")
+        ).first()
         if dev_org:
             return dev_org
         first_org = db.exec(select(Organization)).first()
@@ -95,4 +106,5 @@ async def get_org_from_api_key_or_jwt(
 
     # 3. Fall back to standard JWT auth
     from skelion_agent.auth_routes import get_org_from_jwt
+
     return get_org_from_jwt(auth_header, db)

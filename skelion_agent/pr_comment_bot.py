@@ -36,6 +36,7 @@ async def get_optional_org(
         return db.exec(select(Organization)).first()
     try:
         from skelion_agent.auth_routes import decode_access_token
+
         payload = decode_access_token(creds.credentials)
         org_id = payload.get("org_id") or payload.get("sub")
         org = db.get(Organization, org_id) if org_id else None
@@ -53,7 +54,9 @@ class CreateAutofixPRRequest(BaseModel):
     pr_title: Optional[str] = None
 
 
-def verify_github_signature(payload_bytes: bytes, signature_header: Optional[str], secret: str) -> bool:
+def verify_github_signature(
+    payload_bytes: bytes, signature_header: Optional[str], secret: str
+) -> bool:
     """Verify GitHub webhook payload HMAC-SHA256 signature."""
     if not signature_header or not secret:
         return False
@@ -72,17 +75,25 @@ def generate_pr_diagnostic_card(
 ) -> str:
     """Generate a rich GitHub PR markdown card with replay proof and confidence."""
     if not verification:
-        replays = [{
-            "path": incident.route_path or "/api/health",
-            "method": incident.captured_method or "GET",
-            "baseline_status": incident.status_code or 500,
-            "baseline_latency_ms": 115.0,
-        }]
-        verification = run_replay_verification(replays, mock_responses={incident.route_path or "/api/health": 200})
+        replays = [
+            {
+                "path": incident.route_path or "/api/health",
+                "method": incident.captured_method or "GET",
+                "baseline_status": incident.status_code or 500,
+                "baseline_latency_ms": 115.0,
+            }
+        ]
+        verification = run_replay_verification(
+            replays, mock_responses={incident.route_path or "/api/health": 200}
+        )
 
     confidence = verification.get("confidence", 0.90)
     conf_pct = int(confidence * 100)
-    badge = "🟢 HIGH CONFIDENCE" if confidence >= 0.8 else ("🟡 MEDIUM CONFIDENCE" if confidence >= 0.5 else "🔴 LOW CONFIDENCE")
+    badge = (
+        "🟢 HIGH CONFIDENCE"
+        if confidence >= 0.8
+        else ("🟡 MEDIUM CONFIDENCE" if confidence >= 0.5 else "🔴 LOW CONFIDENCE")
+    )
 
     diff_section = ""
     if proposed_diff:
@@ -143,7 +154,9 @@ async def post_pr_comment(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Incident not found")
 
     # Look for agent run diff if exists
-    agent_run = db.exec(select(AgentRun).where(AgentRun.incident_id == incident_id)).first()
+    agent_run = db.exec(
+        select(AgentRun).where(AgentRun.incident_id == incident_id)
+    ).first()
     diff = agent_run.generated_diff if agent_run else None
 
     card_markdown = generate_pr_diagnostic_card(incident, pr_url, proposed_diff=diff)
@@ -172,7 +185,8 @@ async def create_autofix_pr(
         if not incident:
             incident = db.exec(
                 select(Incident).where(
-                    (Incident.id == req.incident_id) | (Incident.fingerprint == req.incident_id)
+                    (Incident.id == req.incident_id)
+                    | (Incident.fingerprint == req.incident_id)
                 )
             ).first()
 
@@ -208,21 +222,28 @@ async def create_autofix_pr(
 
     # 3. Prepare patch and Git metadata
     target_path = req.target_path or "src/autofix_resilience.js"
-    patch_code = req.patch_code or incident.generated_diff or (
-        "// Skelion Autonomous Self-Healing Patch\n"
-        f"// Route: {incident.http_method} {incident.route_path}\n"
-        "export function failOpenBoundary(req, res, next) {\n"
-        "  try {\n"
-        "    return next();\n"
-        "  } catch (err) {\n"
-        "    // Intercepted by DevProxy: buffer payload & respond 200 OK\n"
-        "    return res.status(200).json({ status: 'fail_open_buffered' });\n"
-        "  }\n"
-        "}\n"
+    patch_code = (
+        req.patch_code
+        or incident.generated_diff
+        or (
+            "// Skelion Autonomous Self-Healing Patch\n"
+            f"// Route: {incident.http_method} {incident.route_path}\n"
+            "export function failOpenBoundary(req, res, next) {\n"
+            "  try {\n"
+            "    return next();\n"
+            "  } catch (err) {\n"
+            "    // Intercepted by DevProxy: buffer payload & respond 200 OK\n"
+            "    return res.status(200).json({ status: 'fail_open_buffered' });\n"
+            "  }\n"
+            "}\n"
+        )
     )
     branch = req.branch_name or f"skelion/fix-{incident.fingerprint[:8]}"
     repo = req.repo or os.getenv("GITHUB_REPOSITORY", "adity/helios")
-    pr_title = req.pr_title or f"⚡ [Skelion Autofix] Fail-Open Boundary for {incident.http_method} {incident.route_path}"
+    pr_title = (
+        req.pr_title
+        or f"⚡ [Skelion Autofix] Fail-Open Boundary for {incident.http_method} {incident.route_path}"
+    )
 
     # Write patch locally if directory exists (for hybrid local/cloud consistency)
     try:
@@ -239,7 +260,11 @@ async def create_autofix_pr(
     pr_url = None
     pr_number = None
 
-    if gh_token and not gh_token.startswith("dummy") and not gh_token.startswith("placeholder"):
+    if (
+        gh_token
+        and not gh_token.startswith("dummy")
+        and not gh_token.startswith("placeholder")
+    ):
         try:
             gh_headers = {
                 "Authorization": f"Bearer {gh_token}",
@@ -248,13 +273,15 @@ async def create_autofix_pr(
             }
             async with httpx.AsyncClient(timeout=15.0) as client:
                 # 4a. Get repository info & default branch
-                repo_res = await client.get(f"https://api.github.com/repos/{repo}", headers=gh_headers)
+                repo_res = await client.get(
+                    f"https://api.github.com/repos/{repo}", headers=gh_headers
+                )
                 if repo_res.status_code == 200:
                     default_branch = repo_res.json().get("default_branch", "main")
                     # 4b. Get base branch commit SHA
                     ref_res = await client.get(
                         f"https://api.github.com/repos/{repo}/git/ref/heads/{default_branch}",
-                        headers=gh_headers
+                        headers=gh_headers,
                     )
                     if ref_res.status_code == 200:
                         base_sha = ref_res.json()["object"]["sha"]
@@ -262,19 +289,25 @@ async def create_autofix_pr(
                         await client.post(
                             f"https://api.github.com/repos/{repo}/git/refs",
                             headers=gh_headers,
-                            json={"ref": f"refs/heads/{branch}", "sha": base_sha}
+                            json={"ref": f"refs/heads/{branch}", "sha": base_sha},
                         )
                         # 4d. Check if file exists on branch
                         content_res = await client.get(
                             f"https://api.github.com/repos/{repo}/contents/{target_path}?ref={branch}",
-                            headers=gh_headers
+                            headers=gh_headers,
                         )
-                        file_sha = content_res.json().get("sha") if content_res.status_code == 200 else None
-                        
+                        file_sha = (
+                            content_res.json().get("sha")
+                            if content_res.status_code == 200
+                            else None
+                        )
+
                         # 4e. Commit the verified patch
                         commit_body = {
                             "message": f"fix(edge): Skelion autonomous replay-verified patch for {incident.route_path}",
-                            "content": base64.b64encode(patch_code.encode("utf-8")).decode("ascii"),
+                            "content": base64.b64encode(
+                                patch_code.encode("utf-8")
+                            ).decode("ascii"),
                             "branch": branch,
                         }
                         if file_sha:
@@ -282,14 +315,14 @@ async def create_autofix_pr(
                         await client.put(
                             f"https://api.github.com/repos/{repo}/contents/{target_path}",
                             headers=gh_headers,
-                            json=commit_body
+                            json=commit_body,
                         )
 
                         # 4f. Open Pull Request with Replay Verification Card
                         card_markdown = generate_pr_diagnostic_card(
                             incident,
                             f"https://github.com/{repo}/pulls",
-                            proposed_diff=patch_code
+                            proposed_diff=patch_code,
                         )
                         pr_res = await client.post(
                             f"https://api.github.com/repos/{repo}/pulls",
@@ -299,7 +332,7 @@ async def create_autofix_pr(
                                 "head": branch,
                                 "base": default_branch,
                                 "body": card_markdown,
-                            }
+                            },
                         )
                         if pr_res.status_code in (200, 201):
                             pr_data = pr_res.json()
@@ -313,7 +346,9 @@ async def create_autofix_pr(
         pr_number = abs(hash(incident.fingerprint)) % 900 + 10
         pr_url = f"https://github.com/{repo}/pull/{pr_number}"
 
-    diagnostic_card = generate_pr_diagnostic_card(incident, pr_url, proposed_diff=patch_code)
+    diagnostic_card = generate_pr_diagnostic_card(
+        incident, pr_url, proposed_diff=patch_code
+    )
 
     return {
         "status": "success",
@@ -343,7 +378,9 @@ async def github_webhook(
     webhook_secret = os.getenv("GITHUB_WEBHOOK_SECRET", "skl_gh_secret_test")
 
     # In production, verify signature if configured
-    if x_hub_signature_256 and not verify_github_signature(body, x_hub_signature_256, webhook_secret):
+    if x_hub_signature_256 and not verify_github_signature(
+        body, x_hub_signature_256, webhook_secret
+    ):
         raise HTTPException(status_code=401, detail="Invalid GitHub webhook signature")
 
     payload = await request.json() if body else {}

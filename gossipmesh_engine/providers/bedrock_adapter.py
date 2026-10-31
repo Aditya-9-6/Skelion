@@ -5,19 +5,29 @@ from gossipmesh_agent.key_pool import KeyPool
 
 # Global key pool (re‑uses OPENAI_API_KEYS for simplicity)
 _key_pool = KeyPool([k for k in os.getenv("OPENAI_API_KEYS", "").split(",") if k])
-rate_limits_saved_total = Counter('rate_limits_saved_total', 'Number of 429 rate limit events')
+rate_limits_saved_total = Counter(
+    "rate_limits_saved_total", "Number of 429 rate limit events"
+)
 
 import time
-import json
-import asyncio
 import boto3
 
 from gossipmesh.providers.base import BaseProvider
-from gossipmesh.providers.models import GenerationRequest, GenerationResponse, ProviderHealth, Usage
+from gossipmesh.providers.models import (
+    GenerationRequest,
+    GenerationResponse,
+    ProviderHealth,
+    Usage,
+)
 
 
 class BedrockProvider(BaseProvider):
-    def __init__(self, aws_access_key_id: str, aws_secret_access_key: str, region_name: str = "us-east-1"):
+    def __init__(
+        self,
+        aws_access_key_id: str,
+        aws_secret_access_key: str,
+        region_name: str = "us-east-1",
+    ):
         # We store the access key id as the main "api_key" for BaseProvider compatibility
         super().__init__(aws_access_key_id)
         self.aws_secret_access_key = aws_secret_access_key
@@ -34,12 +44,18 @@ class BedrockProvider(BaseProvider):
         return "bedrock"
 
     def _sync_generate(self, model: str, messages: list, system: list, config: dict):
-        return self.client.converse(modelId=model, messages=messages, system=system, inferenceConfig=config)
+        return self.client.converse(
+            modelId=model, messages=messages, system=system, inferenceConfig=config
+        )
 
     async def generate(self, request: GenerationRequest) -> GenerationResponse:
-        system_prompts = [{"text": msg.content} for msg in request.messages if msg.role == "system"]
+        system_prompts = [
+            {"text": msg.content} for msg in request.messages if msg.role == "system"
+        ]
         messages = [
-            {"role": msg.role, "content": [{"text": msg.content}]} for msg in request.messages if msg.role != "system"
+            {"role": msg.role, "content": [{"text": msg.content}]}
+            for msg in request.messages
+            if msg.role != "system"
         ]
 
         config = {
@@ -48,7 +64,9 @@ class BedrockProvider(BaseProvider):
             "stopSequences": request.stop_sequences or [],
         }
 
-        response = await asyncio.to_thread(self._sync_generate, request.model, messages, system_prompts, config)
+        response = await asyncio.to_thread(
+            self._sync_generate, request.model, messages, system_prompts, config
+        )
 
         usage_data = response.get("usage", {})
         usage = Usage(
@@ -60,10 +78,16 @@ class BedrockProvider(BaseProvider):
 
         content = response["output"]["message"]["content"][0]["text"]
 
-        return GenerationResponse(content=content, model=request.model, usage=usage, raw_response=response)
+        return GenerationResponse(
+            content=content, model=request.model, usage=usage, raw_response=response
+        )
 
-    def _sync_generate_stream(self, model: str, messages: list, system: list, config: dict):
-        response = self.client.converse_stream(modelId=model, messages=messages, system=system, inferenceConfig=config)
+    def _sync_generate_stream(
+        self, model: str, messages: list, system: list, config: dict
+    ):
+        response = self.client.converse_stream(
+            modelId=model, messages=messages, system=system, inferenceConfig=config
+        )
         stream = response.get("stream")
         if stream:
             for event in stream:
@@ -72,10 +96,16 @@ class BedrockProvider(BaseProvider):
                     if "text" in delta:
                         yield delta["text"]
 
-    async def generate_stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:  # type: ignore
-        system_prompts = [{"text": msg.content} for msg in request.messages if msg.role == "system"]
+    async def generate_stream(
+        self, request: GenerationRequest
+    ) -> AsyncGenerator[str, None]:  # type: ignore
+        system_prompts = [
+            {"text": msg.content} for msg in request.messages if msg.role == "system"
+        ]
         messages = [
-            {"role": msg.role, "content": [{"text": msg.content}]} for msg in request.messages if msg.role != "system"
+            {"role": msg.role, "content": [{"text": msg.content}]}
+            for msg in request.messages
+            if msg.role != "system"
         ]
 
         config = {
@@ -97,7 +127,9 @@ class BedrockProvider(BaseProvider):
 
         q: asyncio.Queue = asyncio.Queue()
 
-        gen = self._sync_generate_stream(request.model, messages, system_prompts, config)
+        gen = self._sync_generate_stream(
+            request.model, messages, system_prompts, config
+        )
         asyncio.create_task(asyncio.to_thread(consume_generator, gen, q))
 
         while True:

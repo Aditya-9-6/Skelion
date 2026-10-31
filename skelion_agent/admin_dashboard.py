@@ -2,28 +2,24 @@
 
 import json
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, EmailStr
-from sqlmodel import Session, select, func, desc
+from pydantic import BaseModel
+from sqlmodel import Session, select, desc
 
-from skelion_agent.database import get_db, get_engine
+from skelion_agent.database import get_db
 from skelion_agent.models import (
     Organization,
     TransactionRecord,
     Incident,
-    AgentRun,
-    Conversation,
-    ChatMessageRecord,
-    ProxyNode,
     License,
     utc_now,
 )
 from skelion_agent.plan_config import PLAN_DEFINITIONS
-from skelion_agent.limits_service import TIER_WINDOW_LIMITS, get_token_status
+from skelion_agent.limits_service import get_token_status
 from license.issuer import issue_license
 
 router = APIRouter(tags=["Admin Master Dashboard"])
@@ -32,6 +28,7 @@ router = APIRouter(tags=["Admin Master Dashboard"])
 # ---------------------------------------------------------------------------
 # Request Schemas
 # ---------------------------------------------------------------------------
+
 
 class CreateCustomerRequest(BaseModel):
     name: str
@@ -62,11 +59,12 @@ class RefillTokensRequest(BaseModel):
 # Admin API Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/v1/admin/stats")
 def get_admin_stats(db: Session = Depends(get_db)):
     """Return high-level KPIs across customers, token pools, orders and incidents."""
     total_customers = len(db.exec(select(Organization)).all())
-    
+
     orgs = db.exec(select(Organization)).all()
     plans_count = {}
     total_coding_allocated = 0
@@ -76,13 +74,13 @@ def get_admin_stats(db: Session = Depends(get_db)):
 
     for org in orgs:
         plans_count[org.plan] = plans_count.get(org.plan, 0) + 1
-        total_coding_allocated += (org.credits_total + org.purchased_tokens)
-        total_coding_used += (org.credits_used + org.purchased_tokens_used)
+        total_coding_allocated += org.credits_total + org.purchased_tokens
+        total_coding_used += org.credits_used + org.purchased_tokens_used
         total_autofix_allocated += org.autofix_tokens_total
         total_autofix_used += org.autofix_tokens_used
 
     total_incidents = len(db.exec(select(Incident)).all())
-    
+
     # Revenue & Transactions
     txs = db.exec(select(TransactionRecord)).all()
     total_revenue_inr = sum(t.amount_inr for t in txs if t.status == "paid")
@@ -113,33 +111,40 @@ def list_admin_customers(db: Session = Depends(get_db)):
 
     for org in orgs:
         limits = get_token_status(org)
-        results.append({
-            "id": org.id,
-            "name": org.name,
-            "email": org.email or org.billing_email or "No email",
-            "github_username": org.github_username,
-            "avatar_url": org.avatar_url,
-            "token": org.token,
-            "plan": org.plan,
-            "subscription_status": org.stripe_subscription_status,
-            "created_at": org.created_at.isoformat() if org.created_at else None,
-            "coding_tokens": {
-                "monthly_total": org.credits_total,
-                "monthly_used": org.credits_used,
-                "monthly_remaining": max(0, org.credits_total - org.credits_used),
-                "purchased_total": org.purchased_tokens,
-                "purchased_used": org.purchased_tokens_used,
-                "purchased_remaining": max(0, org.purchased_tokens - org.purchased_tokens_used),
-                "total_available": (org.credits_total - org.credits_used) + (org.purchased_tokens - org.purchased_tokens_used),
-            },
-            "autofix_tokens": {
-                "total": org.autofix_tokens_total,
-                "used": org.autofix_tokens_used,
-                "remaining": max(0, org.autofix_tokens_total - org.autofix_tokens_used),
-            },
-            "limits": limits["windows"],
-            "limit_enforcement_enabled": org.limit_enforcement_enabled,
-        })
+        results.append(
+            {
+                "id": org.id,
+                "name": org.name,
+                "email": org.email or org.billing_email or "No email",
+                "github_username": org.github_username,
+                "avatar_url": org.avatar_url,
+                "token": org.token,
+                "plan": org.plan,
+                "subscription_status": org.stripe_subscription_status,
+                "created_at": org.created_at.isoformat() if org.created_at else None,
+                "coding_tokens": {
+                    "monthly_total": org.credits_total,
+                    "monthly_used": org.credits_used,
+                    "monthly_remaining": max(0, org.credits_total - org.credits_used),
+                    "purchased_total": org.purchased_tokens,
+                    "purchased_used": org.purchased_tokens_used,
+                    "purchased_remaining": max(
+                        0, org.purchased_tokens - org.purchased_tokens_used
+                    ),
+                    "total_available": (org.credits_total - org.credits_used)
+                    + (org.purchased_tokens - org.purchased_tokens_used),
+                },
+                "autofix_tokens": {
+                    "total": org.autofix_tokens_total,
+                    "used": org.autofix_tokens_used,
+                    "remaining": max(
+                        0, org.autofix_tokens_total - org.autofix_tokens_used
+                    ),
+                },
+                "limits": limits["windows"],
+                "limit_enforcement_enabled": org.limit_enforcement_enabled,
+            }
+        )
 
     return {"customers": results}
 
@@ -149,7 +154,9 @@ def create_customer(req: CreateCustomerRequest, db: Session = Depends(get_db)):
     """Provision a new customer organization manually."""
     plan = req.plan.lower()
     default_quota = PLAN_DEFINITIONS.get(plan, {}).get("quota", 100)
-    credits_total = req.credits_total if req.credits_total is not None else default_quota
+    credits_total = (
+        req.credits_total if req.credits_total is not None else default_quota
+    )
 
     new_org = Organization(
         id=f"org_{uuid.uuid4().hex[:12]}",
@@ -171,7 +178,9 @@ def create_customer(req: CreateCustomerRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/v1/admin/customers/{org_id}/update")
-def update_customer(org_id: str, req: UpdateCustomerRequest, db: Session = Depends(get_db)):
+def update_customer(
+    org_id: str, req: UpdateCustomerRequest, db: Session = Depends(get_db)
+):
     """Perform modifications to customer plan, name, email, or token limits."""
     org = db.get(Organization, org_id)
     if not org:
@@ -217,7 +226,9 @@ def refill_tokens(org_id: str, req: RefillTokensRequest, db: Session = Depends(g
         raise HTTPException(status_code=404, detail="Customer organization not found")
 
     if req.amount_tokens <= 0:
-        raise HTTPException(status_code=400, detail="Token amount must be greater than zero")
+        raise HTTPException(
+            status_code=400, detail="Token amount must be greater than zero"
+        )
 
     item_name = ""
     if req.token_type == "coding":
@@ -227,7 +238,9 @@ def refill_tokens(org_id: str, req: RefillTokensRequest, db: Session = Depends(g
         org.autofix_tokens_total += req.amount_tokens
         item_name = f"Admin Grant: {req.amount_tokens:,} Skelion Autofix Tokens"
     else:
-        raise HTTPException(status_code=400, detail="Invalid token_type. Must be 'coding' or 'autofix'")
+        raise HTTPException(
+            status_code=400, detail="Invalid token_type. Must be 'coding' or 'autofix'"
+        )
 
     # Record administrative grant transaction
     tx = TransactionRecord(
@@ -250,7 +263,8 @@ def refill_tokens(org_id: str, req: RefillTokensRequest, db: Session = Depends(g
         "org_id": org.id,
         "token_type": req.token_type,
         "tokens_added": req.amount_tokens,
-        "coding_available": (org.credits_total - org.credits_used) + (org.purchased_tokens - org.purchased_tokens_used),
+        "coding_available": (org.credits_total - org.credits_used)
+        + (org.purchased_tokens - org.purchased_tokens_used),
         "autofix_remaining": org.autofix_tokens_total - org.autofix_tokens_used,
     }
 
@@ -270,7 +284,11 @@ def reset_limits(org_id: str, db: Session = Depends(get_db)):
     db.add(org)
     db.commit()
 
-    return {"status": "limits_reset", "org_id": org.id, "message": "5h and weekly limit counters reset to 0"}
+    return {
+        "status": "limits_reset",
+        "org_id": org.id,
+        "message": "5h and weekly limit counters reset to 0",
+    }
 
 
 @router.post("/v1/admin/customers/{org_id}/toggle-enforcement")
@@ -284,7 +302,11 @@ def toggle_customer_enforcement(org_id: str, db: Session = Depends(get_db)):
     db.add(org)
     db.commit()
 
-    return {"status": "toggled", "org_id": org.id, "limit_enforcement_enabled": org.limit_enforcement_enabled}
+    return {
+        "status": "toggled",
+        "org_id": org.id,
+        "limit_enforcement_enabled": org.limit_enforcement_enabled,
+    }
 
 
 @router.post("/v1/admin/customers/{org_id}/regenerate-token")
@@ -327,19 +349,21 @@ def list_transactions(limit: int = 50, db: Session = Depends(get_db)):
 
     results = []
     for t in txs:
-        results.append({
-            "id": t.id,
-            "org_id": t.org_id,
-            "org_name": org_map.get(t.org_id, "Unknown Customer"),
-            "order_id": t.order_id,
-            "payment_id": t.payment_id,
-            "category": t.category,
-            "item_name": t.item_name,
-            "amount_inr": t.amount_inr,
-            "tokens_granted": t.tokens_granted,
-            "status": t.status,
-            "created_at": t.created_at.isoformat() if t.created_at else None,
-        })
+        results.append(
+            {
+                "id": t.id,
+                "org_id": t.org_id,
+                "org_name": org_map.get(t.org_id, "Unknown Customer"),
+                "order_id": t.order_id,
+                "payment_id": t.payment_id,
+                "category": t.category,
+                "item_name": t.item_name,
+                "amount_inr": t.amount_inr,
+                "tokens_granted": t.tokens_granted,
+                "status": t.status,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+        )
 
     return {"transactions": results}
 
@@ -356,22 +380,24 @@ def list_admin_licenses(db: Session = Depends(get_db)):
     """List all issued offline licenses across all customers."""
     licenses = db.exec(select(License).order_by(desc(License.issued_at))).all()
     org_map = {o.id: o.name for o in db.exec(select(Organization)).all()}
-    
+
     results = []
     for lic in licenses:
-        results.append({
-            "id": lic.id,
-            "org_id": lic.org_id,
-            "org_name": org_map.get(lic.org_id, "Unknown Org"),
-            "sku": lic.sku,
-            "plan_id": lic.plan_id,
-            "customer_name": lic.customer_name,
-            "customer_email": lic.customer_email,
-            "issued_at": lic.issued_at.isoformat() if lic.issued_at else None,
-            "expires_at": lic.expires_at.isoformat() if lic.expires_at else None,
-            "grace_days": lic.grace_days,
-            "active": lic.active,
-        })
+        results.append(
+            {
+                "id": lic.id,
+                "org_id": lic.org_id,
+                "org_name": org_map.get(lic.org_id, "Unknown Org"),
+                "sku": lic.sku,
+                "plan_id": lic.plan_id,
+                "customer_name": lic.customer_name,
+                "customer_email": lic.customer_email,
+                "issued_at": lic.issued_at.isoformat() if lic.issued_at else None,
+                "expires_at": lic.expires_at.isoformat() if lic.expires_at else None,
+                "grace_days": lic.grace_days,
+                "active": lic.active,
+            }
+        )
     return {"licenses": results}
 
 
@@ -385,7 +411,8 @@ def issue_admin_license(req: IssueAdminLicenseRequest, db: Session = Depends(get
     signed_lic = issue_license(
         org_id=org.id,
         customer_name=org.name,
-        customer_email=org.email or f"admin@{org.name.lower().replace(' ', '')}.internal",
+        customer_email=org.email
+        or f"admin@{org.name.lower().replace(' ', '')}.internal",
         plan_id=req.plan_id,
         duration_days=req.duration_days,
         grace_days=req.grace_days,
@@ -401,7 +428,8 @@ def issue_admin_license(req: IssueAdminLicenseRequest, db: Session = Depends(get
         features_json=json.dumps(lic_payload.get("features", [])),
         signature=signed_lic["signature"],
         customer_name=org.name,
-        customer_email=org.email or f"admin@{org.name.lower().replace(' ', '')}.internal",
+        customer_email=org.email
+        or f"admin@{org.name.lower().replace(' ', '')}.internal",
         issued_at=datetime.fromisoformat(lic_payload["issued_at"]),
         expires_at=datetime.fromisoformat(lic_payload["expires_at"]),
         grace_days=req.grace_days,
@@ -451,7 +479,9 @@ def download_admin_license(license_id: str, db: Session = Depends(get_db)):
     return Response(
         content=content,
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename=skelion-{lic.id}.license"},
+        headers={
+            "Content-Disposition": f"attachment; filename=skelion-{lic.id}.license"
+        },
     )
 
 
@@ -470,6 +500,7 @@ def revoke_admin_license(license_id: str, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 # Master Dashboard UI (Single-Page App)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/admin", response_class=HTMLResponse)
 @router.get("/dashboard", response_class=HTMLResponse)

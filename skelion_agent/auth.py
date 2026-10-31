@@ -17,7 +17,9 @@ from typing import Optional
 
 try:
     from passlib.context import CryptContext
+
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
     def get_password_hash(password: str) -> str:
         """Return a bcrypt hash for *password* using passlib."""
         return pwd_context.hash(password)
@@ -28,11 +30,16 @@ try:
 except ImportError:  # pragma: no cover
     # Fallback using SHA-256 for environments without passlib (suitable for tests)
     import hashlib
+
     def get_password_hash(password: str) -> str:
         return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        return hashlib.sha256(plain_password.encode("utf-8")).hexdigest() == hashed_password
+        return (
+            hashlib.sha256(plain_password.encode("utf-8")).hexdigest()
+            == hashed_password
+        )
+
 
 from jose import jwt  # type: ignore[import]
 
@@ -70,9 +77,11 @@ def decode_access_token(token: str) -> dict:
     """
     return jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
 
+
 # ---------------------------------------------------------------------------
 # API‑key generation for machine clients
 # ---------------------------------------------------------------------------
+
 
 def generate_api_key() -> str:
     """Generate a raw ``skl_live_<32‑hex>`` token.

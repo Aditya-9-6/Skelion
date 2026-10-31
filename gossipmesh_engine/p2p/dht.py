@@ -1,11 +1,11 @@
-import hashlib
 import time
-import asyncio
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Any
 
 
 class KademliaNode:
-    def __init__(self, node_id: str, address: str, port: int, last_seen: Optional[float] = None):
+    def __init__(
+        self, node_id: str, address: str, port: int, last_seen: Optional[float] = None
+    ):
         self.node_id = node_id
         self.address = address
         self.port = port
@@ -19,7 +19,12 @@ class KademliaNode:
         self.last_seen = time.time()
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"node_id": self.node_id, "address": self.address, "port": self.port, "last_seen": self.last_seen}
+        return {
+            "node_id": self.node_id,
+            "address": self.address,
+            "port": self.port,
+            "last_seen": self.last_seen,
+        }
 
 
 class KademliaBucket:

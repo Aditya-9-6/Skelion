@@ -2,7 +2,7 @@ import math
 import hashlib
 import base64
 import threading
-from typing import Set, List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 
 class BloomFilterDigest:
@@ -12,9 +12,13 @@ class BloomFilterDigest:
         self.capacity = max(1, capacity)
         self.error_rate = min(max(0.0001, error_rate), 0.5)
         self._size = 0
-        self._bit_array_size = int(-self.capacity * math.log(self.error_rate) / (math.log(2) ** 2))
+        self._bit_array_size = int(
+            -self.capacity * math.log(self.error_rate) / (math.log(2) ** 2)
+        )
         self._bit_array_size = max(64, self._bit_array_size)
-        self._num_hashes = int(max(1, round((self._bit_array_size / self.capacity) * math.log(2))))
+        self._num_hashes = int(
+            max(1, round((self._bit_array_size / self.capacity) * math.log(2)))
+        )
         self._bits = [0] * ((self._bit_array_size + 63) // 64)
         self._lock = threading.Lock()
 
@@ -35,7 +39,10 @@ class BloomFilterDigest:
     def _get_hashes(self, item: str) -> List[int]:
         digest1 = int(hashlib.sha256(item.encode("utf-8")).hexdigest(), 16)
         digest2 = int(hashlib.md5(item.encode("utf-8")).hexdigest(), 16)
-        return [(digest1 + i * digest2) % self._bit_array_size for i in range(self._num_hashes)]
+        return [
+            (digest1 + i * digest2) % self._bit_array_size
+            for i in range(self._num_hashes)
+        ]
 
     def add(self, item: str) -> None:
         with self._lock:
@@ -81,9 +88,12 @@ class BloomFilterDigest:
         size_val = data.get("size", data.get("element_count", 0))
         instance._size = size_val
         instance._bit_array_size = data.get("bit_array_size", instance._bit_array_size)
-        instance._num_hashes = data.get("num_hashes", data.get("hash_count", instance._num_hashes))
+        instance._num_hashes = data.get(
+            "num_hashes", data.get("hash_count", instance._num_hashes)
+        )
         decoded = base64.b64decode(data["bits"].encode("utf-8"))
         instance._bits = [
-            int.from_bytes(decoded[i : i + 8], byteorder="big", signed=False) for i in range(0, len(decoded), 8)
+            int.from_bytes(decoded[i : i + 8], byteorder="big", signed=False)
+            for i in range(0, len(decoded), 8)
         ]
         return instance

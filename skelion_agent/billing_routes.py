@@ -10,9 +10,9 @@ import hashlib
 import hmac
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -23,7 +23,6 @@ from skelion_agent.models import (
     TransactionRecord,
     PaymentOrder,
     Payment,
-    CreditLedger,
     WebhookEvent,
     Invoice,
     utc_now,
@@ -34,7 +33,6 @@ from skelion_agent.limits_service import get_token_status
 from skelion_agent.credit_ledger import (
     activate_plan_period,
     activate_token_pack,
-    get_ledger_balances,
 )
 from skelion_agent.config import settings
 
@@ -106,7 +104,9 @@ def calculate_tokens_for_price(
             "description": f"{tokens:,} Universal Coding Tokens (Unthrottled top-up pool)",
         }
     else:
-        raise HTTPException(status_code=400, detail="Invalid token_type. Must be 'coding' or 'autofix'")
+        raise HTTPException(
+            status_code=400, detail="Invalid token_type. Must be 'coding' or 'autofix'"
+        )
 
 
 class VerifyPaymentRequest(BaseModel):
@@ -119,7 +119,7 @@ class VerifyPaymentRequest(BaseModel):
 async def checkout(
     plan: str = "pro",
     token_type: str = "plan",  # "plan", "topup_coding", or "topup_autofix"
-    period: str = "monthly",   # "monthly" or "annual"
+    period: str = "monthly",  # "monthly" or "annual"
     custom_amount_inr: float = 0.0,
     org: Organization = Depends(get_org_from_jwt),
     db: Session = Depends(get_db),
@@ -152,6 +152,7 @@ async def checkout(
         item_name = f"Universal Coding Pack: {tokens_granted:,} Tokens"
     elif token_type in ["pack", "credit_pack"]:
         from skelion_agent.plan_config import CREDIT_PACKS
+
         pack_key = plan.lower() if plan in CREDIT_PACKS else "medium"
         pack_info = CREDIT_PACKS[pack_key]
         amount_paise = int(pack_info["price_inr"] * 100)
@@ -192,7 +193,9 @@ async def checkout(
         item_name=item_name,
         amount_inr=amount_paise / 100.0,
         tokens_granted=tokens_granted,
-        status="paid" if provider_order_id.startswith("order_") and not rzp_order.get("id") else "created",
+        status="paid"
+        if provider_order_id.startswith("order_") and not rzp_order.get("id")
+        else "created",
     )
     db.add(tx)
     db.commit()
@@ -274,13 +277,18 @@ def verify_payment(req: VerifyPaymentRequest, db: Session = Depends(get_db)):
 
     if not hmac.compare_digest(expected_sig, req.razorpay_signature):
         # In test mode fallback if secret placeholder
-        if "placeholder" in settings.RAZORPAY_KEY_SECRET or "dummy" in settings.RAZORPAY_KEY_SECRET:
+        if (
+            "placeholder" in settings.RAZORPAY_KEY_SECRET
+            or "dummy" in settings.RAZORPAY_KEY_SECRET
+        ):
             pass
         else:
             raise HTTPException(status_code=400, detail="Invalid payment signature")
 
     order = db.exec(
-        select(PaymentOrder).where(PaymentOrder.provider_order_id == req.razorpay_order_id)
+        select(PaymentOrder).where(
+            PaymentOrder.provider_order_id == req.razorpay_order_id
+        )
     ).first()
 
     if not order:
@@ -322,7 +330,15 @@ def verify_payment(req: VerifyPaymentRequest, db: Session = Depends(get_db)):
             payment_id=req.razorpay_payment_id,
         )
     elif order.kind in ("topup_coding", "topup_autofix"):
-        tokens = int(order.amount_paise / 100 / (INR_PER_AUTOFIX_TOKEN if order.kind == "topup_autofix" else INR_PER_CODING_TOKEN))
+        tokens = int(
+            order.amount_paise
+            / 100
+            / (
+                INR_PER_AUTOFIX_TOKEN
+                if order.kind == "topup_autofix"
+                else INR_PER_CODING_TOKEN
+            )
+        )
         activate_token_pack(
             session=db,
             org_id=order.org_id,
@@ -332,7 +348,11 @@ def verify_payment(req: VerifyPaymentRequest, db: Session = Depends(get_db)):
         )
 
     db.commit()
-    return {"status": "activated", "order_id": order.provider_order_id, "invoice_number": inv_num}
+    return {
+        "status": "activated",
+        "order_id": order.provider_order_id,
+        "invoice_number": inv_num,
+    }
 
 
 @router.post("/webhook")
@@ -340,10 +360,14 @@ async def webhook(request: Request):
     """Handle verified Razorpay webhook events to safely credit purchased tokens and plans (v2)."""
     raw_payload = await request.body()
     signature = request.headers.get("X-Razorpay-Signature")
-    event_id = request.headers.get("X-Razorpay-Event-Id", f"evt_{uuid.uuid4().hex[:12]}")
+    event_id = request.headers.get(
+        "X-Razorpay-Event-Id", f"evt_{uuid.uuid4().hex[:12]}"
+    )
 
     if not signature:
-        raise HTTPException(status_code=400, detail="Missing X-Razorpay-Signature header")
+        raise HTTPException(
+            status_code=400, detail="Missing X-Razorpay-Signature header"
+        )
 
     # Constant-time signature verification
     expected = hmac.new(
@@ -355,7 +379,9 @@ async def webhook(request: Request):
     if not hmac.compare_digest(expected, signature):
         # Fallback in local sandbox mode
         if not verify_signature(raw_payload, signature):
-            raise HTTPException(status_code=400, detail="Invalid HMAC webhook signature")
+            raise HTTPException(
+                status_code=400, detail="Invalid HMAC webhook signature"
+            )
 
     engine = get_engine()
     with Session(engine) as db:
@@ -396,9 +422,15 @@ async def webhook(request: Request):
         amount_paid = entity.get("amount", 0)
 
         # Look up authoritative PaymentOrder
-        order = db.exec(
-            select(PaymentOrder).where(PaymentOrder.provider_order_id == provider_order_id)
-        ).first() if provider_order_id else None
+        order = (
+            db.exec(
+                select(PaymentOrder).where(
+                    PaymentOrder.provider_order_id == provider_order_id
+                )
+            ).first()
+            if provider_order_id
+            else None
+        )
 
         if order and order.status != "paid":
             order.status = "paid"
@@ -433,7 +465,15 @@ async def webhook(request: Request):
                     payment_id=provider_payment_id,
                 )
             elif order.kind in ("topup_coding", "topup_autofix"):
-                tokens = int(order.amount_paise / 100 / (INR_PER_AUTOFIX_TOKEN if order.kind == "topup_autofix" else INR_PER_CODING_TOKEN))
+                tokens = int(
+                    order.amount_paise
+                    / 100
+                    / (
+                        INR_PER_AUTOFIX_TOKEN
+                        if order.kind == "topup_autofix"
+                        else INR_PER_CODING_TOKEN
+                    )
+                )
                 activate_token_pack(
                     session=db,
                     org_id=order.org_id,
@@ -452,10 +492,21 @@ async def webhook(request: Request):
                 org = db.get(Organization, org_id)
                 if org:
                     if category == "plan":
-                        activate_plan_period(db, org_id=org.id, plan_id=value, payment_id=provider_payment_id)
+                        activate_plan_period(
+                            db,
+                            org_id=org.id,
+                            plan_id=value,
+                            payment_id=provider_payment_id,
+                        )
                     elif category in ("topup_coding", "topup_autofix"):
                         tokens = int(value) if value.isdigit() else 1000
-                        activate_token_pack(db, org_id=org.id, token_type=category, tokens=tokens, payment_id=provider_payment_id)
+                        activate_token_pack(
+                            db,
+                            org_id=org.id,
+                            token_type=category,
+                            tokens=tokens,
+                            payment_id=provider_payment_id,
+                        )
 
         whe.status = "processed"
         whe.processed_at = utc_now()

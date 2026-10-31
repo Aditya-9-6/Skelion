@@ -17,9 +17,9 @@ class Organization(SQLModel, table=True):
     plan: str = Field(default="pilot")  # pilot, pro, enterprise
 
     # Coding Agent Tokens (Monthly subscription allowance + Purchased top-up tokens)
-    credits_total: int = Field(default=100)        # Monthly allowance
+    credits_total: int = Field(default=100)  # Monthly allowance
     credits_used: int = Field(default=0)
-    purchased_tokens: int = Field(default=0)       # Top-up tokens (no expiry)
+    purchased_tokens: int = Field(default=0)  # Top-up tokens (no expiry)
     purchased_tokens_used: int = Field(default=0)
 
     # Skelion Autofix Specific Tokens (Dedicated pool for DevProxy & self-healing)
@@ -27,7 +27,9 @@ class Organization(SQLModel, table=True):
     autofix_tokens_used: int = Field(default=0)
 
     # 5-Hour and Weekly Rate Limiting (Antigravity-Style pacing)
-    limit_enforcement_enabled: bool = Field(default=True)  # User can disable for purchased tokens
+    limit_enforcement_enabled: bool = Field(
+        default=True
+    )  # User can disable for purchased tokens
     window_5h_tokens_used: int = Field(default=0)
     window_5h_reset_at: datetime = Field(default_factory=utc_now)
     window_weekly_tokens_used: int = Field(default=0)
@@ -55,7 +57,9 @@ class Organization(SQLModel, table=True):
     owner_user_id: Optional[str] = Field(default=None)
     plan_id: str = Field(default="hosted_community", index=True)
     plan_version: int = Field(default=1)
-    billing_status: str = Field(default="active", index=True)  # active, grace, expired, canceled
+    billing_status: str = Field(
+        default="active", index=True
+    )  # active, grace, expired, canceled
     plan_period_start: Optional[datetime] = Field(default=None)
     plan_period_end: Optional[datetime] = Field(default=None)
     grace_until: Optional[datetime] = Field(default=None)
@@ -161,7 +165,9 @@ class TransactionRecord(SQLModel, table=True):
     org_id: str = Field(foreign_key="organizations.id", index=True)
     order_id: str = Field(index=True)
     payment_id: Optional[str] = Field(default=None)
-    category: str = Field(default="plan")  # "plan", "topup_autofix", "topup_coding", "admin_credit"
+    category: str = Field(
+        default="plan"
+    )  # "plan", "topup_autofix", "topup_coding", "admin_credit"
     item_name: str = Field(default="")
     amount_inr: float = Field(default=0.0)
     tokens_granted: int = Field(default=0)
@@ -173,14 +179,19 @@ class TransactionRecord(SQLModel, table=True):
 # Phase 2 Billing v2 & License Models
 # ---------------------------------------------------------------------------
 
+
 class PaymentOrder(SQLModel, table=True):
     __tablename__ = "payment_orders"
-    id: str = Field(default_factory=lambda: f"po_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"po_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     org_id: str = Field(foreign_key="organizations.id", index=True)
     user_id: Optional[str] = Field(default=None, index=True)
     plan_id: Optional[str] = Field(default=None)
     plan_version: int = Field(default=1)
-    kind: str = Field(default="plan", index=True)  # plan, renewal, pack, topup_autofix, manual
+    kind: str = Field(
+        default="plan", index=True
+    )  # plan, renewal, pack, topup_autofix, manual
     amount_paise: int = Field(default=0)
     currency: str = Field(default="INR")
     gst_paise: int = Field(default=0)
@@ -188,14 +199,18 @@ class PaymentOrder(SQLModel, table=True):
     provider: str = Field(default="razorpay")  # razorpay, stripe, manual
     provider_order_id: Optional[str] = Field(default=None, unique=True, index=True)
     receipt: str = Field(default="")
-    status: str = Field(default="created", index=True)  # created, paid, failed, expired, refunded
+    status: str = Field(
+        default="created", index=True
+    )  # created, paid, failed, expired, refunded
     expires_at: datetime = Field(default_factory=utc_now)
     created_at: datetime = Field(default_factory=utc_now)
 
 
 class Payment(SQLModel, table=True):
     __tablename__ = "payments"
-    id: str = Field(default_factory=lambda: f"pay_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"pay_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     payment_order_id: str = Field(foreign_key="payment_orders.id", index=True)
     provider_payment_id: str = Field(unique=True, index=True)
     amount_paise: int = Field(default=0)
@@ -208,7 +223,9 @@ class Payment(SQLModel, table=True):
 
 class Refund(SQLModel, table=True):
     __tablename__ = "refunds"
-    id: str = Field(default_factory=lambda: f"ref_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"ref_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     payment_id: str = Field(foreign_key="payments.id", index=True)
     provider_refund_id: str = Field(unique=True, index=True)
     amount_paise: int = Field(default=0)
@@ -219,11 +236,19 @@ class Refund(SQLModel, table=True):
 
 class CreditLedger(SQLModel, table=True):
     __tablename__ = "credit_ledger"
-    id: str = Field(default_factory=lambda: f"ledg_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"ledg_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     org_id: str = Field(foreign_key="organizations.id", index=True)
-    bucket: str = Field(default="allowance", index=True)  # allowance, pack, grant, autofix
-    delta: int = Field(default=0)  # positive for grants/topups, negative for usage/expirations
-    reason: str = Field(default="plan_period")  # plan_period, pack, pilot_grant, usage, refund, expiry, admin_adjust
+    bucket: str = Field(
+        default="allowance", index=True
+    )  # allowance, pack, grant, autofix
+    delta: int = Field(
+        default=0
+    )  # positive for grants/topups, negative for usage/expirations
+    reason: str = Field(
+        default="plan_period"
+    )  # plan_period, pack, pilot_grant, usage, refund, expiry, admin_adjust
     ref_type: Optional[str] = Field(default=None)  # payment, incident, run, chat
     ref_id: Optional[str] = Field(default=None)
     idempotency_key: str = Field(unique=True, index=True)
@@ -234,12 +259,16 @@ class CreditLedger(SQLModel, table=True):
 
 class WebhookEvent(SQLModel, table=True):
     __tablename__ = "webhook_events"
-    id: str = Field(default_factory=lambda: f"whe_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"whe_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     provider: str = Field(default="razorpay", index=True)
     event_id: str = Field(index=True)
     event_type: str = Field(index=True)
     payload_json: str = Field(default="{}")
-    status: str = Field(default="received", index=True)  # received, processed, failed, ignored
+    status: str = Field(
+        default="received", index=True
+    )  # received, processed, failed, ignored
     error: Optional[str] = Field(default=None)
     received_at: datetime = Field(default_factory=utc_now)
     processed_at: Optional[datetime] = Field(default=None)
@@ -247,7 +276,9 @@ class WebhookEvent(SQLModel, table=True):
 
 class Coupon(SQLModel, table=True):
     __tablename__ = "coupons"
-    id: str = Field(default_factory=lambda: f"cpn_{uuid.uuid4().hex[:8]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"cpn_{uuid.uuid4().hex[:8]}", primary_key=True
+    )
     code: str = Field(unique=True, index=True)
     kind: str = Field(default="percent")  # percent, fixed
     value: float = Field(default=30.0)  # 30% or ₹X
@@ -270,7 +301,9 @@ class CouponRedemption(SQLModel, table=True):
 
 class Invoice(SQLModel, table=True):
     __tablename__ = "invoices"
-    id: str = Field(default_factory=lambda: f"inv_{uuid.uuid4().hex[:10]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"inv_{uuid.uuid4().hex[:10]}", primary_key=True
+    )
     invoice_number: str = Field(unique=True, index=True)
     org_id: str = Field(foreign_key="organizations.id", index=True)
     payment_id: Optional[str] = Field(default=None)
@@ -283,7 +316,9 @@ class Invoice(SQLModel, table=True):
 
 class License(SQLModel, table=True):
     __tablename__ = "licenses"
-    id: str = Field(default_factory=lambda: f"lic_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"lic_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     org_id: str = Field(foreign_key="organizations.id", index=True)
     sku: str = Field(default="local", index=True)  # local, hybrid, cloud
     plan_id: str = Field(default="local_team", index=True)
@@ -312,9 +347,12 @@ class AuditLog(SQLModel, table=True):
 # SaaS Multi-Tenant Team & Ingress Telemetry Models
 # ---------------------------------------------------------------------------
 
+
 class User(SQLModel, table=True):
     __tablename__ = "users"
-    id: str = Field(default_factory=lambda: f"usr_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"usr_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     email: str = Field(unique=True, index=True)
     password_hash: Optional[str] = Field(default=None)
     full_name: Optional[str] = Field(default=None)
@@ -325,16 +363,22 @@ class User(SQLModel, table=True):
 
 class Membership(SQLModel, table=True):
     __tablename__ = "memberships"
-    id: str = Field(default_factory=lambda: f"mem_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"mem_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     org_id: str = Field(foreign_key="organizations.id", index=True)
     user_id: str = Field(foreign_key="users.id", index=True)
-    role: str = Field(default="developer", index=True)  # owner, admin, developer, viewer
+    role: str = Field(
+        default="developer", index=True
+    )  # owner, admin, developer, viewer
     created_at: datetime = Field(default_factory=utc_now)
 
 
 class ApiKey(SQLModel, table=True):
     __tablename__ = "api_keys"
-    id: str = Field(default_factory=lambda: f"key_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"key_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     org_id: str = Field(foreign_key="organizations.id", index=True)
     name: str = Field(default="Default Secret Key")
     key_prefix: str = Field(default="skl_live_", index=True)
@@ -347,13 +391,12 @@ class ApiKey(SQLModel, table=True):
 
 class WebhookSubscription(SQLModel, table=True):
     __tablename__ = "webhook_subscriptions"
-    id: str = Field(default_factory=lambda: f"whs_{uuid.uuid4().hex[:12]}", primary_key=True)
+    id: str = Field(
+        default_factory=lambda: f"whs_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
     org_id: str = Field(foreign_key="organizations.id", index=True)
     url: str
     secret: str = Field(default_factory=lambda: f"whsec_{uuid.uuid4().hex}")
     events_json: str = Field(default='["incident.created","fix.verified"]')
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=utc_now)
-
-
-

@@ -1,4 +1,3 @@
-from typing import Dict, Any, Optional
 from gossipmesh.p2p.matrix import EpidemicReachabilityMatrix
 
 
@@ -6,7 +5,13 @@ class DynamicFanoutController:
     """Computes localized message spread efficiency and adjusts node-specific
     dissemination fanout without causing flooding storms."""
 
-    def __init__(self, node_id: str, base_fanout: int = 4, min_fanout: int = 1, max_fanout: int = 12) -> None:
+    def __init__(
+        self,
+        node_id: str,
+        base_fanout: int = 4,
+        min_fanout: int = 1,
+        max_fanout: int = 12,
+    ) -> None:
         self.node_id = node_id
         self.base_fanout = base_fanout
         self.min_fanout = min_fanout
