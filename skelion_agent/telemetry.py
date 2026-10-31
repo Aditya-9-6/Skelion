@@ -1,14 +1,20 @@
-import time
 import threading
 from collections import deque
 from typing import Dict, Any, List, Optional
+
 
 class TailSampledSpanBuffer:
     """
     A memory-bounded thread-safe ring buffer for distributed OpenTelemetry spans
     implementing tail-based sampling for error spans and high-cardinality attributes.
     """
-    def __init__(self, max_size: int = 10000, error_sample_ratio: float = 1.0, default_sample_ratio: float = 0.1):
+
+    def __init__(
+        self,
+        max_size: int = 10000,
+        error_sample_ratio: float = 1.0,
+        default_sample_ratio: float = 0.1,
+    ):
         self.max_size = max_size
         self.error_sample_ratio = error_sample_ratio
         self.default_sample_ratio = default_sample_ratio
@@ -17,7 +23,9 @@ class TailSampledSpanBuffer:
         self._error_count = 0
         self._total_ingested = 0
 
-    def ingest_span(self, span: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> bool:
+    def ingest_span(
+        self, span: Dict[str, Any], headers: Optional[Dict[str, str]] = None
+    ) -> bool:
         """
         Ingest a span extracted from W3C TraceContext headers and apply tail sampling.
         Returns True if the span was retained in the buffer, False if dropped.
@@ -33,10 +41,13 @@ class TailSampledSpanBuffer:
 
         # Determine if it's an error span
         status_code = span.get("status_code", 0)
-        is_error = span.get("error", False) or (isinstance(status_code, int) and status_code >= 400)
+        is_error = span.get("error", False) or (
+            isinstance(status_code, int) and status_code >= 400
+        )
 
         # Tail-based sampling decision
         import random
+
         if is_error:
             sampled = random.random() <= self.error_sample_ratio
         else:
@@ -68,8 +79,9 @@ class TailSampledSpanBuffer:
                 "total_ingested": self._total_ingested,
                 "error_count": self._error_count,
                 "buffered_count": len(self._buffer),
-                "max_size": self.max_size
+                "max_size": self.max_size,
             }
+
 
 # Global singleton instance for telemetry ingestion
 global_telemetry_buffer = TailSampledSpanBuffer()
