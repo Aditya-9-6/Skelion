@@ -1,7 +1,5 @@
-import os
-
-file_path = r'g:\My Drive\helios\skelion_agent\chat_routes.py'
-with open(file_path, 'r', encoding='utf-8') as f:
+file_path = r"g:\My Drive\helios\skelion_agent\chat_routes.py"
+with open(file_path, "r", encoding="utf-8") as f:
     content = f.read()
 
 # 1. Update sys_inst and user_name
@@ -197,15 +195,23 @@ replacement_4 = """    # M. Market Readiness / Go-to-Market Evaluation
     )"""
 
 # Check normalized content
-norm_content = content.replace('\r\n', '\n')
-for i, (t, r) in enumerate([(target_1, replacement_1), (target_2, replacement_2), (target_3, replacement_3), (target_4, replacement_4)], 1):
+norm_content = content.replace("\r\n", "\n")
+for i, (t, r) in enumerate(
+    [
+        (target_1, replacement_1),
+        (target_2, replacement_2),
+        (target_3, replacement_3),
+        (target_4, replacement_4),
+    ],
+    1,
+):
     if t in norm_content:
         norm_content = norm_content.replace(t, r, 1)
         print(f"Applied replacement {i}")
     else:
         print(f"FAILED to find target {i}")
 
-with open(file_path, 'w', encoding='utf-8', newline='\r\n') as f:
-    f.write(norm_content.replace('\n', '\r\n'))
+with open(file_path, "w", encoding="utf-8", newline="\r\n") as f:
+    f.write(norm_content.replace("\n", "\r\n"))
 
 print("File updated successfully.")

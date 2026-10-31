@@ -81,20 +81,20 @@ MODEL_WEIGHTS: Dict[str, Dict[str, Any]] = {
 # Antigravity-style Window Quotas per Tier (in effective universal tokens)
 TIER_WINDOW_LIMITS = {
     "pilot": {
-        "limit_5h": 50,       # 50 tokens per 5-hour window
+        "limit_5h": 50,  # 50 tokens per 5-hour window
         "limit_weekly": 100,  # 100 tokens per week
     },
     "starter": {
-        "limit_5h": 500,      # 500 tokens per 5-hour window
-        "limit_weekly": 1500, # 1,500 tokens per week
+        "limit_5h": 500,  # 500 tokens per 5-hour window
+        "limit_weekly": 1500,  # 1,500 tokens per week
     },
     "pro": {
-        "limit_5h": 1200,     # 1,200 tokens per 5-hour window
-        "limit_weekly": 4000, # 4,000 tokens per week
+        "limit_5h": 1200,  # 1,200 tokens per 5-hour window
+        "limit_weekly": 4000,  # 4,000 tokens per week
     },
     "team": {
-        "limit_5h": 4500,     # 4,500 tokens per 5-hour window
-        "limit_weekly": 15000, # 15,000 tokens per week
+        "limit_5h": 4500,  # 4,500 tokens per 5-hour window
+        "limit_weekly": 15000,  # 15,000 tokens per week
     },
     "enterprise": {
         "limit_5h": 15000,
@@ -196,8 +196,16 @@ def get_token_status(org: Organization) -> Dict[str, Any]:
 
     # Calculate reset seconds remaining
     now = datetime.now(timezone.utc)
-    w5_reset = org.window_5h_reset_at.replace(tzinfo=timezone.utc) if org.window_5h_reset_at.tzinfo is None else org.window_5h_reset_at
-    ww_reset = org.window_weekly_reset_at.replace(tzinfo=timezone.utc) if org.window_weekly_reset_at.tzinfo is None else org.window_weekly_reset_at
+    w5_reset = (
+        org.window_5h_reset_at.replace(tzinfo=timezone.utc)
+        if org.window_5h_reset_at.tzinfo is None
+        else org.window_5h_reset_at
+    )
+    ww_reset = (
+        org.window_weekly_reset_at.replace(tzinfo=timezone.utc)
+        if org.window_weekly_reset_at.tzinfo is None
+        else org.window_weekly_reset_at
+    )
 
     sec_5h = max(0, int((w5_reset - now).total_seconds()))
     sec_weekly = max(0, int((ww_reset - now).total_seconds()))
@@ -240,7 +248,9 @@ def get_token_status(org: Organization) -> Dict[str, Any]:
     }
 
 
-def deduct_coding_tokens(org: Organization, model_id: str, db: Session) -> Tuple[int, str]:
+def deduct_coding_tokens(
+    org: Organization, model_id: str, db: Session
+) -> Tuple[int, str]:
     """Verify window limits, model availability, and deduct universal coding tokens."""
     alias_map = {
         "skelion-ai-lite": "free-tier-agent",
@@ -274,7 +284,11 @@ def deduct_coding_tokens(org: Organization, model_id: str, db: Session) -> Tuple
     if org.limit_enforcement_enabled or purchased_remaining == 0:
         if org.window_5h_tokens_used + cost > plan_limits["limit_5h"]:
             now = datetime.now(timezone.utc)
-            reset_ts = org.window_5h_reset_at.replace(tzinfo=timezone.utc) if org.window_5h_reset_at.tzinfo is None else org.window_5h_reset_at
+            reset_ts = (
+                org.window_5h_reset_at.replace(tzinfo=timezone.utc)
+                if org.window_5h_reset_at.tzinfo is None
+                else org.window_5h_reset_at
+            )
             sec = max(0, int((reset_ts - now).total_seconds()))
             raise HTTPException(
                 status_code=429,

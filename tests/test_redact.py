@@ -1,10 +1,8 @@
 # tests/test_redact.py — Comprehensive Redaction Acceptance Tests
 
-import pytest
 from core.redact import (
     redact_text,
     redact_headers,
-    redact_json_structure,
     normalize_route_path,
     is_luhn_valid,
 )

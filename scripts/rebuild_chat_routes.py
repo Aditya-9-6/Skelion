@@ -1,5 +1,3 @@
-import os
-
 content = '''# skelion_agent/chat_routes.py – Streaming Chat Gateway, Limits & Autofix Agent Loop
 
 import asyncio
@@ -843,7 +841,7 @@ async def chat_stream(
     )
 '''
 
-with open(r'skelion_agent/chat_routes.py', 'w', encoding='utf-8', newline='\r\n') as f:
-    f.write(content.strip() + '\n')
+with open(r"skelion_agent/chat_routes.py", "w", encoding="utf-8", newline="\r\n") as f:
+    f.write(content.strip() + "\n")
 
 print("Wrote clean skelion_agent/chat_routes.py!")

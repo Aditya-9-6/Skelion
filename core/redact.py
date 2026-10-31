@@ -1,7 +1,7 @@
 # core/redact.py — Comprehensive Redaction Engine (Apache-2.0 Open Core)
 
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
 # ---------------------------------------------------------------------------
 # Strict Allow-Lists
@@ -46,16 +46,22 @@ RE_PAN_CARD = re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]{1}\b")
 RE_AADHAAR_LIKE = re.compile(r"\b[2-9]{1}[0-9]{3}\s?[0-9]{4}\s?[0-9]{4}\b")
 
 # Generic High Entropy Hex / Base64 Token
-RE_HEX_SECRET = re.compile(r"\b(?:secret|token|apikey|password|passwd|key)=['\"]?([a-zA-Z0-9_=-]{16,})['\"]?", re.IGNORECASE)
+RE_HEX_SECRET = re.compile(
+    r"\b(?:secret|token|apikey|password|passwd|key)=['\"]?([a-zA-Z0-9_=-]{16,})['\"]?",
+    re.IGNORECASE,
+)
 
 # Dynamic Route Normalization (UUIDs & Integer IDs)
-RE_UUID = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+RE_UUID = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
 RE_NUMERIC_ID = re.compile(r"(?<=/)\d{2,}(?=(/|$|\?))")
 
 
 # ---------------------------------------------------------------------------
 # Luhn Algorithm for Credit Card Validation
 # ---------------------------------------------------------------------------
+
 
 def is_luhn_valid(card_num: str) -> bool:
     digits = [int(d) for d in card_num if d.isdigit()]
@@ -77,6 +83,7 @@ RE_CARD_CANDIDATE = re.compile(r"\b(?:\d{4}[-\s]?){3}\d{4}\b|\b\d{13,19}\b")
 
 def scrub_credit_cards(text: str) -> str:
     """Detect and mask valid credit card numbers using Luhn checksum."""
+
     def replacer(match):
         raw = match.group(0)
         cleaned = re.sub(r"[-\s]", "", raw)
@@ -90,6 +97,7 @@ def scrub_credit_cards(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Redaction Functions
 # ---------------------------------------------------------------------------
+
 
 def normalize_route_path(path: str) -> str:
     """Normalize dynamic segments in route paths into generic templates (e.g., /users/:id)."""
@@ -138,7 +146,13 @@ def redact_headers(headers: Dict[str, Any]) -> Dict[str, str]:
         k_lower = k.lower().strip()
         if k_lower in ALLOWED_HEADERS:
             clean[k_lower] = redact_text(str(v))
-        elif k_lower in ("authorization", "cookie", "set-cookie", "proxy-authorization", "x-api-key"):
+        elif k_lower in (
+            "authorization",
+            "cookie",
+            "set-cookie",
+            "proxy-authorization",
+            "x-api-key",
+        ):
             clean[k_lower] = "[REDACTED]"
     return clean
 
@@ -146,8 +160,20 @@ def redact_headers(headers: Dict[str, Any]) -> Dict[str, str]:
 def redact_json_structure(data: Union[Dict, List, Any]) -> Any:
     """Recursively scrub values inside JSON structures while masking sensitive field names."""
     SENSITIVE_KEYS = {
-        "password", "passwd", "secret", "token", "access_token", "refresh_token",
-        "api_key", "apikey", "private_key", "authorization", "auth", "cvv", "pan", "aadhaar"
+        "password",
+        "passwd",
+        "secret",
+        "token",
+        "access_token",
+        "refresh_token",
+        "api_key",
+        "apikey",
+        "private_key",
+        "authorization",
+        "auth",
+        "cvv",
+        "pan",
+        "aadhaar",
     }
 
     if isinstance(data, dict):

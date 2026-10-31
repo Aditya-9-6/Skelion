@@ -1,9 +1,8 @@
 # skelion_agent/email_service.py — Transactional Email Service (Resend / SMTP / Console)
 
 import os
-import json
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 
 logger = logging.getLogger("skelion.email")
@@ -20,7 +19,9 @@ class EmailService:
 
     def __init__(self):
         self.resend_api_key = os.getenv("RESEND_API_KEY")
-        self.from_email = os.getenv("SKELION_FROM_EMAIL", "Skelion <alerts@skelion.dev>")
+        self.from_email = os.getenv(
+            "SKELION_FROM_EMAIL", "Skelion <alerts@skelion.dev>"
+        )
         self.is_configured = bool(self.resend_api_key)
 
     async def send_email(
@@ -28,7 +29,7 @@ class EmailService:
         to_email: str,
         subject: str,
         html_content: str,
-        text_content: Optional[str] = None
+        text_content: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send email via Resend API or log to console fallback."""
         if not text_content:
@@ -37,23 +38,28 @@ class EmailService:
         if self.resend_api_key:
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=8.0) as client:
                     resp = await client.post(
                         "https://api.resend.com/emails",
                         headers={
                             "Authorization": f"Bearer {self.resend_api_key}",
-                            "Content-Type": "application/json"
+                            "Content-Type": "application/json",
                         },
                         json={
                             "from": self.from_email,
                             "to": [to_email],
                             "subject": subject,
                             "html": html_content,
-                            "text": text_content
-                        }
+                            "text": text_content,
+                        },
                     )
                     if resp.status_code in (200, 201):
-                        return {"status": "sent", "provider": "resend", "id": resp.json().get("id")}
+                        return {
+                            "status": "sent",
+                            "provider": "resend",
+                            "id": resp.json().get("id"),
+                        }
                     else:
                         logger.warning(f"Resend error {resp.status_code}: {resp.text}")
             except Exception as e:
@@ -66,10 +72,12 @@ class EmailService:
             "provider": "console_fallback",
             "recipient": to_email,
             "subject": subject,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-    async def send_team_invitation(self, inviter_name: str, org_name: str, to_email: str, invite_url: str):
+    async def send_team_invitation(
+        self, inviter_name: str, org_name: str, to_email: str, invite_url: str
+    ):
         """Send team member invitation email."""
         subject = f"You've been invited to join {org_name} on Skelion"
         html = f"""
@@ -84,7 +92,9 @@ class EmailService:
         """
         return await self.send_email(to_email, subject, html)
 
-    async def send_incident_alert(self, org_name: str, to_email: str, incident_data: dict):
+    async def send_incident_alert(
+        self, org_name: str, to_email: str, incident_data: dict
+    ):
         """Send urgent incident notification."""
         route = incident_data.get("route", "POST /api")
         status = incident_data.get("status_code", 500)

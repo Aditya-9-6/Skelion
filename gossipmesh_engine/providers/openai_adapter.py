@@ -4,21 +4,31 @@ import os
 import asyncio
 import time
 from prometheus_client import Counter
-rate_limits_saved_total = Counter('rate_limits_saved_total', 'Number of 429 rate limit events')
+
+rate_limits_saved_total = Counter(
+    "rate_limits_saved_total", "Number of 429 rate limit events"
+)
 from gossipmesh_agent.key_pool import KeyPool
 
 # Initialize global key pool from environment variable (comma‑separated list of keys)
 _key_pool = KeyPool([k for k in os.getenv("OPENAI_API_KEYS", "").split(",") if k])
 
+
 # Helper to obtain a client with the current key
 def _client_for_key(key: str):
     return AsyncOpenAI(api_key=key)
+
 
 from openai import AsyncOpenAI
 import tiktoken
 
 from gossipmesh.providers.base import BaseProvider
-from gossipmesh.providers.models import GenerationRequest, GenerationResponse, ProviderHealth, Usage
+from gossipmesh.providers.models import (
+    GenerationRequest,
+    GenerationResponse,
+    ProviderHealth,
+    Usage,
+)
 
 
 class OpenAIProvider(BaseProvider):
@@ -31,15 +41,15 @@ class OpenAIProvider(BaseProvider):
         return "openai"
 
     async def generate(self, request: GenerationRequest) -> GenerationResponse:
-
-
         # Attempt LLM request with key rotation and 429 handling
         backoff = 1
         max_backoff = 60
         while True:
             key = _key_pool.get_key()
             client = _client_for_key(key)
-            formatted_messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+            formatted_messages = [
+                {"role": msg.role, "content": msg.content} for msg in request.messages
+            ]
             try:
                 response = await client.chat.completions.create(
                     model=request.model,
@@ -59,8 +69,6 @@ class OpenAIProvider(BaseProvider):
                     continue
                 raise
 
-
-
         usage = Usage(
             prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
             completion_tokens=response.usage.completion_tokens if response.usage else 0,
@@ -75,8 +83,12 @@ class OpenAIProvider(BaseProvider):
             raw_response=response.model_dump(),
         )
 
-    async def generate_stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:  # type: ignore
-        formatted_messages: list[Any] = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+    async def generate_stream(
+        self, request: GenerationRequest
+    ) -> AsyncGenerator[str, None]:  # type: ignore
+        formatted_messages: list[Any] = [
+            {"role": msg.role, "content": msg.content} for msg in request.messages
+        ]
         stream: Any = await self.client.chat.completions.create(
             model=request.model,
             messages=formatted_messages,

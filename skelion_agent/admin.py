@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends
+from sqlmodel import Session
 from skelion_agent.models import Organization, ProxyNode
 from skelion_agent.database import get_session
-import secrets, hashlib
+import secrets
+import hashlib
 
 router = APIRouter()
+
 
 @router.post("/orgs")
 async def create_organization(name: str, session: Session = Depends(get_session)):

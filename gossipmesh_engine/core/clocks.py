@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, Set, Optional, Tuple, Generator, List
+from typing import Dict, Optional, Tuple, Generator, List
 
 
 class VectorClock:
@@ -47,7 +47,9 @@ class VectorClock:
                     d[node] = ts
             return d
 
-    def delta_iter(self, known_clock: Dict[str, int]) -> Generator[Tuple[str, int], None, None]:
+    def delta_iter(
+        self, known_clock: Dict[str, int]
+    ) -> Generator[Tuple[str, int], None, None]:
         """
         Zero-allocation generator yielding entries from this clock that are
         ahead of or unknown to `known_clock`.

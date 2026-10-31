@@ -4,7 +4,12 @@ from openai import AsyncAzureOpenAI
 import tiktoken
 
 from gossipmesh.providers.base import BaseProvider
-from gossipmesh.providers.models import GenerationRequest, GenerationResponse, ProviderHealth, Usage
+from gossipmesh.providers.models import (
+    GenerationRequest,
+    GenerationResponse,
+    ProviderHealth,
+    Usage,
+)
 
 
 class AzureOpenAIProvider(BaseProvider):
@@ -12,14 +17,20 @@ class AzureOpenAIProvider(BaseProvider):
         super().__init__(api_key)
         self.endpoint = endpoint
         self.api_version = api_version
-        self.client = AsyncAzureOpenAI(api_key=self.api_key, azure_endpoint=self.endpoint, api_version=self.api_version)
+        self.client = AsyncAzureOpenAI(
+            api_key=self.api_key,
+            azure_endpoint=self.endpoint,
+            api_version=self.api_version,
+        )
 
     @property
     def provider_name(self) -> str:
         return "azure_openai"
 
     async def generate(self, request: GenerationRequest) -> GenerationResponse:
-        formatted_messages: list[Any] = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        formatted_messages: list[Any] = [
+            {"role": msg.role, "content": msg.content} for msg in request.messages
+        ]
 
         response = await self.client.chat.completions.create(
             model=request.model,
@@ -43,8 +54,12 @@ class AzureOpenAIProvider(BaseProvider):
             raw_response=response.model_dump(),
         )
 
-    async def generate_stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:  # type: ignore
-        formatted_messages: list[Any] = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+    async def generate_stream(
+        self, request: GenerationRequest
+    ) -> AsyncGenerator[str, None]:  # type: ignore
+        formatted_messages: list[Any] = [
+            {"role": msg.role, "content": msg.content} for msg in request.messages
+        ]
         stream: Any = await self.client.chat.completions.create(
             model=request.model,
             messages=formatted_messages,

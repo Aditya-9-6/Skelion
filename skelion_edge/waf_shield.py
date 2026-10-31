@@ -16,26 +16,67 @@ from urllib.parse import unquote_plus
 # Spryzen WAF Literals (Ported from spryzen_rust/src/waf.rs)
 SPRYZEN_WAF_LITERALS = [
     # SQL Injection
-    "union select", "union all", "select from", "insert into", "drop table",
-    "update set", "delete from", "or 1=1", "and 1=1", "admin' --", "admin' #",
+    "union select",
+    "union all",
+    "select from",
+    "insert into",
+    "drop table",
+    "update set",
+    "delete from",
+    "or 1=1",
+    "and 1=1",
+    "admin' --",
+    "admin' #",
     # XSS (Cross-Site Scripting)
-    "<script", "javascript:", "onerror=", "onload=", "onclick=", "alert(", "eval(", "document.cookie",
+    "<script",
+    "javascript:",
+    "onerror=",
+    "onload=",
+    "onclick=",
+    "alert(",
+    "eval(",
+    "document.cookie",
     # Path Traversal & LFI
-    "/etc/passwd", "/etc/hosts", "/etc/shadow", "boot.ini", "..\\..\\", "../..", "/proc/self/environ",
+    "/etc/passwd",
+    "/etc/hosts",
+    "/etc/shadow",
+    "boot.ini",
+    "..\\..\\",
+    "../..",
+    "/proc/self/environ",
     # Remote Code Execution (RCE)
-    "/bin/bash", "/bin/sh", "curl ", "wget ", "netcat ", "nc -e", "cmd.exe", "powershell",
+    "/bin/bash",
+    "/bin/sh",
+    "curl ",
+    "wget ",
+    "netcat ",
+    "nc -e",
+    "cmd.exe",
+    "powershell",
     # Server-Side Template Injection (SSTI)
-    "{{7*7}}", "${7*7}", "#{7*7}",
+    "{{7*7}}",
+    "${7*7}",
+    "#{7*7}",
     # Prototype Pollution
-    "__proto__", "constructor.prototype",
+    "__proto__",
+    "constructor.prototype",
     # Vulnerability Scanners & Recon
-    "sqlmap", "nikto", "acunetix",
+    "sqlmap",
+    "nikto",
+    "acunetix",
 ]
 
 # Sensitive paths intercepted by Tartarus Mirror Dimension
 TARTARUS_DECEPTION_PATHS = [
-    "/.env", "/.git", "/wp-admin", "/actuator/health", "/phpinfo.php",
-    "/config.json", "/aws/credentials", "/.aws", "/admin/db"
+    "/.env",
+    "/.git",
+    "/wp-admin",
+    "/actuator/health",
+    "/phpinfo.php",
+    "/config.json",
+    "/aws/credentials",
+    "/.aws",
+    "/admin/db",
 ]
 
 # Fast character lookup table for risky injection characters
@@ -66,7 +107,7 @@ def normalize_payload(s: str) -> str:
 
 def scan_payload_for_threats(payload_str: str) -> Optional[Tuple[str, str, float]]:
     """Inspect payload string using Spryzen WAF heuristics.
-    
+
     Returns (attack_type, matched_signature, threat_score) or None.
     """
     if not payload_str:
@@ -83,7 +124,10 @@ def scan_payload_for_threats(payload_str: str) -> Optional[Tuple[str, str, float
         if literal in p_normalized:
             if any(k in literal for k in ["union", "select", "drop", "1=1", "--"]):
                 return ("SQL_INJECTION", literal, 0.98)
-            elif any(k in literal for k in ["script", "javascript", "alert", "cookie", "onerror"]):
+            elif any(
+                k in literal
+                for k in ["script", "javascript", "alert", "cookie", "onerror"]
+            ):
                 return ("XSS_ATTACK", literal, 0.95)
             elif any(k in literal for k in ["etc/passwd", "../..", "boot.ini"]):
                 return ("PATH_TRAVERSAL", literal, 0.99)
@@ -97,7 +141,13 @@ def scan_payload_for_threats(payload_str: str) -> Optional[Tuple[str, str, float
                 return ("MALICIOUS_SCANNER", literal, 0.85)
 
     # 2. Chunk-based heuristic: quote + comment or quote + boolean injection (simd_waf.rs)
-    if ("'" in p_normalized or '"' in p_normalized) and ("--" in p_normalized or ";" in p_normalized or "#" in p_normalized or "or " in p_normalized or "and " in p_normalized):
+    if ("'" in p_normalized or '"' in p_normalized) and (
+        "--" in p_normalized
+        or ";" in p_normalized
+        or "#" in p_normalized
+        or "or " in p_normalized
+        or "and " in p_normalized
+    ):
         if re.search(r"('|\")\s*(\bor\b|\band\b|--|#|;)", p_normalized):
             return ("HEURISTIC_SQLI", "quote_boolean_comment_vector", 0.94)
 
@@ -109,10 +159,10 @@ def inspect_request_security(
     path: str,
     query_params: str = "",
     headers: Optional[Dict[str, str]] = None,
-    body: Optional[str] = None
+    body: Optional[str] = None,
 ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """Inspect incoming HTTP request with Spryzen WAF & Tartarus Deception.
-    
+
     Returns:
       (is_blocked: bool, threat_details: dict or None, deception_response: dict or None)
     """
@@ -122,23 +172,32 @@ def inspect_request_security(
         if trap in clean_path:
             # Trap the attacker in Tartarus Honeypot with fake realistic response
             fake_content = (
-                "DB_HOST=internal-db-prod-001.spryzen.local\n"
-                "DB_USER=admin\n"
-                "DB_PASS=SuperSecret123!\n"
-                "API_KEY=sk_live_FakeTartarusHoneypotKey_91829\n"
-            ) if ".env" in trap else json.dumps({
-                "status": "ok",
-                "hologram": "Tartarus Mirror Dimension Active",
-                "deception_logged": True
-            })
+                (
+                    "DB_HOST=internal-db-prod-001.spryzen.local\n"
+                    "DB_USER=admin\n"
+                    "DB_PASS=SuperSecret123!\n"
+                    "API_KEY=sk_live_FakeTartarusHoneypotKey_91829\n"
+                )
+                if ".env" in trap
+                else json.dumps(
+                    {
+                        "status": "ok",
+                        "hologram": "Tartarus Mirror Dimension Active",
+                        "deception_logged": True,
+                    }
+                )
+            )
             return (
                 True,
                 {"type": "TARTARUS_DECEPTION", "path": path, "threat_score": 1.0},
                 {
                     "status_code": 200,
-                    "headers": {"Content-Type": "text/plain", "Server": "Apache/2.4.41 (Ubuntu)"},
-                    "content": fake_content
-                }
+                    "headers": {
+                        "Content-Type": "text/plain",
+                        "Server": "Apache/2.4.41 (Ubuntu)",
+                    },
+                    "content": fake_content,
+                },
             )
 
     # 2. Inspect Path & Query String
@@ -154,12 +213,16 @@ def inspect_request_security(
                 "source": "path_or_query",
                 "path": path,
             },
-            None
+            None,
         )
 
     # 3. Inspect Body Payload
     # Exempt developer AI prompt streams and patch apply payloads so code discussions are not falsely blocked as injections
-    if body and not path.startswith("/v1/chat") and not path.startswith("/v1/autofix/apply"):
+    if (
+        body
+        and not path.startswith("/v1/chat")
+        and not path.startswith("/v1/autofix/apply")
+    ):
         threat = scan_payload_for_threats(body)
         if threat:
             attack_type, signature, score = threat
@@ -172,7 +235,7 @@ def inspect_request_security(
                     "source": "request_body",
                     "path": path,
                 },
-                None
+                None,
             )
 
     return (False, None, None)
@@ -201,7 +264,7 @@ def record_threat_event(threat: Dict[str, Any], client_ip: str = "unknown"):
     event = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "client_ip": client_ip,
-        **threat
+        **threat,
     }
     _THREAT_HISTORY.insert(0, event)
     if len(_THREAT_HISTORY) > _MAX_HISTORY:
@@ -231,7 +294,8 @@ def get_waf_metrics() -> Dict[str, Any]:
     """Return overall WAF telemetry metrics."""
     return {
         "metrics": dict(_METRICS),
-        "total_threats_blocked": sum(_METRICS[k] for k in _METRICS if k != "total_inspections"),
+        "total_threats_blocked": sum(
+            _METRICS[k] for k in _METRICS if k != "total_inspections"
+        ),
         "recent_events_count": len(_THREAT_HISTORY),
     }
-

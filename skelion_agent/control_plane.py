@@ -1,20 +1,17 @@
 import os
 import hashlib
 from datetime import datetime, timezone
-from redis.exceptions import ConnectionError as RedisConnectionError
-from fastapi import FastAPI, Depends, Header, HTTPException, BackgroundTasks, Response, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket
 from pydantic import BaseModel
 import redis.asyncio as redis
-from sqlmodel import select
 
-from skelion_agent.models import Organization, ProxyNode, Incident, AgentRun
-from skelion_agent.utils.redact import redact_headers, redact_json
-from skelion_agent.database import get_session
 try:
     from skelion_agent.worker import execute_sandboxed_autonomous_loop
 except Exception:  # pragma: no cover
+
     def execute_sandboxed_autonomous_loop(*args, **kwargs):
         raise NotImplementedError("Worker module not available in this environment")
+
 
 # Import routers
 from skelion_agent.metrics_router import router as metrics_router
@@ -34,6 +31,7 @@ redis_client = None
 
 app = FastAPI(title="Skelion SaaS Control Plane", version="2.0.0")
 
+
 @app.get("/health", tags=["System"])
 @app.get("/v1/health", tags=["System"])
 async def health_check():
@@ -41,11 +39,13 @@ async def health_check():
         "status": "healthy",
         "service": "skelion-control-plane",
         "version": "2.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
 
 # Enable CORS for webviews and external pilot frontends
 from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -68,15 +68,19 @@ app.include_router(chat_router)
 app.include_router(license_router)
 
 from skelion_agent.waf_routes import router as waf_router
+
 app.include_router(waf_router)
 
 # Alias for Phase 2 webhook URL pattern
 from skelion_agent.billing_routes import webhook as razorpay_webhook_handler
+
 app.add_api_route("/v1/webhooks/razorpay", razorpay_webhook_handler, methods=["POST"])
 
 # Add fails‑open proxy middleware (target base is the original service)
 from skelion_edge.proxy import ProxyMiddleware
+
 app.add_middleware(ProxyMiddleware, target_base="http://127.0.0.1:8000")
+
 
 # Initialize DB on startup
 @app.on_event("startup")
@@ -84,11 +88,14 @@ async def on_startup():
     """Startup hook – initialize DB, apply migrations, and ensure auth columns."""
     # Existing DB init
     from skelion_agent.database import init_db
+
     try:
         init_db()
     except Exception as exc:  # pragma: no cover
+
         class ProxyFailOpen(Exception):
             pass
+
         raise ProxyFailOpen(str(exc)) from exc
 
     # Alembic migrations (optional – skip if alembic.ini missing, e.g., in tests)
@@ -96,6 +103,7 @@ async def on_startup():
         from alembic import command
         from alembic.config import Config
         import pathlib
+
         cfg_path = pathlib.Path(__file__).parent.parent / "alembic.ini"
         if cfg_path.is_file():
             alembic_cfg = Config(str(cfg_path))
@@ -112,7 +120,10 @@ async def on_startup():
 
     # Initialize Redis client after DB migrations
     global redis_client
-    redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
+    redis_client = redis.from_url(
+        os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True
+    )
+
 
 # Simple WebSocket manager for panel connections
 class PanelConnectionManager:
@@ -133,11 +144,14 @@ class PanelConnectionManager:
             except Exception:
                 self.disconnect(connection)
 
+
 panel_ws_manager = PanelConnectionManager()
+
 
 class HeartbeatPayload(BaseModel):
     node_name: str
     version: str
+
 
 class TelemetryIngestPayload(BaseModel):
     method: str
@@ -148,7 +162,9 @@ class TelemetryIngestPayload(BaseModel):
     redacted_response_body: str
     latency_ms: float
 
+
 def hash_api_key(raw_key: str) -> str:
     return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+
 
 # Existing endpoint implementations (node heartbeat, telemetry ingest, etc.) remain unchanged below...

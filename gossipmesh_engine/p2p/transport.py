@@ -7,7 +7,11 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from gossipmesh.p2p.parser import ZeroCopyPacketParser
 from gossipmesh.p2p.ratelimit import PeerRateLimiter, RateLimitConfig
-from gossipmesh.p2p.crypto import EphemeralSessionKeyRotator, encrypt_payload, decrypt_payload
+from gossipmesh.p2p.crypto import (
+    EphemeralSessionKeyRotator,
+    encrypt_payload,
+    decrypt_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +118,10 @@ class GossipTransport:
         self.handlers[topic] = handler
 
     async def receive_payload(
-        self, peer_id: str, payload: Union[bytes, str, dict, int], topic: str = "default"
+        self,
+        peer_id: str,
+        payload: Union[bytes, str, dict, int],
+        topic: str = "default",
     ) -> Optional[Any]:
         """Receives, rate-limits, parses, and dispatches a payload from a peer."""
         if isinstance(payload, bytes):
@@ -129,7 +136,9 @@ class GossipTransport:
             raw_bytes = str(payload).encode("utf-8")
 
         size_bytes = len(raw_bytes)
-        allowed, _reason = await self.rate_limiter.check_and_consume(peer_id, size_bytes)
+        allowed, _reason = await self.rate_limiter.check_and_consume(
+            peer_id, size_bytes
+        )
         if not allowed:
             self.telemetry.record_dropped()
             return None
@@ -164,7 +173,9 @@ class GossipTransport:
 
         return parsed_data
 
-    async def send_payload(self, peer_id: str, payload: Union[bytes, str, dict]) -> bool:
+    async def send_payload(
+        self, peer_id: str, payload: Union[bytes, str, dict]
+    ) -> bool:
         """Simulates sending a payload to a peer with telemetry recording."""
         if isinstance(payload, bytes):
             raw_bytes = payload
@@ -190,14 +201,18 @@ class GossipTransport:
 class TransportSocketReader:
     """Low-level transport socket reader with zero-allocation memoryview parsing pipelines."""
 
-    def __init__(self, reader: asyncio.StreamReader, expected_magic: int = 0x474D4553) -> None:
+    def __init__(
+        self, reader: asyncio.StreamReader, expected_magic: int = 0x474D4553
+    ) -> None:
         self.reader = reader
         self.expected_magic = expected_magic
 
     async def read_packet(self) -> Optional[Tuple[int, str, memoryview]]:
         """Reads a full gossip packet from the stream and returns header metadata and memoryview payload."""
         try:
-            header_data = await self.reader.readexactly(ZeroCopyPacketParser.HEADER_SIZE)
+            header_data = await self.reader.readexactly(
+                ZeroCopyPacketParser.HEADER_SIZE
+            )
         except asyncio.IncompleteReadError:
             return None
 
@@ -205,7 +220,9 @@ class TransportSocketReader:
             return None
 
         header_view = memoryview(header_data)
-        magic, msg_type, msg_id, payload_len, _ = ZeroCopyPacketParser.parse_header(header_view)
+        magic, msg_type, msg_id, payload_len, _ = ZeroCopyPacketParser.parse_header(
+            header_view
+        )
 
         if magic != self.expected_magic:
             logger.warning(f"Invalid packet magic received: {hex(magic)}")
@@ -214,7 +231,9 @@ class TransportSocketReader:
         try:
             payload_data = await self.reader.readexactly(payload_len)
         except asyncio.IncompleteReadError as e:
-            raise ValueError(f"Incomplete payload read: expected {payload_len} bytes, got {len(e.partial)}")
+            raise ValueError(
+                f"Incomplete payload read: expected {payload_len} bytes, got {len(e.partial)}"
+            )
 
         full_packet = header_data + payload_data
         full_view = memoryview(full_packet)

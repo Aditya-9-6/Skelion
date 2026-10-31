@@ -9,7 +9,6 @@ from gossipmesh.api import deps
 from gossipmesh.models.user import User
 from gossipmesh.models.organization import UserOrganization
 from gossipmesh.repository.github import GitHubIntegration
-from gossipmesh.core.config import settings
 from gossipmesh.core.exceptions import AuthorizationError
 
 router = APIRouter()
@@ -33,7 +32,8 @@ def sync_repository(
     is_member = (
         db.query(UserOrganization)
         .filter(
-            UserOrganization.user_id == current_user.id, UserOrganization.organization_id == request.organization_id
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.organization_id == request.organization_id,
         )
         .first()
     )
@@ -52,5 +52,7 @@ def sync_repository(
         except Exception as e:
             logger.error(f"Sync failed: {e}")
 
-    background_tasks.add_task(_sync_task, request.full_name, request.installation_id, request.organization_id)
+    background_tasks.add_task(
+        _sync_task, request.full_name, request.installation_id, request.organization_id
+    )
     return {"status": "accepted", "message": "Repository sync queued"}

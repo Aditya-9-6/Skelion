@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.exceptions import InvalidSignature
@@ -54,7 +54,9 @@ def verify_license_offline(license_data: Dict[str, Any]) -> Dict[str, Any]:
             return community_fallback
 
         # Re-construct canonical bytes
-        canonical_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        canonical_bytes = json.dumps(
+            payload, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
         sig_bytes = bytes.fromhex(signature_hex)
         pub_bytes = bytes.fromhex(pub_hex)
 
@@ -104,7 +106,9 @@ def verify_license_offline(license_data: Dict[str, Any]) -> Dict[str, Any]:
                 }
 
     except InvalidSignature:
-        community_fallback["reason"] = "Cryptographic signature verification failed (tampered license)"
+        community_fallback["reason"] = (
+            "Cryptographic signature verification failed (tampered license)"
+        )
         return community_fallback
     except Exception as e:
         community_fallback["reason"] = f"Verification exception: {str(e)}"

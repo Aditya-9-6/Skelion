@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -22,7 +22,9 @@ class SearchQuery(BaseModel):
 
 @router.post("/search")
 def search_vectors(
-    search_query: SearchQuery, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    search_query: SearchQuery,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     # Look up the repository to find its organization
     repo = db.query(Repository).filter(Repository.id == search_query.repo_id).first()
@@ -32,7 +34,10 @@ def search_vectors(
     # Check if the user belongs to the repository's organization
     is_member = (
         db.query(UserOrganization)
-        .filter(UserOrganization.user_id == current_user.id, UserOrganization.organization_id == repo.organization_id)
+        .filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.organization_id == repo.organization_id,
+        )
         .first()
     )
     if not is_member:
@@ -47,5 +52,7 @@ def search_vectors(
             return []
 
     retriever = HybridRetriever(store, DummyGraph())
-    results = retriever.search(search_query.query, search_query.repo_id, search_query.top_k)
+    results = retriever.search(
+        search_query.query, search_query.repo_id, search_query.top_k
+    )
     return {"results": results}

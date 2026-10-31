@@ -29,7 +29,10 @@ class Organization(SoftDeleteMixin, Base):
     owner = relationship("User")
     projects = relationship("Project", back_populates="organization")
     saml_config = relationship(
-        "OrganizationSAMLConfig", back_populates="organization", uselist=False, cascade="all, delete-orphan"
+        "OrganizationSAMLConfig",
+        back_populates="organization",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
 
@@ -37,11 +40,17 @@ class UserOrganization(Base):
     __tablename__ = "user_organizations"
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), primary_key=True)
-    role: Mapped[OrganizationRole] = mapped_column(
-        SQLAlchemyEnum(OrganizationRole), nullable=False, default=OrganizationRole.developer
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id"), primary_key=True
     )
-    status: Mapped[str] = mapped_column(String, nullable=False, default="active")  # active, invited, suspended
+    role: Mapped[OrganizationRole] = mapped_column(
+        SQLAlchemyEnum(OrganizationRole),
+        nullable=False,
+        default=OrganizationRole.developer,
+    )
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, default="active"
+    )  # active, invited, suspended
     is_suspended: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     user = relationship("User", back_populates="organizations")
@@ -54,9 +63,13 @@ class OrganizationInvitation(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String, index=True, nullable=False)
     token: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id"), nullable=False, index=True
+    )
     role: Mapped[OrganizationRole] = mapped_column(
-        SQLAlchemyEnum(OrganizationRole), nullable=False, default=OrganizationRole.developer
+        SQLAlchemyEnum(OrganizationRole),
+        nullable=False,
+        default=OrganizationRole.developer,
     )
 
     organization = relationship("Organization")

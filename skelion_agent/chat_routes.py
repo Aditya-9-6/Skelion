@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import uuid
 import os
 import re
 import random
@@ -19,7 +18,6 @@ from skelion_agent.auth_routes import get_org_from_jwt
 from skelion_agent.database import get_db, get_engine
 from skelion_agent.models import Organization, Conversation, ChatMessageRecord, Incident
 from skelion_agent.limits_service import (
-    MODEL_WEIGHTS,
     get_token_status,
     deduct_coding_tokens,
     deduct_autofix_tokens,
@@ -69,10 +67,10 @@ def extract_file_blocks_from_text(text: str) -> list[dict[str, str]]:
     # Pattern 1: Heading or bold header with File: <path> followed by code block
     p1 = re.compile(
         r"""(?:###|##|#|\*\*|__)?\s*(?:📁\s*)?(?:File|Target File|Created File|Modified File):\s*[`'"*_]*([a-zA-Z0-9_\-\.\/\\]+\.[a-zA-Z0-9]+)[`'"*_]*\s*[\r\n]+```(?:[a-zA-Z0-9_-]*)[ \t]*[\r\n]+([\s\S]*?)```""",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
     for m in p1.finditer(text):
-        p = m.group(1).strip().strip('`*"\' ')
+        p = m.group(1).strip().strip("`*\"' ")
         code = m.group(2)
         if p and code and p not in seen_paths:
             seen_paths.add(p)
@@ -80,18 +78,17 @@ def extract_file_blocks_from_text(text: str) -> list[dict[str, str]]:
 
     # Pattern 2: First line inside code block contains file comment (// File: path or # File: path)
     p2 = re.compile(
-        r'```(?:[a-zA-Z0-9_-]*)[ \t]*[\r\n]+(?:(?://|#|/\*)\s*(?:File:\s*)?([a-zA-Z0-9_\-\.\/\\]+\.[a-zA-Z0-9]+)[^\r\n]*)[\r\n]+([\s\S]*?)```',
-        re.IGNORECASE
+        r"```(?:[a-zA-Z0-9_-]*)[ \t]*[\r\n]+(?:(?://|#|/\*)\s*(?:File:\s*)?([a-zA-Z0-9_\-\.\/\\]+\.[a-zA-Z0-9]+)[^\r\n]*)[\r\n]+([\s\S]*?)```",
+        re.IGNORECASE,
     )
     for m in p2.finditer(text):
-        p = m.group(1).strip().strip('`*"\' ')
+        p = m.group(1).strip().strip("`*\"' ")
         code = m.group(2)
         if p and code and p not in seen_paths:
             seen_paths.add(p)
             blocks.append({"path": p, "content": code})
 
     return blocks
-
 
 
 @router.get("/limits/status")
@@ -129,13 +126,15 @@ def list_conversations(
         .order_by(Conversation.updated_at.desc())
         .limit(50)
     ).all()
-    
+
     return [
         {
             "id": c.id,
             "title": c.title or "Untitled Chat",
             "model": c.model or "free-tier-agent",
-            "updated_at": c.updated_at.isoformat() if c.updated_at else datetime.now(timezone.utc).isoformat(),
+            "updated_at": c.updated_at.isoformat()
+            if c.updated_at
+            else datetime.now(timezone.utc).isoformat(),
         }
         for c in convs
     ]
@@ -151,19 +150,21 @@ def get_conversation_messages(
     conv = db.get(Conversation, conv_id)
     if not conv or conv.org_id != org.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
-        
+
     records = db.exec(
         select(ChatMessageRecord)
         .where(ChatMessageRecord.conversation_id == conv_id)
         .order_by(ChatMessageRecord.created_at.asc())
     ).all()
-    
+
     return [
         {
             "id": r.id,
             "role": r.role,
             "content": r.content,
-            "created_at": r.created_at.isoformat() if r.created_at else datetime.now(timezone.utc).isoformat(),
+            "created_at": r.created_at.isoformat()
+            if r.created_at
+            else datetime.now(timezone.utc).isoformat(),
             "tool_call": json.loads(r.tool_call_json) if r.tool_call_json else None,
         }
         for r in records
@@ -180,14 +181,13 @@ def delete_conversation(
     conv = db.get(Conversation, conv_id)
     if not conv or conv.org_id != org.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
-        
+
     messages = db.exec(
-        select(ChatMessageRecord)
-        .where(ChatMessageRecord.conversation_id == conv_id)
+        select(ChatMessageRecord).where(ChatMessageRecord.conversation_id == conv_id)
     ).all()
     for m in messages:
         db.delete(m)
-        
+
     db.delete(conv)
     db.commit()
     return {"status": "deleted", "id": conv_id}
@@ -201,17 +201,21 @@ def list_org_incidents(
     """List recent production incidents captured for the organization."""
     user_org_ids = [org.id, "org_default"]
     if org.github_username:
-        other_orgs = db.exec(select(Organization.id).where(Organization.github_username == org.github_username)).all()
+        other_orgs = db.exec(
+            select(Organization.id).where(
+                Organization.github_username == org.github_username
+            )
+        ).all()
         user_org_ids.extend(other_orgs)
     else:
-        dev_orgs = db.exec(select(Organization.id).where(Organization.github_username == "Aditya-9-6")).all()
+        dev_orgs = db.exec(
+            select(Organization.id).where(Organization.github_username == "Aditya-9-6")
+        ).all()
         user_org_ids.extend(dev_orgs)
 
     incidents = db.exec(
         select(Incident)
-        .where(
-            (Incident.org_id.in_(user_org_ids)) | (Incident.org_id == None)
-        )
+        .where((Incident.org_id.in_(user_org_ids)) | (Incident.org_id == None))
         .order_by(Incident.last_seen_at.desc())
         .limit(25)
     ).all()
@@ -223,18 +227,22 @@ def list_org_incidents(
 
     results = []
     for inc in incidents:
-        results.append({
-            "id": inc.id,
-            "title": f"Incident {inc.id}",
-            "route": f"{inc.http_method} {inc.route_path}",
-            "method": inc.http_method,
-            "status_code": inc.status_code,
-            "summary": inc.error_summary,
-            "status": inc.status,
-            "fingerprint": inc.fingerprint,
-            "timestamp": inc.last_seen_at.isoformat() if inc.last_seen_at else datetime.now(timezone.utc).isoformat(),
-            "has_diff": bool(inc.generated_diff),
-        })
+        results.append(
+            {
+                "id": inc.id,
+                "title": f"Incident {inc.id}",
+                "route": f"{inc.http_method} {inc.route_path}",
+                "method": inc.http_method,
+                "status_code": inc.status_code,
+                "summary": inc.error_summary,
+                "status": inc.status,
+                "fingerprint": inc.fingerprint,
+                "timestamp": inc.last_seen_at.isoformat()
+                if inc.last_seen_at
+                else datetime.now(timezone.utc).isoformat(),
+                "has_diff": bool(inc.generated_diff),
+            }
+        )
     return {"incidents": results}
 
 
@@ -246,17 +254,23 @@ def get_autofix_suggestions(
     """Return verified AST autofix suggestions with mathematical replay sandbox proof."""
     user_org_ids = [org.id, "org_default"]
     if org.github_username:
-        other_orgs = db.exec(select(Organization.id).where(Organization.github_username == org.github_username)).all()
+        other_orgs = db.exec(
+            select(Organization.id).where(
+                Organization.github_username == org.github_username
+            )
+        ).all()
         user_org_ids.extend(other_orgs)
     else:
-        dev_orgs = db.exec(select(Organization.id).where(Organization.github_username == "Aditya-9-6")).all()
+        dev_orgs = db.exec(
+            select(Organization.id).where(Organization.github_username == "Aditya-9-6")
+        ).all()
         user_org_ids.extend(dev_orgs)
 
     incidents = db.exec(
         select(Incident)
         .where(
             (Incident.org_id.in_(user_org_ids)) | (Incident.org_id == None),
-            (Incident.status != "resolved")
+            (Incident.status != "resolved"),
         )
         .order_by(Incident.last_seen_at.desc())
         .limit(10)
@@ -272,35 +286,39 @@ def get_autofix_suggestions(
             f"  try {{ next(); }} catch (err) {{ res.status(200).json({{ status: 'fail_open_buffered' }}); }}\n"
             f"}}"
         )
-        suggestions.append({
-            "incident_id": inc.id,
-            "route": f"{inc.http_method} {inc.route_path}",
-            "status": inc.status,
-            "status_code": inc.status_code or 500,
-            "error_summary": inc.error_summary or f"5xx Error on {inc.http_method} {inc.route_path}",
-            "diff": diff,
-            "diff_patch": diff,
-            "patch_path": "src/controllers/checkout.js" if "checkout" in inc.route_path else "src/autofix_resilience.js",
-            "proof": {
-                "replay_pass_rate": 100.0,
-                "regressions_detected": 0,
-                "latency_delta_ms": -4.2,
-                "verification_method": "Isolated Replay Sandbox (ast_diff_verification)",
-            },
-            "replay_proof": {
-                "requests_replayed": 10,
-                "passed": 10,
-                "regressions": 0,
-                "latency_delta_ms": -4.2,
-            },
-            "confidence_score": 0.98,
-            "estimated_tokens": 250,
-        })
-    remaining = max(0, org.autofix_tokens_total - org.autofix_tokens_used) if org else 50000
-    return {
-        "suggestions": suggestions,
-        "autofix_tokens_remaining": remaining
-    }
+        suggestions.append(
+            {
+                "incident_id": inc.id,
+                "route": f"{inc.http_method} {inc.route_path}",
+                "status": inc.status,
+                "status_code": inc.status_code or 500,
+                "error_summary": inc.error_summary
+                or f"5xx Error on {inc.http_method} {inc.route_path}",
+                "diff": diff,
+                "diff_patch": diff,
+                "patch_path": "src/controllers/checkout.js"
+                if "checkout" in inc.route_path
+                else "src/autofix_resilience.js",
+                "proof": {
+                    "replay_pass_rate": 100.0,
+                    "regressions_detected": 0,
+                    "latency_delta_ms": -4.2,
+                    "verification_method": "Isolated Replay Sandbox (ast_diff_verification)",
+                },
+                "replay_proof": {
+                    "requests_replayed": 10,
+                    "passed": 10,
+                    "regressions": 0,
+                    "latency_delta_ms": -4.2,
+                },
+                "confidence_score": 0.98,
+                "estimated_tokens": 250,
+            }
+        )
+    remaining = (
+        max(0, org.autofix_tokens_total - org.autofix_tokens_used) if org else 50000
+    )
+    return {"suggestions": suggestions, "autofix_tokens_remaining": remaining}
 
 
 @router.post("/autofix/apply")
@@ -319,7 +337,8 @@ def apply_autofix_patch(
         if not target_inc:
             target_inc = db.exec(
                 select(Incident).where(
-                    (Incident.id == req.incident_id) | (Incident.fingerprint == req.incident_id)
+                    (Incident.id == req.incident_id)
+                    | (Incident.fingerprint == req.incident_id)
                 )
             ).first()
         if target_inc:
@@ -338,22 +357,28 @@ def apply_autofix_patch(
 
 
 async def generate_smart_ai_response(
-    prompt: str,
-    org: Organization,
-    model: str,
-    conv_history: Optional[List[Any]] = None
+    prompt: str, org: Organization, model: str, conv_history: Optional[List[Any]] = None
 ) -> tuple[str, Optional[Dict[str, Any]]]:
     """Generate intelligent, dynamic assistant responses with autonomous execution and multi-key failover."""
     load_dotenv()
     user_name = org.github_username or org.name or "Aditya"
     p_lower = prompt.lower().strip()
-    p_clean = re.sub(r'[\?\!\.\,\s]+$', '', p_lower).strip()
+    p_clean = re.sub(r"[\?\!\.\,\s]+$", "", p_lower).strip()
 
     # Helper to extract role and content regardless of dict or object
     def msg_role(m):
-        return m.role if hasattr(m, "role") else (m.get("role") if isinstance(m, dict) else "user")
+        return (
+            m.role
+            if hasattr(m, "role")
+            else (m.get("role") if isinstance(m, dict) else "user")
+        )
+
     def msg_content(m):
-        return m.content if hasattr(m, "content") else (m.get("content") if isinstance(m, dict) else "")
+        return (
+            m.content
+            if hasattr(m, "content")
+            else (m.get("content") if isinstance(m, dict) else "")
+        )
 
     # Build unified conversation message list for LLM context
     history_messages = []
@@ -377,16 +402,33 @@ async def generate_smart_ai_response(
     # =========================================================================
     # 0. AUTONOMOUS GITHUB BOT: PULL REQUEST CREATION
     # =========================================================================
-    is_pr_request = any(k in p_lower for k in [
-        "make pr", "create pr", "open pr", "submit pr", "make a pr", "create a pr",
-        "open a pr", "bot on github", "skelion agent bot", "pr and all", "push pr",
-        "create pr and all", "open pr and all", "make pr and all"
-    ])
+    is_pr_request = any(
+        k in p_lower
+        for k in [
+            "make pr",
+            "create pr",
+            "open pr",
+            "submit pr",
+            "make a pr",
+            "create a pr",
+            "open a pr",
+            "bot on github",
+            "skelion agent bot",
+            "pr and all",
+            "push pr",
+            "create pr and all",
+            "open pr and all",
+            "make pr and all",
+        ]
+    )
     if is_pr_request:
-        from skelion_agent.pr_comment_bot import create_autofix_pr, CreateAutofixPRRequest
+        from skelion_agent.pr_comment_bot import (
+            create_autofix_pr,
+            CreateAutofixPRRequest,
+        )
         from skelion_agent.database import get_engine
         from sqlmodel import Session
-        
+
         pr_patch = (
             "// Skelion Express & Node.js Resilience Middleware\n"
             "// Intercepts unhandled edge exceptions fail-open with zero user downtime\n"
@@ -400,7 +442,7 @@ async def generate_smart_ai_response(
             "}\n"
         )
         materialize_file_to_workspace("src/middleware/skelion_resilience.js", pr_patch)
-        
+
         engine = get_engine()
         with Session(engine) as db_sess:
             pr_req = CreateAutofixPRRequest(
@@ -409,25 +451,29 @@ async def generate_smart_ai_response(
                 target_path="src/middleware/skelion_resilience.js",
                 patch_code=pr_patch,
                 branch_name="skelion/market-readiness-plan",
-                pr_title="🚀 [Skelion Agent] Market-Readiness Implementation Kit"
+                pr_title="🚀 [Skelion Agent] Market-Readiness Implementation Kit",
             )
-            current_org = db_sess.get(Organization, org.id) if (org and hasattr(org, 'id') and org.id) else org
+            current_org = (
+                db_sess.get(Organization, org.id)
+                if (org and hasattr(org, "id") and org.id)
+                else org
+            )
             pr_res = await create_autofix_pr(pr_req, current_org, db_sess)
-            
+
         pr_url = pr_res.get("pr_url") or "https://github.com/adity/helios/pull/1"
         pr_number = pr_res.get("pr_number") or 1
         branch = pr_res.get("branch") or "skelion/market-readiness-plan"
-        
+
         tool_call_data = {
             "name": "open_pr",
             "args": {
                 "pr_url": pr_url,
                 "pr_number": pr_number,
                 "branch": branch,
-                "target_path": "src/middleware/skelion_resilience.js"
-            }
+                "target_path": "src/middleware/skelion_resilience.js",
+            },
         }
-        
+
         return (
             f"### 🚀 Skelion Bot: Pull Request Created Successfully!\n\n"
             f"I have initialized the GitHub Bot, prepared the regression-tested branch, and opened the Pull Request:\n\n"
@@ -437,20 +483,42 @@ async def generate_smart_ai_response(
             f"- 🧪 **Replay Sandbox Status**: **100% Passed (1/1 requests replayed, 0 regressions, -4.8ms latency delta)**\n"
             f"- 🤖 **GitHub Bot Card**: Embedded with cryptographic proof and confidence score.\n\n"
             f"You can review the PR directly on GitHub using the link above!",
-            tool_call_data
+            tool_call_data,
         )
 
     # =========================================================================
     # 1. AUTONOMOUS PLAN EXECUTION: DIRECT FILE CREATION & MODIFICATION ON DISK
     # =========================================================================
-    is_execute_plan = any(k in p_lower for k in [
-        "proceed and implement", "execute it", "execute the plan", "execute plan",
-        "implement this plan", "implement the plan", "implement plan", "apply the plan",
-        "apply plan", "create files", "modify files", "create file", "modify file",
-        "apply all", "write files", "execute implementation plan", "execute this",
-        "proceed and implement this plan"
-    ]) or p_clean in [
-        "proceed", "execute", "apply", "do it", "implement it", "implement", "proceed and implement this plan"
+    is_execute_plan = any(
+        k in p_lower
+        for k in [
+            "proceed and implement",
+            "execute it",
+            "execute the plan",
+            "execute plan",
+            "implement this plan",
+            "implement the plan",
+            "implement plan",
+            "apply the plan",
+            "apply plan",
+            "create files",
+            "modify files",
+            "create file",
+            "modify file",
+            "apply all",
+            "write files",
+            "execute implementation plan",
+            "execute this",
+            "proceed and implement this plan",
+        ]
+    ) or p_clean in [
+        "proceed",
+        "execute",
+        "apply",
+        "do it",
+        "implement it",
+        "implement",
+        "proceed and implement this plan",
     ]
     if is_execute_plan:
         resilience_middleware_code = (
@@ -468,7 +536,7 @@ async def generate_smart_ai_response(
             "// Register as middleware in Express:\n"
             "// app.use(skelionFailOpen);\n"
         )
-        
+
         checkout_controller_code = (
             "// Skelion Autonomous Self-Healing Patch\n"
             "// Route: POST /api/v1/orders/checkout (HTTP 500 Null Pointer Boundary)\n"
@@ -484,7 +552,7 @@ async def generate_smart_ai_response(
             "  }\n"
             "}\n"
         )
-        
+
         github_workflow_code = (
             "name: Skelion Agent Bot & Replay Verification\n\n"
             "on:\n"
@@ -517,12 +585,12 @@ async def generate_smart_ai_response(
             "          echo '| HTTP Status | 500 Error | 200 OK (Buffered) | 🟢 Passed |' >> $GITHUB_STEP_SUMMARY\n"
             "          echo '| Regressions | 0 | 0 | 🟢 0 Regressions |' >> $GITHUB_STEP_SUMMARY\n"
         )
-        
+
         replay_test_code = (
             "# Automated Replay Sandbox Verification Test\n"
             "import pytest\n\n"
             "def test_skelion_fail_open_boundary():\n"
-            "    \"\"\"Verify that unhandled edge exceptions are intercepted and buffered fail-open with 0 regressions.\"\"\"\n"
+            '    """Verify that unhandled edge exceptions are intercepted and buffered fail-open with 0 regressions."""\n'
             "    simulated_payload = {'item_id': 'item_123', 'quantity': 1}\n"
             "    assert 'payment_method_id' not in simulated_payload\n\n"
             "    buffered_response = {\n"
@@ -533,7 +601,7 @@ async def generate_smart_ai_response(
             "    assert buffered_response['status'] == 'buffered_pending_payment'\n"
             "    assert buffered_response['incident_intercepted'] is True\n"
         )
-        
+
         docker_compose_code = (
             "version: '3.8'\n\n"
             "services:\n"
@@ -553,23 +621,33 @@ async def generate_smart_ai_response(
             "    depends_on:\n"
             "      - skelion-control-plane\n"
         )
-        
+
         # Physically materialize all 5 files to disk in the workspace
-        materialize_file_to_workspace("src/middleware/skelion_resilience.js", resilience_middleware_code)
-        materialize_file_to_workspace("src/controllers/checkout.js", checkout_controller_code)
-        materialize_file_to_workspace(".github/workflows/skelion-agent-bot.yml", github_workflow_code)
-        materialize_file_to_workspace("tests/test_resilience_boundary.py", replay_test_code)
-        materialize_file_to_workspace("deploy/docker-compose.prod.yml", docker_compose_code)
-        
+        materialize_file_to_workspace(
+            "src/middleware/skelion_resilience.js", resilience_middleware_code
+        )
+        materialize_file_to_workspace(
+            "src/controllers/checkout.js", checkout_controller_code
+        )
+        materialize_file_to_workspace(
+            ".github/workflows/skelion-agent-bot.yml", github_workflow_code
+        )
+        materialize_file_to_workspace(
+            "tests/test_resilience_boundary.py", replay_test_code
+        )
+        materialize_file_to_workspace(
+            "deploy/docker-compose.prod.yml", docker_compose_code
+        )
+
         primary_tool_call = {
             "name": "edit_file",
             "args": {
                 "path": "src/controllers/checkout.js",
                 "patch": checkout_controller_code,
-                "description": "Production fail-open error boundary with Replay Sandbox proof (PASS, 0 regressions)"
-            }
+                "description": "Production fail-open error boundary with Replay Sandbox proof (PASS, 0 regressions)",
+            },
         }
-        
+
         return (
             f"### ⚡ Skelion Autonomous Execution Complete!\n\n"
             f"Hello {user_name}! I have executed your implementation plan and **materialized all production files directly on disk** in your workspace:\n\n"
@@ -584,7 +662,7 @@ async def generate_smart_ai_response(
             f"- **Files Written**: All 5 files were physically created/updated in `{os.path.abspath(os.getcwd())}`.\n"
             f"- **Replay Verification**: Tested null-pointer edge scenario with 0 regressions.\n"
             f"- **Next Action**: You can view and edit the files directly in VS Code, or tell me **'Make PR'** to open an automated GitHub Pull Request right now!",
-            primary_tool_call
+            primary_tool_call,
         )
 
     # =========================================================================
@@ -620,15 +698,20 @@ async def generate_smart_ai_response(
         for hm in history_messages:
             g_role = "user" if hm["role"] == "user" else "model"
             gemini_contents.append({"role": g_role, "parts": [{"text": hm["content"]}]})
-        gemini_contents.append({
-            "role": "user",
-            "parts": [{"text": f"System Context: {sys_inst}\n\nUser Question: {prompt}"}]
-        })
+        gemini_contents.append(
+            {
+                "role": "user",
+                "parts": [
+                    {"text": f"System Context: {sys_inst}\n\nUser Question: {prompt}"}
+                ],
+            }
+        )
         gemini_models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
         for g_key in gemini_pool:
             for gm in gemini_models:
                 try:
                     import httpx
+
                     async with httpx.AsyncClient(timeout=15.0) as client:
                         url = f"https://generativelanguage.googleapis.com/v1beta/models/{gm}:generateContent?key={g_key}"
                         payload = {"contents": gemini_contents}
@@ -640,7 +723,17 @@ async def generate_smart_ai_response(
                             blocks = extract_file_blocks_from_text(text)
                             for b in blocks:
                                 materialize_file_to_workspace(b["path"], b["content"])
-                            tc = {"name": "edit_file", "args": {"path": blocks[0]["path"], "patch": blocks[0]["content"]}} if blocks else None
+                            tc = (
+                                {
+                                    "name": "edit_file",
+                                    "args": {
+                                        "path": blocks[0]["path"],
+                                        "patch": blocks[0]["content"],
+                                    },
+                                }
+                                if blocks
+                                else None
+                            )
                             return text, tc
                         continue
                 except Exception:
@@ -657,10 +750,16 @@ async def generate_smart_ai_response(
         groq_msgs.append({"role": "user", "content": prompt})
 
         # Working Groq models prioritizing requested model
-        working_models = ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
+        working_models = [
+            "openai/gpt-oss-120b",
+            "qwen/qwen3.8-27b",
+            "openai/gpt-oss-20b",
+        ]
         req_model_clean = model.strip() if model else ""
         if req_model_clean in working_models:
-            groq_candidate_models = [req_model_clean] + [m for m in working_models if m != req_model_clean]
+            groq_candidate_models = [req_model_clean] + [
+                m for m in working_models if m != req_model_clean
+            ]
         else:
             groq_candidate_models = working_models
 
@@ -668,6 +767,7 @@ async def generate_smart_ai_response(
             for g_model in groq_candidate_models:
                 try:
                     import httpx
+
                     async with httpx.AsyncClient(timeout=15.0) as client:
                         res = await client.post(
                             "https://api.groq.com/openai/v1/chat/completions",
@@ -688,12 +788,25 @@ async def generate_smart_ai_response(
                                 # Auto-materialize any generated file blocks
                                 blocks = extract_file_blocks_from_text(output_text)
                                 for b in blocks:
-                                    materialize_file_to_workspace(b["path"], b["content"])
+                                    materialize_file_to_workspace(
+                                        b["path"], b["content"]
+                                    )
                                 tool_calls = [
-                                    {"name": "edit_file", "args": {"path": b["path"], "patch": b["content"], "description": f"Materialized {b['path']} on disk"}}
+                                    {
+                                        "name": "edit_file",
+                                        "args": {
+                                            "path": b["path"],
+                                            "patch": b["content"],
+                                            "description": f"Materialized {b['path']} on disk",
+                                        },
+                                    }
                                     for b in blocks
                                 ]
-                                tc = tool_calls[0] if len(tool_calls) == 1 else (tool_calls if tool_calls else None)
+                                tc = (
+                                    tool_calls[0]
+                                    if len(tool_calls) == 1
+                                    else (tool_calls if tool_calls else None)
+                                )
                                 return output_text, tc
                         elif res.status_code in (404, 400):
                             continue
@@ -704,17 +817,32 @@ async def generate_smart_ai_response(
     # 3. BUILT-IN CONTEXTUAL REASONING ENGINE (OFFLINE FALLBACK)
     # =========================================================================
     # Context resolution for "try again" / "retry"
-    if p_clean in ["try again", "retry", "try it again", "please try again", "do it again"]:
+    if p_clean in [
+        "try again",
+        "retry",
+        "try it again",
+        "please try again",
+        "do it again",
+    ]:
         if last_user_msg:
             p_lower = last_user_msg.lower().strip()
-            p_clean = re.sub(r'[\?\!\.\,\s]+$', '', p_lower).strip()
+            p_clean = re.sub(r"[\?\!\.\,\s]+$", "", p_lower).strip()
             prompt = last_user_msg
 
     # Market Readiness Audit
-    if any(k in p_lower for k in [
-        "ready for market", "market ready", "market readiness", "ready to launch",
-        "launch ready", "production readiness", "ready for production", "go to market"
-    ]):
+    if any(
+        k in p_lower
+        for k in [
+            "ready for market",
+            "market ready",
+            "market readiness",
+            "ready to launch",
+            "launch ready",
+            "production readiness",
+            "ready for production",
+            "go to market",
+        ]
+    ):
         return (
             f"### 🛡️ Skelion & Helios: Market & Production Readiness Audit\n\n"
             f"Hello {user_name}! Here is the direct **Go / No-Go Engineering Assessment** for launching Helios / Skelion into production and developer pilots:\n\n"
@@ -732,15 +860,28 @@ async def generate_smart_ai_response(
             f"2. **Open GitHub PR**: Tell me **'Make PR'** to trigger autonomous PR creation.\n"
             f"3. **Developer Pilot (Now)**: Distribute `skelion-vscode-0.1.0.vsix` to your first 10 beta teams.\n\n"
             f"**Conclusion**: The core engine is **rock-solid and ready for market pilots** today!",
-            None
+            None,
         )
 
     # Project Audit / Review
-    if any(k in p_lower for k in [
-        "review my project", "review this project", "review the project", "review project",
-        "think about this project", "about this project", "what is skelion", "thoughts on this",
-        "project feedback", "audit", "opinion on project", "analyze my project", "analyze project"
-    ]):
+    if any(
+        k in p_lower
+        for k in [
+            "review my project",
+            "review this project",
+            "review the project",
+            "review project",
+            "think about this project",
+            "about this project",
+            "what is skelion",
+            "thoughts on this",
+            "project feedback",
+            "audit",
+            "opinion on project",
+            "analyze my project",
+            "analyze project",
+        ]
+    ):
         return (
             f"### 🚀 Skelion Architectural & Codebase Audit\n\n"
             f"Hello {user_name}! Here is my direct, holistic review of your **Helios / Skelion** codebase:\n\n"
@@ -757,14 +898,30 @@ async def generate_smart_ai_response(
             f"- Tell me **'Proceed and implement this plan'** to generate production resilience middlewares.\n"
             f"- Tell me **'Make PR'** to push an autonomous PR to GitHub.\n\n"
             f"What would you like to execute next?",
-            None
+            None,
         )
 
     # Greetings & Casual Hello
     is_greeting = (
-        bool(re.search(r'^(hi+|hey+|hello+|yo|sup|bro|namaste|good\s*(morning|evening|afternoon)|howdy)\b', p_clean))
+        bool(
+            re.search(
+                r"^(hi+|hey+|hello+|yo|sup|bro|namaste|good\s*(morning|evening|afternoon)|howdy)\b",
+                p_clean,
+            )
+        )
         and len(p_clean.split()) <= 4
-    ) or p_clean in ["hi", "hii", "hiii", "hey", "heyy", "hello", "bro", "yo", "sup", "namaste"]
+    ) or p_clean in [
+        "hi",
+        "hii",
+        "hiii",
+        "hey",
+        "heyy",
+        "hello",
+        "bro",
+        "yo",
+        "sup",
+        "namaste",
+    ]
 
     if is_greeting:
         return (
@@ -776,19 +933,19 @@ async def generate_smart_ai_response(
             f"- 🛡️ **Market Readiness**: Ask *'Is it market ready?'* for a full production audit.\n"
             f"- 💻 **Code & Fixes**: Ask me to write or modify any file in your project!\n\n"
             f"What would you like to work on today, {user_name}?",
-            None
+            None,
         )
 
     # Default Open-ended Handler
     return (
         f"Hey {user_name}! I'm listening.\n\n"
-        f"Regarding: *\"{prompt}\"\n\n"
+        f'Regarding: *"{prompt}"\n\n'
         f"I can take direct action for you in this workspace:\n"
         f"- ⚡ **Implement & Create Files**: Tell me *'Proceed and implement this plan'* to materialize the resilience files on disk.\n"
         f"- 🚀 **Create GitHub PR**: Tell me *'Make PR'* to open a Pull Request with replay sandbox verification.\n"
         f"- 🔍 **Audit & Review**: Ask *'Review my project'* or *'Is it ready for market?'*\n\n"
         f"How would you like me to proceed?",
-        None
+        None,
     )
 
 
@@ -842,10 +999,14 @@ async def chat_stream(
             full_conv_history.append({"role": pr.role, "content": pr.content})
     elif req.messages and len(req.messages) > 1:
         for m in req.messages[:-1]:
-            full_conv_history.append({
-                "role": m.role if hasattr(m, "role") else m.get("role", "user"),
-                "content": m.content if hasattr(m, "content") else m.get("content", "")
-            })
+            full_conv_history.append(
+                {
+                    "role": m.role if hasattr(m, "role") else m.get("role", "user"),
+                    "content": m.content
+                    if hasattr(m, "content")
+                    else m.get("content", ""),
+                }
+            )
 
     async def event_generator():
         yield f"event: start\ndata: {json.dumps({'conversation_id': conv_id, 'model': req.model})}\n\n"
@@ -862,15 +1023,25 @@ async def chat_stream(
             prompt=last_user_msg,
             org=org,
             model=req.model,
-            conv_history=full_conv_history
+            conv_history=full_conv_history,
         )
 
         if tool_call_data:
-            tool_list = tool_call_data if isinstance(tool_call_data, list) else [tool_call_data]
+            tool_list = (
+                tool_call_data if isinstance(tool_call_data, list) else [tool_call_data]
+            )
             for tc in tool_list:
                 action_name = tc.get("name", "action")
-                patch_target = tc.get("args", {}).get("path") or tc.get("args", {}).get("pr_url") or "workspace"
-                title = f"Materialized & verified on disk: {patch_target}" if action_name in ["edit_file", "create_file"] else f"Opened Pull Request: {patch_target}"
+                patch_target = (
+                    tc.get("args", {}).get("path")
+                    or tc.get("args", {}).get("pr_url")
+                    or "workspace"
+                )
+                title = (
+                    f"Materialized & verified on disk: {patch_target}"
+                    if action_name in ["edit_file", "create_file"]
+                    else f"Opened Pull Request: {patch_target}"
+                )
                 step_payload = {"title": title, "status": "done"}
                 yield f"event: step\ndata: {json.dumps(step_payload)}\n\n"
                 yield f"event: tool_call\ndata: {json.dumps(tc)}\n\n"

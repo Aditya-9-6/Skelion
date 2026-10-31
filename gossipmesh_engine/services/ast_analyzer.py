@@ -65,7 +65,13 @@ class AstAnalyzer:
             for child in node.children:
                 if child.type == "identifier":
                     # start_point is (row, column). 0-indexed, so row+1 is line number
-                    funcs.append((child.text.decode("utf8"), node.start_point[0] + 1, node.end_point[0] + 1))
+                    funcs.append(
+                        (
+                            child.text.decode("utf8"),
+                            node.start_point[0] + 1,
+                            node.end_point[0] + 1,
+                        )
+                    )
         for child in node.children:
             funcs.extend(self._find_rust_function_declarations(child))
         return funcs
@@ -79,11 +85,15 @@ class AstAnalyzer:
                 elif child.type == "field_expression":
                     for c in child.children:
                         if c.type == "field_identifier":
-                            calls.append((c.text.decode("utf8"), node.start_point[0] + 1))
+                            calls.append(
+                                (c.text.decode("utf8"), node.start_point[0] + 1)
+                            )
                 elif child.type == "scoped_identifier":
                     for c in child.children:
                         if c.type == "identifier":
-                            calls.append((c.text.decode("utf8"), node.start_point[0] + 1))
+                            calls.append(
+                                (c.text.decode("utf8"), node.start_point[0] + 1)
+                            )
         for child in node.children:
             calls.extend(self._find_rust_function_calls(child))
         return calls
@@ -95,14 +105,30 @@ class AstAnalyzer:
                 if child.type == "function_declarator":
                     for c in child.children:
                         if c.type == "identifier":
-                            funcs.append((c.text.decode("utf8"), node.start_point[0] + 1, node.end_point[0] + 1))
+                            funcs.append(
+                                (
+                                    c.text.decode("utf8"),
+                                    node.start_point[0] + 1,
+                                    node.end_point[0] + 1,
+                                )
+                            )
                         elif c.type == "field_identifier":
-                            funcs.append((c.text.decode("utf8"), node.start_point[0] + 1, node.end_point[0] + 1))
+                            funcs.append(
+                                (
+                                    c.text.decode("utf8"),
+                                    node.start_point[0] + 1,
+                                    node.end_point[0] + 1,
+                                )
+                            )
                         elif c.type == "scoped_identifier":
                             for sc in c.children:
                                 if sc.type == "identifier":
                                     funcs.append(
-                                        (sc.text.decode("utf8"), node.start_point[0] + 1, node.end_point[0] + 1)
+                                        (
+                                            sc.text.decode("utf8"),
+                                            node.start_point[0] + 1,
+                                            node.end_point[0] + 1,
+                                        )
                                     )
         for child in node.children:
             funcs.extend(self._find_cpp_function_declarations(child))
@@ -117,11 +143,15 @@ class AstAnalyzer:
                 elif child.type == "field_expression":
                     for c in child.children:
                         if c.type == "field_identifier":
-                            calls.append((c.text.decode("utf8"), node.start_point[0] + 1))
+                            calls.append(
+                                (c.text.decode("utf8"), node.start_point[0] + 1)
+                            )
                 elif child.type == "scoped_identifier":
                     for c in child.children:
                         if c.type == "identifier":
-                            calls.append((c.text.decode("utf8"), node.start_point[0] + 1))
+                            calls.append(
+                                (c.text.decode("utf8"), node.start_point[0] + 1)
+                            )
         for child in node.children:
             calls.extend(self._find_cpp_function_calls(child))
         return calls
@@ -156,7 +186,9 @@ class AstAnalyzer:
             if rel_file_path.endswith(".rs"):
                 tree = rust_parser.parse(code)
                 decls = self._find_rust_function_declarations(tree.root_node)
-            elif any(rel_file_path.endswith(ext) for ext in [".cpp", ".cc", ".hpp", ".h"]):
+            elif any(
+                rel_file_path.endswith(ext) for ext in [".cpp", ".cc", ".hpp", ".h"]
+            ):
                 tree = cpp_parser.parse(code)
                 decls = self._find_cpp_function_declarations(tree.root_node)
             else:
@@ -164,10 +196,16 @@ class AstAnalyzer:
 
             for func_name, start_line, end_line in decls:
                 # Check if any changed lines fall within this function
-                matching_lines = [line for line in changed_lines if start_line <= line <= end_line]
+                matching_lines = [
+                    line for line in changed_lines if start_line <= line <= end_line
+                ]
                 if matching_lines:
                     modified_functions.append(
-                        {"file": rel_file_path, "name": func_name, "changed_lines": matching_lines}
+                        {
+                            "file": rel_file_path,
+                            "name": func_name,
+                            "changed_lines": matching_lines,
+                        }
                     )
 
         # Step 2: Find all downstream dependencies (function calls) in the whole repo
@@ -188,7 +226,9 @@ class AstAnalyzer:
 
                 for called_func, line_num in calls:
                     if called_func in dependencies:
-                        dependencies[called_func].append({"file": rel_path, "line": line_num})
+                        dependencies[called_func].append(
+                            {"file": rel_path, "line": line_num}
+                        )
             except Exception as e:
                 logger.error(f"Failed to parse {file_path}: {e}")
 
@@ -202,7 +242,9 @@ class AstAnalyzer:
 
                 for called_func, line_num in calls:
                     if called_func in dependencies:
-                        dependencies[called_func].append({"file": rel_path, "line": line_num})
+                        dependencies[called_func].append(
+                            {"file": rel_path, "line": line_num}
+                        )
             except Exception as e:
                 logger.error(f"Failed to parse {file_path}: {e}")
 

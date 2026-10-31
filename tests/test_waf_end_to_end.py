@@ -31,7 +31,6 @@ def send_http(path, method="GET", body=None, headers=None):
 
 
 class TestSpryzenWAFIntegration(unittest.TestCase):
-
     def setUp(self):
         # Warmup and ensure server is reachable
         for _ in range(5):
@@ -39,7 +38,9 @@ class TestSpryzenWAFIntegration(unittest.TestCase):
             if status == 200:
                 break
             time.sleep(0.5)
-        self.assertEqual(status, 200, "Skelion Control Plane must be reachable on port 8003")
+        self.assertEqual(
+            status, 200, "Skelion Control Plane must be reachable on port 8003"
+        )
 
     def test_01_tartarus_honeypot_deception(self):
         """Verify Project Tartarus intercepts scanner probes with realistic fake payloads."""
@@ -71,7 +72,11 @@ class TestSpryzenWAFIntegration(unittest.TestCase):
 
     def test_04_xss_in_body_blocking(self):
         """Verify Cross-Site Scripting (XSS) in request bodies is blocked with 403."""
-        status, body, _ = send_http("/v1/waf/test-payload", method="POST", body={"payload": "<script>alert('xss')</script>"})
+        status, body, _ = send_http(
+            "/v1/waf/test-payload",
+            method="POST",
+            body={"payload": "<script>alert('xss')</script>"},
+        )
         self.assertEqual(status, 403)
         data = json.loads(body)
         self.assertEqual(data.get("threat", {}).get("type"), "XSS_ATTACK")
@@ -128,7 +133,9 @@ class TestSpryzenWAFIntegration(unittest.TestCase):
     def test_11_incident_feed_isolation(self):
         """Verify WAF cyberattacks do NOT pollute the developer application incident feed."""
         # Query incidents using dev token
-        status, body, _ = send_http("/v1/incidents", headers={"Authorization": "Bearer dev"})
+        status, body, _ = send_http(
+            "/v1/incidents", headers={"Authorization": "Bearer dev"}
+        )
         self.assertEqual(status, 200)
         inc_data = json.loads(body)
         incidents = inc_data.get("incidents", [])

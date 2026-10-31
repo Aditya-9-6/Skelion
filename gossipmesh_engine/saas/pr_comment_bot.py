@@ -5,11 +5,10 @@ This is a minimal stub – you can extend the logic as needed.
 """
 
 from fastapi import APIRouter, Request, HTTPException
-import json
 import subprocess
-import os
 
 router = APIRouter()
+
 
 @router.post("/pull_request")
 async def handle_pull_request(request: Request):
@@ -19,7 +18,7 @@ async def handle_pull_request(request: Request):
     """
     try:
         payload = await request.json()
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
     # Only act on opened or reopened PRs

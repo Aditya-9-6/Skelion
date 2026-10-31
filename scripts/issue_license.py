@@ -17,13 +17,32 @@ from license.verifier import verify_license_offline
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Skelion Enterprise Offline License Generator")
+    parser = argparse.ArgumentParser(
+        description="Skelion Enterprise Offline License Generator"
+    )
     parser.add_argument("--org", default="org_enterprise_01", help="Organization ID")
-    parser.add_argument("--customer", default="Aditya Enterprise Labs", help="Customer Organization Name")
-    parser.add_argument("--email", default="admin@aditya-enterprise.io", help="Customer Admin Email")
-    parser.add_argument("--plan", default="local_team", choices=["local_solo", "local_team", "local_enterprise"], help="Airgap Plan Tier")
-    parser.add_argument("--days", type=int, default=365, help="License validity duration in days")
-    parser.add_argument("--output", default="skelion.license", help="Destination path for signed license file")
+    parser.add_argument(
+        "--customer",
+        default="Aditya Enterprise Labs",
+        help="Customer Organization Name",
+    )
+    parser.add_argument(
+        "--email", default="admin@aditya-enterprise.io", help="Customer Admin Email"
+    )
+    parser.add_argument(
+        "--plan",
+        default="local_team",
+        choices=["local_solo", "local_team", "local_enterprise"],
+        help="Airgap Plan Tier",
+    )
+    parser.add_argument(
+        "--days", type=int, default=365, help="License validity duration in days"
+    )
+    parser.add_argument(
+        "--output",
+        default="skelion.license",
+        help="Destination path for signed license file",
+    )
 
     args = parser.parse_args()
 
@@ -48,14 +67,24 @@ def main():
     print("🔒 SKELION ENTERPRISE OFFLINE LICENSE ISSUED & VERIFIED")
     print("=" * 70)
     print(f"• License ID   : {signed_license['payload']['license_id']}")
-    print(f"• Customer     : {signed_license['payload']['customer']['name']} ({signed_license['payload']['customer']['email']})")
-    print(f"• Plan Tier    : {signed_license['payload']['plan'].upper()} (100% Airgap / Zero Egress)")
-    print(f"• Valid Until  : {signed_license['payload']['expires_at'][:10]} ({args.days} days)")
+    print(
+        f"• Customer     : {signed_license['payload']['customer']['name']} ({signed_license['payload']['customer']['email']})"
+    )
+    print(
+        f"• Plan Tier    : {signed_license['payload']['plan'].upper()} (100% Airgap / Zero Egress)"
+    )
+    print(
+        f"• Valid Until  : {signed_license['payload']['expires_at'][:10]} ({args.days} days)"
+    )
     print(f"• Key ID (KID) : {signed_license['kid']}")
-    print(f"• Signature    : {signed_license['signature'][:32]}... [Ed25519 Cryptographic Proof]")
+    print(
+        f"• Signature    : {signed_license['signature'][:32]}... [Ed25519 Cryptographic Proof]"
+    )
     print("-" * 70)
     print("🧪 Offline Airgap Verification Check:")
-    print(f"• Status       : {'✅ ' + verification['status'].upper() if verification['valid'] else '❌ DEGRADED'}")
+    print(
+        f"• Status       : {'✅ ' + verification['status'].upper() if verification['valid'] else '❌ DEGRADED'}"
+    )
     print(f"• Features     : {', '.join(verification.get('features', []))}")
     print(f"• License File : Saved to '{args.output}'")
     print("=" * 70 + "\n")

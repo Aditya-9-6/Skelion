@@ -4,11 +4,11 @@ import os
 import sys
 import json
 import httpx
-from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 BASE_URL = "http://127.0.0.1:8003"
+
 
 def run_saas_final_audit():
     print("=" * 70)
@@ -38,7 +38,7 @@ def run_saas_final_audit():
     key_payload = {
         "name": "Production E2E Key",
         "environment": "live",
-        "scopes": ["ingest", "read"]
+        "scopes": ["ingest", "read"],
     }
     r_key = client.post("/v1/keys", json=key_payload, headers=admin_auth)
     assert r_key.status_code == 200, f"Key creation failed: {r_key.text}"
@@ -57,10 +57,14 @@ def run_saas_final_audit():
     active_keys = r_list_keys.json()
     found = any(k["id"] == key_id for k in active_keys)
     assert found, "Created key not found in key list"
-    print(f"  [PASS] Found key in active organization key list (total active: {len(active_keys)})")
+    print(
+        f"  [PASS] Found key in active organization key list (total active: {len(active_keys)})"
+    )
 
     # 3. Telemetry Ingress with Live API Key & Zero-PII Redaction
-    print("\n[TEST 3] Telemetry Ingress (POST /v1/ingest/incident) with Zero-PII scrubbing...")
+    print(
+        "\n[TEST 3] Telemetry Ingress (POST /v1/ingest/incident) with Zero-PII scrubbing..."
+    )
     test_incident = {
         "service_name": "billing-service",
         "environment": "production",
@@ -71,66 +75,92 @@ def run_saas_final_audit():
         "captured_headers": {
             "Authorization": "Bearer sk_test_secret_stripe_api_key_12345",
             "Cookie": "sessionid=secret_cookie_session_9999",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         },
-        "captured_payload": json.dumps({
-            "card_number": "4111-2222-3333-4444",
-            "email": "customer@company.com"
-        }),
-        "latency_ms": 142.5
+        "captured_payload": json.dumps(
+            {"card_number": "4111-2222-3333-4444", "email": "customer@company.com"}
+        ),
+        "latency_ms": 142.5,
     }
 
     # Verify unauthenticated request without token fails with 401
     r_unauth = client.post("/v1/ingest/incident", json=test_incident)
-    assert r_unauth.status_code == 401, f"Expected 401 for missing key, got {r_unauth.status_code}"
+    assert (
+        r_unauth.status_code == 401
+    ), f"Expected 401 for missing key, got {r_unauth.status_code}"
     print(f"  [PASS] Unauthenticated ingress rejected with HTTP {r_unauth.status_code}")
 
     # Verify invalid key fails with 401
-    r_invalid = client.post("/v1/ingest/incident", json=test_incident, headers={"Authorization": "Bearer skl_live_invalidkey12345"})
-    assert r_invalid.status_code == 401, f"Expected 401 for invalid key, got {r_invalid.status_code}"
+    r_invalid = client.post(
+        "/v1/ingest/incident",
+        json=test_incident,
+        headers={"Authorization": "Bearer skl_live_invalidkey12345"},
+    )
+    assert (
+        r_invalid.status_code == 401
+    ), f"Expected 401 for invalid key, got {r_invalid.status_code}"
     print(f"  [PASS] Invalid API key rejected with HTTP {r_invalid.status_code}")
 
     # Authenticated ingress with our new API key
     auth_headers = {
         "Authorization": f"Bearer {raw_api_key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
-    r_ingest = client.post("/v1/ingest/incident", json=test_incident, headers=auth_headers)
+    r_ingest = client.post(
+        "/v1/ingest/incident", json=test_incident, headers=auth_headers
+    )
     assert r_ingest.status_code == 200, f"Ingress failed: {r_ingest.text}"
     ingest_res = r_ingest.json()
     assert ingest_res["status"] in ("incident_created", "occurrence_incremented")
     inc_id = ingest_res["incident_id"]
     fingerprint = ingest_res["fingerprint"]
-    print(f"  [PASS] Telemetry ingested successfully! Incident ID: {inc_id}, Fingerprint: {fingerprint}")
+    print(
+        f"  [PASS] Telemetry ingested successfully! Incident ID: {inc_id}, Fingerprint: {fingerprint}"
+    )
 
     # 4. Incident Deduplication & Occurrence Counter
     print("\n[TEST 4] Incident Deduplication & Frequency Tracking...")
-    r_ingest_dup = client.post("/v1/ingest/incident", json=test_incident, headers=auth_headers)
+    r_ingest_dup = client.post(
+        "/v1/ingest/incident", json=test_incident, headers=auth_headers
+    )
     assert r_ingest_dup.status_code == 200
     dup_res = r_ingest_dup.json()
-    assert dup_res["fingerprint"] == fingerprint, "Fingerprint changed on identical incident"
-    assert dup_res["status"] == "occurrence_incremented", "Expected status occurrence_incremented"
-    print(f"  [PASS] Deduplication verified: Incident {dup_res['incident_id']} incremented seamlessly")
+    assert (
+        dup_res["fingerprint"] == fingerprint
+    ), "Fingerprint changed on identical incident"
+    assert (
+        dup_res["status"] == "occurrence_incremented"
+    ), "Expected status occurrence_incremented"
+    print(
+        f"  [PASS] Deduplication verified: Incident {dup_res['incident_id']} incremented seamlessly"
+    )
 
     # 5. Zero-PII Verification in Database
     print("\n[TEST 5] Zero-PII Scrubbing Verification...")
     from skelion_agent.database import engine
     from skelion_agent.models import Incident
     from sqlmodel import Session
+
     with Session(engine) as session:
         stored_inc = session.get(Incident, inc_id)
         assert stored_inc is not None, "Ingested incident not found in database"
         headers_str = str(stored_inc.captured_headers or {})
-        assert "sk_test_secret" not in headers_str, "Raw Stripe API key leaked in headers!"
-        assert "[REDACTED]" in headers_str, "Authorization header not redacted with [REDACTED]"
-        print("  [PASS] Verification confirmed: Raw tokens and PII scrubbed before persistence!")
+        assert (
+            "sk_test_secret" not in headers_str
+        ), "Raw Stripe API key leaked in headers!"
+        assert (
+            "[REDACTED]" in headers_str
+        ), "Authorization header not redacted with [REDACTED]"
+        print(
+            "  [PASS] Verification confirmed: Raw tokens and PII scrubbed before persistence!"
+        )
 
     # 6. Webhook Subscriptions & Alerting
     print("\n[TEST 6] Webhook Subscriptions Management...")
     wh_payload = {
         "url": "https://example.com/mock-webhook-endpoint",
         "description": "Ops Alert Endpoint",
-        "events": ["incident.created", "incident.deduplicated"]
+        "events": ["incident.created", "incident.deduplicated"],
     }
     r_wh = client.post("/v1/webhooks", json=wh_payload, headers=admin_auth)
     assert r_wh.status_code == 200, f"Webhook creation failed: {r_wh.text}"
@@ -170,9 +200,13 @@ def run_saas_final_audit():
 
     sdk_client = TestClient(test_app, raise_server_exceptions=False)
     resp = sdk_client.get("/crash")
-    assert resp.status_code == 200, f"SDK should fail-open with 200 buffered, got {resp.status_code}"
+    assert (
+        resp.status_code == 200
+    ), f"SDK should fail-open with 200 buffered, got {resp.status_code}"
     assert resp.json().get("status") == "fail_open_buffered"
-    print("  [PASS] Python SDK fail-open boundary successfully intercepted crash and returned buffered 200!")
+    print(
+        "  [PASS] Python SDK fail-open boundary successfully intercepted crash and returned buffered 200!"
+    )
 
     # Test 7B: fail_open = False (re-raises 500)
     strict_app = FastAPI()
@@ -189,8 +223,12 @@ def run_saas_final_audit():
 
     strict_client = TestClient(strict_app, raise_server_exceptions=False)
     resp_strict = strict_client.get("/crash_strict")
-    assert resp_strict.status_code == 500, f"Expected 500 in strict mode, got {resp_strict.status_code}"
-    print("  [PASS] Python SDK strict mode correctly propagated 500 while shipping telemetry!")
+    assert (
+        resp_strict.status_code == 500
+    ), f"Expected 500 in strict mode, got {resp_strict.status_code}"
+    print(
+        "  [PASS] Python SDK strict mode correctly propagated 500 while shipping telemetry!"
+    )
 
     # 8. Node.js SDK Contract Audit
     print("\n[TEST 8] Node.js SDK Packaging & Contract Audit...")
@@ -212,6 +250,7 @@ def run_saas_final_audit():
     print("\n" + "=" * 70)
     print("ALL 9 SAAS PLATFORM TEST SUITES PASSED WITH ZERO REGRESSIONS!")
     print("=" * 70)
+
 
 if __name__ == "__main__":
     run_saas_final_audit()

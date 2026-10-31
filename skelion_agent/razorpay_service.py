@@ -1,5 +1,6 @@
 import os
 import uuid
+
 try:
     import razorpay
 except ImportError:  # pragma: no cover
@@ -15,7 +16,9 @@ RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET")
 if not all([RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET]):
     RAZORPAY_KEY_ID = RAZORPAY_KEY_ID or "rzp_test_placeholder_key"
     RAZORPAY_KEY_SECRET = RAZORPAY_KEY_SECRET or "rzp_secret_placeholder"
-    RAZORPAY_WEBHOOK_SECRET = RAZORPAY_WEBHOOK_SECRET or "rzp_webhook_secret_placeholder"
+    RAZORPAY_WEBHOOK_SECRET = (
+        RAZORPAY_WEBHOOK_SECRET or "rzp_webhook_secret_placeholder"
+    )
 
 if razorpay and not RAZORPAY_KEY_ID.startswith("rzp_test_placeholder"):
     client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
@@ -23,22 +26,28 @@ else:
     client = None
 
 
-def create_order(amount: int, currency: str = "INR", receipt: str = "order_rcptid_11") -> Dict:
+def create_order(
+    amount: int, currency: str = "INR", receipt: str = "order_rcptid_11"
+) -> Dict:
     """Create a Razorpay order.
     amount: amount in paise (e.g., ₹3999 => 399900)
     If live/test keys are not connected or in sandbox test mode, provides a standard mock order.
     """
     if client:
         try:
-            order = client.order.create({
-                "amount": amount,
-                "currency": currency,
-                "receipt": receipt,
-                "payment_capture": 1,
-            })
+            order = client.order.create(
+                {
+                    "amount": amount,
+                    "currency": currency,
+                    "receipt": receipt,
+                    "payment_capture": 1,
+                }
+            )
             return order
         except Exception as exc:
-            raise HTTPException(status_code=502, detail="Failed to create Razorpay order") from exc
+            raise HTTPException(
+                status_code=502, detail="Failed to create Razorpay order"
+            ) from exc
     else:
         # Development / Sandbox Mode Order Generation
         return {

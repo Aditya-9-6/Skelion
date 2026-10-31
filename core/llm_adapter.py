@@ -5,7 +5,7 @@ import json
 import os
 import urllib.request
 import urllib.error
-from typing import Dict, Any, List, Optional, Generator
+from typing import Dict, Any, List, Optional
 
 
 class LLMConfig:
@@ -34,7 +34,9 @@ class LLMConfig:
         """Resolve API key strictly from local environment or secret file.
         Never stored in databases, never transmitted to Skelion cloud.
         """
-        return os.getenv(self.api_key_env, os.getenv("OPENAI_API_KEY", "dummy-local-key"))
+        return os.getenv(
+            self.api_key_env, os.getenv("OPENAI_API_KEY", "dummy-local-key")
+        )
 
 
 class LLMAdapter:

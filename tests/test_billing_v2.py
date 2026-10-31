@@ -1,11 +1,10 @@
 # tests/test_billing_v2.py — Acceptance Tests for Billing v2 & Append-Only Credit Ledger
 
 import pytest
-import uuid
 from datetime import datetime, timedelta, timezone
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine
 
-from skelion_agent.models import Organization, PaymentOrder, CreditLedger, WebhookEvent
+from skelion_agent.models import Organization
 from skelion_agent.credit_ledger import (
     record_ledger_entry,
     get_ledger_balances,
@@ -73,7 +72,7 @@ def test_pack_purchase_leaves_monthly_allowance_intact(test_db):
 
     # Grant 1,000 monthly allowance
     activate_plan_period(test_db, org_id=org_id, plan_id="starter", period="monthly")
-    
+
     # Customer uses 200 monthly tokens
     record_ledger_entry(
         session=test_db,
@@ -88,11 +87,17 @@ def test_pack_purchase_leaves_monthly_allowance_intact(test_db):
     assert bal1["allowance"] == 600  # 800 - 200 (Developer / Starter tier)
 
     # Customer buys a pack of 500 top-up tokens
-    activate_token_pack(test_db, org_id=org_id, token_type="topup_coding", tokens=500, payment_id="pay_test_pack")
+    activate_token_pack(
+        test_db,
+        org_id=org_id,
+        token_type="topup_coding",
+        tokens=500,
+        payment_id="pay_test_pack",
+    )
 
     bal2 = get_ledger_balances(test_db, org_id)
     assert bal2["allowance"] == 600  # Monthly allowance usage untouched!
-    assert bal2["pack"] == 500        # Dedicated unthrottled pack pool
+    assert bal2["pack"] == 500  # Dedicated unthrottled pack pool
     assert bal2["total_coding"] == 1100
 
 
@@ -105,8 +110,14 @@ def test_plan_renewal_extends_period(test_db):
     first_end = org.plan_period_end
 
     # Renew plan before expiry
-    org_renewed = activate_plan_period(test_db, org_id=org_id, plan_id="pro", period="monthly", payment_id="pay_renew_01")
-    
+    org_renewed = activate_plan_period(
+        test_db,
+        org_id=org_id,
+        plan_id="pro",
+        period="monthly",
+        payment_id="pay_renew_01",
+    )
+
     # Expiry must extend by 30 days from the previous period end
     expected_end = first_end + timedelta(days=30)
     assert abs((org_renewed.plan_period_end - expected_end).total_seconds()) < 5
