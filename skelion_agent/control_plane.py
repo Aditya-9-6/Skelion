@@ -25,11 +25,24 @@ from skelion_agent.auth_routes import router as auth_router
 from skelion_agent.chat_routes import router as chat_router
 from skelion_agent.admin_dashboard import router as admin_dashboard_router
 from skelion_agent.license_routes import router as license_router
+from skelion_agent.ingest_routes import router as ingest_router
+from skelion_agent.customer_portal import router as customer_portal_router
+from skelion_agent.public_web import router as public_web_router
 
 # Global redis client placeholder (will be set on startup)
 redis_client = None
 
-app = FastAPI(title="Devproxy SaaS Control Plane", version="1.0.0")
+app = FastAPI(title="Skelion SaaS Control Plane", version="2.0.0")
+
+@app.get("/health", tags=["System"])
+@app.get("/v1/health", tags=["System"])
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "skelion-control-plane",
+        "version": "2.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 # Enable CORS for webviews and external pilot frontends
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,7 +55,10 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(public_web_router)
 app.include_router(auth_router)
+app.include_router(ingest_router)
+app.include_router(customer_portal_router)
 app.include_router(metrics_router)
 app.include_router(pr_comment_bot_router)
 app.include_router(admin_router)

@@ -1,0 +1,54 @@
+# skelion
+
+> Official Drop-in Fail-Open Resilience & Telemetry Middleware for FastAPI, Starlette, and ASGI
+
+Intercepts unhandled edge crashes fail-open, scrubs PII, and streams sanitized telemetry to **Skelion SaaS** for autonomous AST patch generation and replay verification.
+
+## Installation
+
+```bash
+pip install skelion
+```
+
+## Quickstart
+
+Add 2 lines to your FastAPI / ASGI application:
+
+```python
+from fastapi import FastAPI
+from skelion import SkelionMiddleware
+
+app = FastAPI()
+
+# Mount Skelion Resilience Middleware
+app.add_middleware(
+    SkelionMiddleware,
+    api_key="skl_live_...", # Or pass via SKELION_API_KEY env var
+    fail_open=True          # Returns buffered 200 OK so users never see 500 downtime
+)
+
+@app.get("/api/checkout")
+def checkout():
+    # If an unexpected crash occurs:
+    raise RuntimeError("Payment gateway network partition")
+```
+
+## Features
+
+- **Guaranteed Fail-Open:** Never crashes or blocks user traffic. Buffers failed requests with synthetic fallbacks.
+- **Zero-PII Scrubbing:** Authorization headers, cookies, passwords, and credit card patterns are masked client-side before dispatch.
+- **Deterministic Error Fingerprinting:** Crash groups are deduplicated automatically in the Skelion dashboard.
+- **Autonomous Patch Synthesis:** Integrates with Skelion GitHub bot to open 0-regression pull requests for verified fixes.
+
+## Configuration Options
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `api_key` | `str` | `os.getenv("SKELION_API_KEY")` | Scoped API key (`skl_live_...`) |
+| `endpoint` | `str` | `http://127.0.0.1:8003` | Skelion SaaS Ingress URL |
+| `fail_open` | `bool` | `True` | Return buffered 200 instead of unhandled 500 |
+| `debug` | `bool` | `False` | Enable console telemetry logging |
+
+## License
+
+Apache-2.0

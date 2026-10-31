@@ -1,5 +1,8 @@
 import os
-import jwt
+try:
+    import jwt
+except ImportError:
+    from jose import jwt
 import time
 import requests
 

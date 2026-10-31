@@ -1,0 +1,24 @@
+# deploy/Caddyfile — Automated Let's Encrypt TLS Reverse Proxy
+{
+    admin off
+}
+
+{$DOMAIN:api.skelion.dev} {
+    encode gzip zstd
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Proxy to FastAPI Control Plane
+    reverse_proxy skelion-control-plane:8003 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

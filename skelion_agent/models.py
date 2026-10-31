@@ -308,3 +308,52 @@ class AuditLog(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+# ---------------------------------------------------------------------------
+# SaaS Multi-Tenant Team & Ingress Telemetry Models
+# ---------------------------------------------------------------------------
+
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+    id: str = Field(default_factory=lambda: f"usr_{uuid.uuid4().hex[:12]}", primary_key=True)
+    email: str = Field(unique=True, index=True)
+    password_hash: Optional[str] = Field(default=None)
+    full_name: Optional[str] = Field(default=None)
+    avatar_url: Optional[str] = Field(default=None)
+    is_verified: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class Membership(SQLModel, table=True):
+    __tablename__ = "memberships"
+    id: str = Field(default_factory=lambda: f"mem_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", index=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    role: str = Field(default="developer", index=True)  # owner, admin, developer, viewer
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ApiKey(SQLModel, table=True):
+    __tablename__ = "api_keys"
+    id: str = Field(default_factory=lambda: f"key_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", index=True)
+    name: str = Field(default="Default Secret Key")
+    key_prefix: str = Field(default="skl_live_", index=True)
+    key_hash: str = Field(unique=True, index=True)
+    scopes: str = Field(default="ingest,read")
+    is_active: bool = Field(default=True, index=True)
+    last_used_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class WebhookSubscription(SQLModel, table=True):
+    __tablename__ = "webhook_subscriptions"
+    id: str = Field(default_factory=lambda: f"whs_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", index=True)
+    url: str
+    secret: str = Field(default_factory=lambda: f"whsec_{uuid.uuid4().hex}")
+    events_json: str = Field(default='["incident.created","fix.verified"]')
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+

@@ -62,14 +62,34 @@ def materialize_file_to_workspace(file_path: str, content: str) -> bool:
 
 
 def extract_file_blocks_from_text(text: str) -> list[dict[str, str]]:
-    """Extract file paths and code blocks from markdown text."""
+    """Extract file paths and code blocks from markdown text with robust multi-pattern matching."""
     blocks = []
-    p1 = re.compile(r'###\s*(?:📁\s*)?File:\s*([^\r\n`]+)[\r\n]+```(?:[a-zA-Z0-9_-]*)[ \t]*[\r\n]+([\s\S]*?)```', re.IGNORECASE)
+    seen_paths = set()
+
+    # Pattern 1: Heading or bold header with File: <path> followed by code block
+    p1 = re.compile(
+        r"""(?:###|##|#|\*\*|__)?\s*(?:📁\s*)?(?:File|Target File|Created File|Modified File):\s*[`'"*_]*([a-zA-Z0-9_\-\.\/\\]+\.[a-zA-Z0-9]+)[`'"*_]*\s*[\r\n]+```(?:[a-zA-Z0-9_-]*)[ \t]*[\r\n]+([\s\S]*?)```""",
+        re.IGNORECASE
+    )
     for m in p1.finditer(text):
-        path = m.group(1).strip().strip('`*"\' ')
+        p = m.group(1).strip().strip('`*"\' ')
         code = m.group(2)
-        if path and code:
-            blocks.append({"path": path, "content": code})
+        if p and code and p not in seen_paths:
+            seen_paths.add(p)
+            blocks.append({"path": p, "content": code})
+
+    # Pattern 2: First line inside code block contains file comment (// File: path or # File: path)
+    p2 = re.compile(
+        r'```(?:[a-zA-Z0-9_-]*)[ \t]*[\r\n]+(?:(?://|#|/\*)\s*(?:File:\s*)?([a-zA-Z0-9_\-\.\/\\]+\.[a-zA-Z0-9]+)[^\r\n]*)[\r\n]+([\s\S]*?)```',
+        re.IGNORECASE
+    )
+    for m in p2.finditer(text):
+        p = m.group(1).strip().strip('`*"\' ')
+        code = m.group(2)
+        if p and code and p not in seen_paths:
+            seen_paths.add(p)
+            blocks.append({"path": p, "content": code})
+
     return blocks
 
 
@@ -636,14 +656,13 @@ async def generate_smart_ai_response(
             groq_msgs.append({"role": hm["role"], "content": hm["content"]})
         groq_msgs.append({"role": "user", "content": prompt})
 
-        groq_candidate_models = [
-            "openai/gpt-oss-120b",
-            "qwen/qwen3.8-27b",
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "llama3-70b-8192",
-            "mixtral-8x7b-32768",
-        ]
+        # Working Groq models prioritizing requested model
+        working_models = ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
+        req_model_clean = model.strip() if model else ""
+        if req_model_clean in working_models:
+            groq_candidate_models = [req_model_clean] + [m for m in working_models if m != req_model_clean]
+        else:
+            groq_candidate_models = working_models
 
         for gr_key in groq_pool:
             for g_model in groq_candidate_models:
@@ -670,7 +689,11 @@ async def generate_smart_ai_response(
                                 blocks = extract_file_blocks_from_text(output_text)
                                 for b in blocks:
                                     materialize_file_to_workspace(b["path"], b["content"])
-                                tc = {"name": "edit_file", "args": {"path": blocks[0]["path"], "patch": blocks[0]["content"]}} if blocks else None
+                                tool_calls = [
+                                    {"name": "edit_file", "args": {"path": b["path"], "patch": b["content"], "description": f"Materialized {b['path']} on disk"}}
+                                    for b in blocks
+                                ]
+                                tc = tool_calls[0] if len(tool_calls) == 1 else (tool_calls if tool_calls else None)
                                 return output_text, tc
                         elif res.status_code in (404, 400):
                             continue

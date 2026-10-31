@@ -6,7 +6,7 @@ import os
 from sqlmodel import Session
 from skelion_agent.database import engine
 from skelion_agent.models import Organization, Incident, AgentRun
-from devproxy_agent.saas.github_app import get_installation_access_token
+from skelion_agent.github_app import get_installation_access_token
 
 def execute_sandboxed_autonomous_loop(org_id: str, incident_id: str):
     """Execute the autonomous loop in an isolated workspace.
@@ -74,7 +74,7 @@ def execute_sandboxed_autonomous_loop(org_id: str, incident_id: str):
                     run_record.pr_url = pr_url
                     run_record.execution_duration_sec = duration
                     incident.status = "pr_opened"
-                    org.prs_used_this_month += 1
+                    org.credits_used += 1
                 else:
                     run_record.status = "failed"
                     run_record.error_log = result.stderr[-2000:]

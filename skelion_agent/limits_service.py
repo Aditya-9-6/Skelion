@@ -26,7 +26,25 @@ MODEL_WEIGHTS: Dict[str, Dict[str, Any]] = {
         "name": "⚡ Skelion AI Lite (Active)",
         "available": True,
         "token_multiplier": 1,
-        "description": "Multi-provider free key pool (Gemini 1.5 Flash + Groq + OpenRouter) with automated rotation.",
+        "description": "Multi-provider free key pool (Gemini + Groq + OpenRouter) with automated rotation.",
+    },
+    "openai/gpt-oss-120b": {
+        "name": "GPT-OSS 120B (Groq Active)",
+        "available": True,
+        "token_multiplier": 1,
+        "description": "OpenAI GPT-OSS 120B high-capacity reasoning model hosted on Groq Cloud.",
+    },
+    "qwen/qwen3.8-27b": {
+        "name": "Qwen 3.8 27B (Groq Active)",
+        "available": True,
+        "token_multiplier": 1,
+        "description": "Fast high-precision coding and reasoning model hosted on Groq Cloud.",
+    },
+    "openai/gpt-oss-20b": {
+        "name": "GPT-OSS 20B (Groq Active)",
+        "available": True,
+        "token_multiplier": 1,
+        "description": "Ultra-fast low-latency code generation model hosted on Groq Cloud.",
     },
     "gpt-4o-mini": {
         "name": "GPT-4o Mini",
@@ -36,7 +54,7 @@ MODEL_WEIGHTS: Dict[str, Dict[str, Any]] = {
     },
     "gemini-1.5-flash": {
         "name": "Gemini 1.5 Flash",
-        "available": False,
+        "available": True,
         "token_multiplier": 1,
         "description": "High speed reasoning (Requires connected Gemini key).",
     },
@@ -228,17 +246,22 @@ def deduct_coding_tokens(org: Organization, model_id: str, db: Session) -> Tuple
         "skelion-ai-lite": "free-tier-agent",
         "skelion-lite": "free-tier-agent",
         "default": "free-tier-agent",
+        "gpt-oss-120b": "openai/gpt-oss-120b",
+        "qwen3.8-27b": "qwen/qwen3.8-27b",
+        "gpt-oss-20b": "openai/gpt-oss-20b",
+        "gemini": "gemini-1.5-flash",
     }
-    model_id = alias_map.get(model_id, model_id)
-    model_info = MODEL_WEIGHTS.get(model_id)
+    resolved_model = alias_map.get(model_id, model_id)
+    model_info = MODEL_WEIGHTS.get(resolved_model)
     if not model_info:
-        raise HTTPException(status_code=400, detail=f"Unknown model '{model_id}'")
+        # Graceful fallback to free-tier-agent instead of 400 error
+        resolved_model = "free-tier-agent"
+        model_info = MODEL_WEIGHTS["free-tier-agent"]
 
-    if not model_info["available"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Currently {model_info['name']} is not available. Please select the 'Free Tier Agent' which is connected to active API keys.",
-        )
+    if not model_info.get("available", False):
+        # Fall back to active free tier instead of breaking the UI
+        resolved_model = "free-tier-agent"
+        model_info = MODEL_WEIGHTS["free-tier-agent"]
 
     check_and_reset_windows(org)
     cost = model_info["token_multiplier"]

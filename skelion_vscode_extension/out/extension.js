@@ -1476,13 +1476,19 @@ class SkelionSidebarProvider {
 
           <option value="free-tier-agent">⚡ Skelion AI Lite (Active · 1x)</option>
 
-          <option value="gpt-4o-mini">🔒 GPT-4o Mini (Not Available)</option>
+          <option value="openai/gpt-oss-120b" selected>⚡ GPT-OSS 120B (Groq Active · 1x)</option>
 
-          <option value="gemini-1.5-flash">🔒 Gemini 1.5 Flash (Not Available)</option>
+          <option value="qwen/qwen3.8-27b">⚡ Qwen 3.8 27B (Groq Active · 1x)</option>
 
-          <option value="claude-3-5-sonnet">🔒 Claude 3.5 Sonnet (Not Available)</option>
+          <option value="openai/gpt-oss-20b">⚡ GPT-OSS 20B (Groq Active · 1x)</option>
 
-          <option value="gpt-4o">🔒 GPT-4o (Not Available)</option>
+          <option value="gpt-4o-mini">🔒 GPT-4o Mini (Requires Key)</option>
+
+          <option value="gemini-1.5-flash">🔒 Gemini 1.5 Flash (Requires Key)</option>
+
+          <option value="claude-3-5-sonnet">🔒 Claude 3.5 Sonnet (Requires Key)</option>
+
+          <option value="gpt-4o">🔒 GPT-4o (Requires Key)</option>
 
         </select>
 
@@ -2920,7 +2926,7 @@ class SkelionSidebarProvider {
 
 
 
-    function formatMarkdown(raw) {
+        function formatMarkdown(raw) {
       if (!raw) return '';
       let s = escapeHtml(raw);
       const b3 = String.fromCharCode(96) + String.fromCharCode(96) + String.fromCharCode(96);

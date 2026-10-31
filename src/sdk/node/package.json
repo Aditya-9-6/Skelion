@@ -1,0 +1,36 @@
+{
+  "name": "@skelion/node",
+  "version": "1.0.0",
+  "description": "Drop-in Node.js & Express fail-open resilience middleware for Skelion Autonomous Production Intelligence",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "keywords": [
+    "skelion",
+    "resilience",
+    "telemetry",
+    "fail-open",
+    "error-boundary",
+    "observability",
+    "express-middleware",
+    "zero-pii"
+  ],
+  "author": "Skelion Team <team@skelion.dev>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adity/helios.git",
+    "directory": "src/sdk/node"
+  },
+  "bugs": {
+    "url": "https://github.com/adity/helios/issues"
+  },
+  "homepage": "https://skelion.dev",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ]
+}

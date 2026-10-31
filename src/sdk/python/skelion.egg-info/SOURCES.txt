@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+skelion.py
+skelion.egg-info/PKG-INFO
+skelion.egg-info/SOURCES.txt
+skelion.egg-info/dependency_links.txt
+skelion.egg-info/requires.txt
+skelion.egg-info/top_level.txt

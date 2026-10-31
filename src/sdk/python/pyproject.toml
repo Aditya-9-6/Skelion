@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skelion"
+version = "1.0.0"
+description = "Drop-in Python fail-open resilience middleware for FastAPI, Starlette, and ASGI backends"
+readme = "README.md"
+authors = [
+  { name = "Skelion Team", email = "team@skelion.dev" },
+]
+license = { text = "Apache-2.0" }
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: System :: Monitoring",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+keywords = ["skelion", "resilience", "telemetry", "fail-open", "fastapi", "asgi", "observability", "zero-pii"]
+dependencies = [
+  "httpx>=0.24.0",
+  "starlette>=0.28.0",
+]
+
+[project.urls]
+Homepage = "https://skelion.dev"
+Repository = "https://github.com/adity/helios"
+Documentation = "https://skelion.dev/docs"
+Issues = "https://github.com/adity/helios/issues"
