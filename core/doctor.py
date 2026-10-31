@@ -3,9 +3,9 @@
 import json
 import os
 import urllib.request
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
-from core.llm_adapter import LLMAdapter, LLMConfig
+from core.llm_adapter import LLMConfig
 from license.verifier import verify_license_offline
 
 
@@ -59,7 +59,6 @@ def run_diagnostics(config: Optional[LLMConfig] = None) -> Dict[str, Any]:
         )
 
     # 3. LLM Connectivity Check
-    llm = LLMAdapter(cfg)
     try:
         url = f"{cfg.base_url}/models"
         req = urllib.request.Request(

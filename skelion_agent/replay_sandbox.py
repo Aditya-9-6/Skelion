@@ -96,12 +96,14 @@ def run_failure_replay_sandbox(
         baseline_status = item.get("baseline_status", 500)
 
         if method not in IDEMPOTENT_METHODS and not allow_non_idempotent:
-            results.append({
-                "path": path,
-                "method": method,
-                "status": "skipped",
-                "reason": "Non-idempotent method blocked by security policy",
-            })
+            results.append(
+                {
+                    "path": path,
+                    "method": method,
+                    "status": "skipped",
+                    "reason": "Non-idempotent method blocked by security policy",
+                }
+            )
             continue
 
         url = f"{target_base_url.rstrip('/')}{path}"
@@ -119,7 +121,9 @@ def run_failure_replay_sandbox(
             if simulated_latency_ms > 0:
                 time.sleep(simulated_latency_ms / 1000.0)
 
-            req = urllib.request.Request(url, data=req_data, headers=req_headers, method=method)
+            req = urllib.request.Request(
+                url, data=req_data, headers=req_headers, method=method
+            )
             with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
                 status_code = resp.getcode()
         except urllib.error.HTTPError as e:
@@ -145,16 +149,18 @@ def run_failure_replay_sandbox(
         if is_regression:
             regressions += 1
 
-        results.append({
-            "path": path,
-            "method": method,
-            "baseline_status": baseline_status,
-            "replayed_status": status_code,
-            "latency_ms": round(duration_ms, 2),
-            "is_fixed": is_fixed,
-            "is_regression": is_regression,
-            "error": error_message,
-        })
+        results.append(
+            {
+                "path": path,
+                "method": method,
+                "baseline_status": baseline_status,
+                "replayed_status": status_code,
+                "latency_ms": round(duration_ms, 2),
+                "is_fixed": is_fixed,
+                "is_regression": is_regression,
+                "error": error_message,
+            }
+        )
 
     total_replayed = len([r for r in results if r.get("status") != "skipped"])
     avg_lat = sum(latencies) / len(latencies) if latencies else 0.0
