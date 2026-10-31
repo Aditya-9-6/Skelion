@@ -1,5 +1,5 @@
 {
-  "name": "@skelion/node",
+  "name": "skelion-node",
   "version": "1.0.0",
   "description": "Drop-in Node.js & Express fail-open resilience middleware for Skelion Autonomous Production Intelligence",
   "main": "index.js",
@@ -18,7 +18,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/adity/helios.git",
+    "url": "git+https://github.com/adity/helios.git",
     "directory": "src/sdk/node"
   },
   "bugs": {

@@ -1,4 +1,4 @@
-# @skelion/node
+# skelion-node
 
 > Official Drop-in Fail-Open Resilience & Telemetry Middleware for Express & Node.js
 
@@ -7,7 +7,7 @@ Intercepts unhandled edge crashes fail-open, scrubs PII, and streams sanitized t
 ## Installation
 
 ```bash
-npm install @skelion/node
+npm install skelion-node
 ```
 
 ## Quickstart
@@ -16,7 +16,7 @@ Add 2 lines to your Express application after your API routes:
 
 ```javascript
 const express = require('express');
-const { skelionMiddleware } = require('@skelion/node');
+const { skelionMiddleware } = require('skelion-node');
 
 const app = express();
 app.use(express.json());

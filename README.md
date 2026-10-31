@@ -1,10 +1,17 @@
 # Skelion 🚀
 
 [![PyPI version](https://img.shields.io/pypi/v/skelion.svg)](https://pypi.org/project/skelion/)
+[![npm version](https://img.shields.io/npm/v/skelion-node.svg)](https://www.npmjs.com/package/skelion-node)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/AdityaDnyaneshwarDahale.skelion-vscode?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=AdityaDnyaneshwarDahale.skelion-vscode)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 **Skelion** is an autonomous SaaS incident intelligence, resilience proxy, and edge telemetry engine with a native VS Code Extension and multi-language SDKs.
+
+## Client SDKs & VS Code Extension
+
+- **Python SDK**: `pip install skelion` ([PyPI Package](https://pypi.org/project/skelion/))
+- **Node.js SDK**: `npm install skelion-node` ([npm Package](https://www.npmjs.com/package/skelion-node))
+- **VS Code Extension**: [Install from Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=AdityaDnyaneshwarDahale.skelion-vscode) (`AdityaDnyaneshwarDahale.skelion-vscode`)
 
 ## Quick Start (Linux/macOS/Windows)
 
