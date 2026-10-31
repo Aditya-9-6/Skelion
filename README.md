@@ -1,6 +1,10 @@
 # Skelion 🚀
 
-**Skelion** is a fault‑tolerant edge proxy and autonomous LLM orchestration engine.
+[![PyPI version](https://img.shields.io/pypi/v/skelion.svg)](https://pypi.org/project/skelion/)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/AdityaDnyaneshwarDahale.skelion-vscode?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=AdityaDnyaneshwarDahale.skelion-vscode)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
+**Skelion** is an autonomous SaaS incident intelligence, resilience proxy, and edge telemetry engine with a native VS Code Extension and multi-language SDKs.
 
 ## Quick Start (Linux/macOS/Windows)
 
