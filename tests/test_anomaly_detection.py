@@ -22,7 +22,7 @@ def test_welford_stats():
 
 def test_sliding_z_score_filter_normal():
     detector = SlidingZScoreFilter(window_size=20, threshold=3.0)
-    
+
     # Feed stable baseline data
     for _ in range(15):
         is_anomaly, z = detector.add(100.0)
@@ -44,7 +44,7 @@ def test_sliding_z_score_filter_anomaly():
 
 def test_sliding_window_eviction():
     detector = SlidingZScoreFilter(window_size=10, threshold=2.0)
-    
+
     # Fill window with high values
     for _ in range(10):
         detector.add(100.0)
