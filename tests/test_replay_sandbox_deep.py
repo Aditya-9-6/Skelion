@@ -1,6 +1,5 @@
 """Comprehensive deep unit tests for Deterministic Failure Replay Sandbox."""
 
-import pytest
 from skelion_agent.replay_sandbox import (
     run_failure_replay_sandbox,
     calculate_sandbox_confidence,
