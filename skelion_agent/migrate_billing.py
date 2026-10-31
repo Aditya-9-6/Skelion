@@ -11,7 +11,9 @@ import sqlite3
 from pathlib import Path
 
 # Path to the SQLite DB – same as ``DATABASE_URI`` environment variable (sqlite:///./skelion.db)
-DB_PATH = Path(os.getenv("DATABASE_URI", "sqlite:///./skelion.db").replace("sqlite:///", ""))
+DB_PATH = Path(
+    os.getenv("DATABASE_URI", "sqlite:///./skelion.db").replace("sqlite:///", "")
+)
 
 if not DB_PATH.is_file():
     # If the file doesn't exist yet, it will be initialized by SQLModel init_db
@@ -39,7 +41,9 @@ else:
 
     for name, col_type, default in columns:
         if not column_exists("organizations", name):
-            cur.execute(f"ALTER TABLE organizations ADD COLUMN {name} {col_type} DEFAULT {default}")
+            cur.execute(
+                f"ALTER TABLE organizations ADD COLUMN {name} {col_type} DEFAULT {default}"
+            )
             print(f"Added column {name} to organizations")
 
     conn.commit()

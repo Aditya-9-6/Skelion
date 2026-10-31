@@ -1,10 +1,6 @@
-import re
-import subprocess
-import os
-
 print("Building enhanced extension.ts...")
 
-code = '''import * as vscode from 'vscode';
+code = """import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -1841,9 +1837,9 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 }
 
 export function deactivate() {}
-'''
+"""
 
-with open('skelion_vscode_extension/src/extension.ts', 'w', encoding='utf-8') as f:
+with open("skelion_vscode_extension/src/extension.ts", "w", encoding="utf-8") as f:
     f.write(code)
 
 print("Saved skelion_vscode_extension/src/extension.ts successfully.")

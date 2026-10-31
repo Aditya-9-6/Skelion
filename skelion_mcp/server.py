@@ -9,15 +9,16 @@ Strict allow-list egress: Never outputs raw secrets or customer PII.
 import sys
 import json
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
+from typing import Dict, Any, Optional
 from sqlmodel import Session, select, desc
 
-from skelion_agent.database import get_db, get_engine
-from skelion_agent.models import Incident, Organization, AgentRun
+from skelion_agent.database import get_engine
+from skelion_agent.models import Incident, AgentRun
 from core.replay_sandbox import run_replay_verification
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger("skelion_mcp")
 
 
@@ -29,8 +30,16 @@ MCP_TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"], "description": "Filter by incident severity"},
-                "limit": {"type": "integer", "default": 20, "description": "Max incidents to return"},
+                "severity": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high", "critical"],
+                    "description": "Filter by incident severity",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 20,
+                    "description": "Max incidents to return",
+                },
             },
         },
     },
@@ -40,7 +49,10 @@ MCP_TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "incident_id": {"type": "string", "description": "The unique ID of the incident"},
+                "incident_id": {
+                    "type": "string",
+                    "description": "The unique ID of the incident",
+                },
             },
             "required": ["incident_id"],
         },
@@ -51,7 +63,11 @@ MCP_TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "window": {"type": "string", "default": "1h", "description": "Time window (e.g., 15m, 1h, 24h)"},
+                "window": {
+                    "type": "string",
+                    "default": "1h",
+                    "description": "Time window (e.g., 15m, 1h, 24h)",
+                },
             },
         },
     },
@@ -72,8 +88,15 @@ MCP_TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "incident_id": {"type": "string", "description": "Incident ID to replay"},
-                "target_url": {"type": "string", "default": "http://127.0.0.1:8000", "description": "Local patched service URL"},
+                "incident_id": {
+                    "type": "string",
+                    "description": "Incident ID to replay",
+                },
+                "target_url": {
+                    "type": "string",
+                    "default": "http://127.0.0.1:8000",
+                    "description": "Local patched service URL",
+                },
             },
             "required": ["incident_id"],
         },
@@ -85,7 +108,11 @@ MCP_TOOLS = [
             "type": "object",
             "properties": {
                 "incident_id": {"type": "string", "description": "Incident ID to fix"},
-                "dry_run": {"type": "boolean", "default": True, "description": "Simulate fix generation without writing to disk"},
+                "dry_run": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Simulate fix generation without writing to disk",
+                },
             },
             "required": ["incident_id"],
         },
@@ -125,22 +152,29 @@ class SkelionMCPServer:
         else:
             return {"error": f"Unknown tool: {name}"}
 
-    def list_incidents(self, severity: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
+    def list_incidents(
+        self, severity: Optional[str] = None, limit: int = 20
+    ) -> Dict[str, Any]:
         with Session(self.engine) as session:
             query = select(Incident).order_by(desc(Incident.created_at)).limit(limit)
             incidents = session.exec(query).all()
-            
+
             results = []
             for inc in incidents:
-                results.append({
-                    "id": inc.id,
-                    "route": inc.route_path,
-                    "method": inc.captured_method,
-                    "status_code": inc.status_code,
-                    "error_summary": inc.error_summary or f"HTTP {inc.status_code} on {inc.route_path}",
-                    "fingerprint": inc.fingerprint,
-                    "created_at": inc.created_at.isoformat() if inc.created_at else None,
-                })
+                results.append(
+                    {
+                        "id": inc.id,
+                        "route": inc.route_path,
+                        "method": inc.captured_method,
+                        "status_code": inc.status_code,
+                        "error_summary": inc.error_summary
+                        or f"HTTP {inc.status_code} on {inc.route_path}",
+                        "fingerprint": inc.fingerprint,
+                        "created_at": inc.created_at.isoformat()
+                        if inc.created_at
+                        else None,
+                    }
+                )
             return {"incidents": results, "count": len(results)}
 
     def get_incident(self, incident_id: str) -> Dict[str, Any]:
@@ -165,10 +199,18 @@ class SkelionMCPServer:
         with Session(self.engine) as session:
             incidents = session.exec(select(Incident)).all()
             total_incidents = len(incidents)
-            recent_5xx = sum(1 for i in incidents if i.status_code and i.status_code >= 500)
-            recent_4xx = sum(1 for i in incidents if i.status_code and 400 <= i.status_code < 500)
+            recent_5xx = sum(
+                1 for i in incidents if i.status_code and i.status_code >= 500
+            )
+            recent_4xx = sum(
+                1 for i in incidents if i.status_code and 400 <= i.status_code < 500
+            )
 
-            status = "healthy" if recent_5xx == 0 else ("degraded" if recent_5xx < 5 else "critical")
+            status = (
+                "healthy"
+                if recent_5xx == 0
+                else ("degraded" if recent_5xx < 5 else "critical")
+            )
             return {
                 "status": status,
                 "window": window,
@@ -209,21 +251,25 @@ class SkelionMCPServer:
                 "tokens_consumed": latest.tokens_consumed,
             }
 
-    def run_replay_test(self, incident_id: str, target_url: str = "http://127.0.0.1:8000") -> Dict[str, Any]:
+    def run_replay_test(
+        self, incident_id: str, target_url: str = "http://127.0.0.1:8000"
+    ) -> Dict[str, Any]:
         with Session(self.engine) as session:
             inc = session.get(Incident, incident_id)
             if not inc:
                 return {"error": f"Incident {incident_id} not found"}
 
             # Build replay request fixture from incident
-            replays = [{
-                "path": inc.route_path or "/api/health",
-                "method": inc.captured_method or "GET",
-                "headers": {"Accept": "application/json"},
-                "body": None,
-                "baseline_status": inc.status_code or 500,
-                "baseline_latency_ms": 110.0,
-            }]
+            replays = [
+                {
+                    "path": inc.route_path or "/api/health",
+                    "method": inc.captured_method or "GET",
+                    "headers": {"Accept": "application/json"},
+                    "body": None,
+                    "baseline_status": inc.status_code or 500,
+                    "baseline_latency_ms": 110.0,
+                }
+            ]
 
             verification = run_replay_verification(replays, target_base_url=target_url)
             return {
@@ -253,14 +299,16 @@ class SkelionMCPServer:
     response = client.get("{route}")
     assert response.status_code in [200, 400]
 """
-            replays = [{
-                "path": route,
-                "method": inc.captured_method or "GET",
-                "headers": {"Accept": "application/json"},
-                "body": None,
-                "baseline_status": inc.status_code or 500,
-                "baseline_latency_ms": 105.0,
-            }]
+            replays = [
+                {
+                    "path": route,
+                    "method": inc.captured_method or "GET",
+                    "headers": {"Accept": "application/json"},
+                    "body": None,
+                    "baseline_status": inc.status_code or 500,
+                    "baseline_latency_ms": 105.0,
+                }
+            ]
             verification = run_replay_verification(replays, mock_responses={route: 200})
 
             return {
@@ -277,6 +325,7 @@ class SkelionMCPServer:
 # ---------------------------------------------------------------------------
 # MCP JSON-RPC Stdio Loop (for Cursor / Claude Code)
 # ---------------------------------------------------------------------------
+
 
 def run_stdio_server():
     """Run MCP server over standard input/output with JSON-RPC."""
@@ -307,9 +356,7 @@ def run_stdio_server():
                     "jsonrpc": "2.0",
                     "id": req_id,
                     "result": {
-                        "content": [
-                            {"type": "text", "text": json.dumps(res, indent=2)}
-                        ]
+                        "content": [{"type": "text", "text": json.dumps(res, indent=2)}]
                     },
                 }
             elif method == "initialize":

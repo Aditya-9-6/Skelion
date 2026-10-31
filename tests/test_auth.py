@@ -12,6 +12,7 @@ from skelion_agent.models import Organization, ProxyNode
 
 client = TestClient(app)
 
+
 @pytest.fixture(autouse=True)
 def setup_db(tmp_path):
     # Use a temporary SQLite file for isolation
@@ -22,8 +23,10 @@ def setup_db(tmp_path):
     yield
     # Cleanup – the temporary directory is removed automatically
 
+
 def test_register_and_login():
     import uuid
+
     email = f"alice_{uuid.uuid4().hex[:6]}@example.com"
     password = "strongpassword"
 
@@ -57,7 +60,7 @@ def test_register_and_login():
     with Session(get_session()) as s:
         node = s.exec(select(ProxyNode).where(ProxyNode.org_id == org_id)).first()
         assert node is not None
-        from skelion_agent.auth import generate_api_key
         from skelion_agent.control_plane import hash_api_key
+
         expected_hash = hash_api_key(api_key)
         assert node.api_key_hash == expected_hash

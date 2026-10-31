@@ -19,7 +19,9 @@ class EphemeralSessionKeyRotator:
         self.last_rotation_time: float = os.times()[4] if hasattr(os, "times") else 0.0
 
     def get_public_bytes(self) -> bytes:
-        return self.public_key.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+        return self.public_key.public_bytes(
+            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
+        )
 
     def derive_session_key(self, peer_public_bytes: bytes) -> bytes:
         peer_pub_key = x25519.X25519PublicKey.from_public_bytes(peer_public_bytes)

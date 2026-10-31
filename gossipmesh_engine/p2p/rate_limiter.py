@@ -4,7 +4,9 @@ from typing import Dict, Tuple
 
 
 class TokenBucketRateLimiter:
-    def __init__(self, capacity: float, refill_rate: float, max_tracked_peers: int = 10000):
+    def __init__(
+        self, capacity: float, refill_rate: float, max_tracked_peers: int = 10000
+    ):
         self.capacity = float(capacity)
         self.refill_rate = float(refill_rate)
         self.max_tracked_peers = max_tracked_peers
@@ -25,7 +27,9 @@ class TokenBucketRateLimiter:
 
             tokens_available, last_update = self.buckets[peer_id]
             delta = now - last_update
-            tokens_available = min(self.capacity, tokens_available + delta * self.refill_rate)
+            tokens_available = min(
+                self.capacity, tokens_available + delta * self.refill_rate
+            )
 
             if tokens_available >= tokens:
                 tokens_available -= tokens

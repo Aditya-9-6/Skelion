@@ -47,7 +47,9 @@ class SAMLAdapter:
         """
         Parses and validates the SAML response payload.
         """
-        raise NotImplementedError("TODO: Full SAML XML validation requires python3-saml/xmlsec library integration")
+        raise NotImplementedError(
+            "TODO: Full SAML XML validation requires python3-saml/xmlsec library integration"
+        )
 
     def validate_certificate(self) -> bool:
         """
@@ -61,4 +63,6 @@ class SAMLAdapter:
         """
         Generates a SAML LogoutRequest.
         """
-        raise NotImplementedError("TODO: Full SAML SLO implementation requires python3-saml/xmlsec library integration")
+        raise NotImplementedError(
+            "TODO: Full SAML SLO implementation requires python3-saml/xmlsec library integration"
+        )

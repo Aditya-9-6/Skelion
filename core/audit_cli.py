@@ -6,8 +6,8 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from core.redact import redact_text, normalize_route_path
 
@@ -30,12 +30,34 @@ def parse_log_line(line: str) -> Optional[Dict[str, Any]]:
     if line.startswith("{") and line.endswith("}"):
         try:
             data = json.loads(line)
-            status = int(data.get("status") or data.get("status_code") or data.get("http_status") or 200)
+            status = int(
+                data.get("status")
+                or data.get("status_code")
+                or data.get("http_status")
+                or 200
+            )
             method = str(data.get("method") or "GET").upper()
-            raw_path = str(data.get("path") or data.get("url") or data.get("route") or "/")
-            latency = float(data.get("latency_ms") or data.get("duration_ms") or data.get("response_time") or 0.0)
-            body = str(data.get("body") or data.get("response_body") or data.get("error") or data.get("message") or "")
-            timestamp = data.get("timestamp") or data.get("time") or datetime.now(timezone.utc).isoformat()
+            raw_path = str(
+                data.get("path") or data.get("url") or data.get("route") or "/"
+            )
+            latency = float(
+                data.get("latency_ms")
+                or data.get("duration_ms")
+                or data.get("response_time")
+                or 0.0
+            )
+            body = str(
+                data.get("body")
+                or data.get("response_body")
+                or data.get("error")
+                or data.get("message")
+                or ""
+            )
+            timestamp = (
+                data.get("timestamp")
+                or data.get("time")
+                or datetime.now(timezone.utc).isoformat()
+            )
             return {
                 "method": method,
                 "raw_path": raw_path,
@@ -73,6 +95,7 @@ def parse_log_line(line: str) -> Optional[Dict[str, Any]]:
 # Diagnostic Analyzers
 # ---------------------------------------------------------------------------
 
+
 def analyze_logs(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Inspect normalized logs and detect production anomalies:
     1. Silent failures (HTTP 200 with error signatures).
@@ -90,7 +113,7 @@ def analyze_logs(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     server_5xx_errors = []
 
     SILENT_ERROR_PATTERNS = re.compile(
-        r'(?i)\b(?:error|exception|failed|failure|traceback|undefined|unhandled|panic|timeout)\b'
+        r"(?i)\b(?:error|exception|failed|failure|traceback|undefined|unhandled|panic|timeout)\b"
     )
 
     for r in records:
@@ -117,7 +140,11 @@ def analyze_logs(records: List[Dict[str, Any]]) -> Dict[str, Any]:
 
         # C. Silent Failures (HTTP 200 but error in response body)
         elif status == 200 and body and len(body) > 4:
-            if SILENT_ERROR_PATTERNS.search(body) or '"error":' in body or '"success":false' in body:
+            if (
+                SILENT_ERROR_PATTERNS.search(body)
+                or '"error":' in body
+                or '"success":false' in body
+            ):
                 silent_failures.append(r)
                 route_stats[route]["errors"] += 1
 
@@ -129,57 +156,65 @@ def analyze_logs(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         affected = len(silent_failures)
         pct = round((affected / total_requests) * 100, 1)
         sample = silent_failures[0]
-        issues.append({
-            "id": "iss_silent_200",
-            "title": f"Silent Business Failures: HTTP 200 with Error Payloads ({affected} requests)",
-            "severity": "CRITICAL",
-            "category": "silent_failure",
-            "confidence": 95,
-            "affected_requests": affected,
-            "affected_pct": pct,
-            "route": sample["route"],
-            "summary": "Endpoints returning HTTP 200 OK while payload contains unhandled exception or business failure payload. Monitoring systems miss these completely.",
-            "evidence": sample["body"][:250] if sample["body"] else "Response contains error JSON object",
-            "recommended_fix": "Add error boundary middleware and emit non-200 status codes with structured RFC 7807 problem details.",
-        })
+        issues.append(
+            {
+                "id": "iss_silent_200",
+                "title": f"Silent Business Failures: HTTP 200 with Error Payloads ({affected} requests)",
+                "severity": "CRITICAL",
+                "category": "silent_failure",
+                "confidence": 95,
+                "affected_requests": affected,
+                "affected_pct": pct,
+                "route": sample["route"],
+                "summary": "Endpoints returning HTTP 200 OK while payload contains unhandled exception or business failure payload. Monitoring systems miss these completely.",
+                "evidence": sample["body"][:250]
+                if sample["body"]
+                else "Response contains error JSON object",
+                "recommended_fix": "Add error boundary middleware and emit non-200 status codes with structured RFC 7807 problem details.",
+            }
+        )
 
     # 2. 5xx Crashes
     if server_5xx_errors:
         affected = len(server_5xx_errors)
         pct = round((affected / total_requests) * 100, 1)
         sample = server_5xx_errors[0]
-        issues.append({
-            "id": "iss_server_500",
-            "title": f"Unhandled Production Crashes & 5xx Spikes ({affected} requests)",
-            "severity": "HIGH",
-            "category": "server_crash",
-            "confidence": 98,
-            "affected_requests": affected,
-            "affected_pct": pct,
-            "route": sample["route"],
-            "summary": f"Server errors detected on {sample['route']}. Users are receiving 500/502/503 responses.",
-            "evidence": f"HTTP {sample['status']} on {sample['method']} {sample['route']}",
-            "recommended_fix": "Synthesize regression replay test and wrap route in fail-safe fallback handler.",
-        })
+        issues.append(
+            {
+                "id": "iss_server_500",
+                "title": f"Unhandled Production Crashes & 5xx Spikes ({affected} requests)",
+                "severity": "HIGH",
+                "category": "server_crash",
+                "confidence": 98,
+                "affected_requests": affected,
+                "affected_pct": pct,
+                "route": sample["route"],
+                "summary": f"Server errors detected on {sample['route']}. Users are receiving 500/502/503 responses.",
+                "evidence": f"HTTP {sample['status']} on {sample['method']} {sample['route']}",
+                "recommended_fix": "Synthesize regression replay test and wrap route in fail-safe fallback handler.",
+            }
+        )
 
     # 3. LLM / Upstream 429 Storms
     if upstream_429_errors:
         affected = len(upstream_429_errors)
         pct = round((affected / total_requests) * 100, 1)
         sample = upstream_429_errors[0]
-        issues.append({
-            "id": "iss_upstream_429",
-            "title": f"Upstream API / LLM Rate Limit Storms ({affected} requests blocked)",
-            "severity": "MEDIUM",
-            "category": "rate_limit_storm",
-            "confidence": 90,
-            "affected_requests": affected,
-            "affected_pct": pct,
-            "route": sample["route"],
-            "summary": "Upstream services or LLM providers are returning HTTP 429 Too Many Requests, stalling user sessions.",
-            "evidence": f"HTTP 429 on {sample['route']}",
-            "recommended_fix": "Enable GossipMesh multi-key rotation and exponential backoff retry jitter.",
-        })
+        issues.append(
+            {
+                "id": "iss_upstream_429",
+                "title": f"Upstream API / LLM Rate Limit Storms ({affected} requests blocked)",
+                "severity": "MEDIUM",
+                "category": "rate_limit_storm",
+                "confidence": 90,
+                "affected_requests": affected,
+                "affected_pct": pct,
+                "route": sample["route"],
+                "summary": "Upstream services or LLM providers are returning HTTP 429 Too Many Requests, stalling user sessions.",
+                "evidence": f"HTTP 429 on {sample['route']}",
+                "recommended_fix": "Enable GossipMesh multi-key rotation and exponential backoff retry jitter.",
+            }
+        )
 
     # 4. Latency Regressions (p95 > 500ms)
     for route, st in route_stats.items():
@@ -187,23 +222,28 @@ def analyze_logs(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             l_sorted = sorted(st["latencies"])
             p95 = l_sorted[int(len(l_sorted) * 0.95)]
             if p95 > 500.0 and st["total"] >= 5:
-                issues.append({
-                    "id": f"iss_latency_{abs(hash(route)) % 10000}",
-                    "title": f"Latency Regression on {route} (p95: {int(p95)}ms)",
-                    "severity": "MEDIUM",
-                    "category": "latency_regression",
-                    "confidence": 85,
-                    "affected_requests": st["total"],
-                    "affected_pct": round((st["total"] / total_requests) * 100, 1),
-                    "route": route,
-                    "summary": f"Route {route} exhibits elevated p95 latency ({int(p95)}ms), degrading user conversion and responsiveness.",
-                    "evidence": f"p95 latency = {int(p95)}ms across {st['total']} sample requests",
-                    "recommended_fix": "Inspect database queries and cache repetitive read operations.",
-                })
+                issues.append(
+                    {
+                        "id": f"iss_latency_{abs(hash(route)) % 10000}",
+                        "title": f"Latency Regression on {route} (p95: {int(p95)}ms)",
+                        "severity": "MEDIUM",
+                        "category": "latency_regression",
+                        "confidence": 85,
+                        "affected_requests": st["total"],
+                        "affected_pct": round((st["total"] / total_requests) * 100, 1),
+                        "route": route,
+                        "summary": f"Route {route} exhibits elevated p95 latency ({int(p95)}ms), degrading user conversion and responsiveness.",
+                        "evidence": f"p95 latency = {int(p95)}ms across {st['total']} sample requests",
+                        "recommended_fix": "Inspect database queries and cache repetitive read operations.",
+                    }
+                )
 
     # Sort issues by severity and affected request count
     sev_weight = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
-    issues.sort(key=lambda x: (sev_weight.get(x["severity"], 0), x["affected_requests"]), reverse=True)
+    issues.sort(
+        key=lambda x: (sev_weight.get(x["severity"], 0), x["affected_requests"]),
+        reverse=True,
+    )
 
     # Compute Overall Health Score (0 - 100)
     total_errors = sum(st["errors"] for st in route_stats.values())
@@ -223,15 +263,22 @@ def analyze_logs(records: List[Dict[str, Any]]) -> Dict[str, Any]:
 # HTML Report Generator (Self-Contained & Printable)
 # ---------------------------------------------------------------------------
 
+
 def render_html_report(project_name: str, metrics: Dict[str, Any], output_path: str):
     """Generate self-contained, publication-grade 1-page HTML health report."""
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     health = metrics["health_score"]
-    health_color = "#10b981" if health >= 85 else ("#f59e0b" if health >= 65 else "#ef4444")
+    health_color = (
+        "#10b981" if health >= 85 else ("#f59e0b" if health >= 65 else "#ef4444")
+    )
 
     issues_html = ""
     for i, iss in enumerate(metrics["issues"][:5], 1):
-        badge_color = "#ef4444" if iss["severity"] == "CRITICAL" else ("#f59e0b" if iss["severity"] == "HIGH" else "#3b82f6")
+        badge_color = (
+            "#ef4444"
+            if iss["severity"] == "CRITICAL"
+            else ("#f59e0b" if iss["severity"] == "HIGH" else "#3b82f6")
+        )
         issues_html += f"""
         <div style="background:#111624; border:1px solid #1c2438; border-radius:10px; padding:1.2rem; margin-bottom:1rem;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
@@ -335,7 +382,12 @@ def render_html_report(project_name: str, metrics: Dict[str, Any], output_path: 
 # CLI Command Entrypoint
 # ---------------------------------------------------------------------------
 
-def run_audit(log_file: str, project_name: str = "Production Service", output_dir: str = "./skelion-report") -> Dict[str, Any]:
+
+def run_audit(
+    log_file: str,
+    project_name: str = "Production Service",
+    output_dir: str = "./skelion-report",
+) -> Dict[str, Any]:
     """Execute end-to-end local production health audit."""
     if not os.path.exists(log_file):
         raise FileNotFoundError(f"Log source file not found: {log_file}")
@@ -370,16 +422,26 @@ def run_audit(log_file: str, project_name: str = "Production Service", output_di
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Skelion Production Health Audit CLI (100% Local)")
-    parser.add_argument("--source", required=True, help="Path to input log file (Nginx, JSONL, access log)")
-    parser.add_argument("--project", default="Production Service", help="Project or service name")
-    parser.add_argument("--out", default="./skelion-report", help="Output directory for reports")
+    parser = argparse.ArgumentParser(
+        description="Skelion Production Health Audit CLI (100% Local)"
+    )
+    parser.add_argument(
+        "--source",
+        required=True,
+        help="Path to input log file (Nginx, JSONL, access log)",
+    )
+    parser.add_argument(
+        "--project", default="Production Service", help="Project or service name"
+    )
+    parser.add_argument(
+        "--out", default="./skelion-report", help="Output directory for reports"
+    )
     args = parser.parse_args()
 
     print(f"[*] Starting Skelion Production Health Audit on {args.source}...")
     try:
         res = run_audit(args.source, args.project, args.out)
-        print(f"[+] Audit Complete!")
+        print("[+] Audit Complete!")
         print(f"    - Requests Analyzed: {res['requests_analyzed']:,}")
         print(f"    - Health Score: {res['health_score']}/100")
         print(f"    - Issues Found: {res['issues_count']}")

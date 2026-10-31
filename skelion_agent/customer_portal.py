@@ -1,24 +1,15 @@
 # skelion_agent/customer_portal.py — Customer SaaS Web Portal & Dashboard (/portal)
 
-import json
-from typing import Optional, Dict, Any, List
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
-from sqlmodel import Session, select, desc
+from sqlmodel import Session, select
 
 from skelion_agent.database import get_db
 from skelion_agent.models import (
     Organization,
-    Incident,
-    ApiKey,
-    WebhookSubscription,
-    CreditLedger,
-    PaymentOrder,
-    utc_now,
 )
 from skelion_agent.limits_service import get_token_status
-from skelion_agent.api_key_service import get_org_from_api_key_or_jwt
 
 router = APIRouter(tags=["Customer SaaS Portal"])
 
@@ -35,11 +26,15 @@ async def serve_customer_portal(
     if token:
         org = db.exec(select(Organization).where(Organization.token == token)).first()
     if not org:
-        org = db.exec(select(Organization).where(Organization.github_username == "Aditya-9-6")).first()
+        org = db.exec(
+            select(Organization).where(Organization.github_username == "Aditya-9-6")
+        ).first()
     if not org:
         org = db.exec(select(Organization)).first()
     if not org:
-        org = Organization(name="Pilot Developer", token="skl_live_pilot_default", plan="starter")
+        org = Organization(
+            name="Pilot Developer", token="skl_live_pilot_default", plan="starter"
+        )
         db.add(org)
         db.commit()
         db.refresh(org)
@@ -48,7 +43,11 @@ async def serve_customer_portal(
     plan_name = org.plan.upper()
     org_name = org.name or "My Team"
     autofix_balance = org.autofix_tokens_total - org.autofix_tokens_used
-    coding_balance = org.credits_total - org.credits_used + (org.purchased_tokens - org.purchased_tokens_used)
+    coding_balance = (
+        org.credits_total
+        - org.credits_used
+        + (org.purchased_tokens - org.purchased_tokens_used)
+    )
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">

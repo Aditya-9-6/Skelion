@@ -1,6 +1,5 @@
 # tests/test_mcp_server.py — Skelion MCP Server Tool Tests
 
-import pytest
 from skelion_mcp.server import SkelionMCPServer, MCP_TOOLS
 from skelion_agent.models import Incident
 from sqlmodel import Session

@@ -5,11 +5,12 @@ corresponding ``Organization`` model.
 """
 
 from fastapi import Header, HTTPException, Depends
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from skelion_agent.auth import decode_access_token
 from skelion_agent.models import Organization
 from skelion_agent.database import get_session
+
 
 def get_current_user(
     authorization: str = Header(..., description="Bearer JWT token"),
@@ -31,7 +32,9 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     org_id = payload.get("sub")
     if not org_id:
-        raise HTTPException(status_code=401, detail="Token payload missing organization ID")
+        raise HTTPException(
+            status_code=401, detail="Token payload missing organization ID"
+        )
     org = session.get(Organization, org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")

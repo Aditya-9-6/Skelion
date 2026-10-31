@@ -1,4 +1,5 @@
 import os
+
 try:
     import jwt
 except ImportError:
@@ -8,6 +9,7 @@ import requests
 
 # Placeholder implementation for GitHub App token retrieval.
 # In production, replace with real App ID and private key.
+
 
 def _create_jwt(app_id: str, private_key: str) -> str:
     """Create a JWT for GitHub App authentication.
@@ -34,7 +36,10 @@ def get_installation_access_token(installation_id: int) -> str:
         # Return a dummy token for development/testing.
         return "ghp_dummy_token_for_testing"
     jwt_token = _create_jwt(app_id, private_key)
-    headers = {"Authorization": f"Bearer {jwt_token}", "Accept": "application/vnd.github+json"}
+    headers = {
+        "Authorization": f"Bearer {jwt_token}",
+        "Accept": "application/vnd.github+json",
+    }
     url = f"https://api.github.com/app/installations/{installation_id}/access_tokens"
     resp = requests.post(url, headers=headers)
     resp.raise_for_status()

@@ -8,6 +8,7 @@ import gossipmesh.metrics as metrics
 
 router = APIRouter()
 
+
 @router.get("/", summary="Current cycle metrics")
 async def get_metrics():
     """Return the number of cycles in the last 24 h and the estimated PRs per day."""

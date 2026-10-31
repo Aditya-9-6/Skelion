@@ -5,8 +5,8 @@ import asyncio
 from gossipmesh.agents.llm import LocalLlamaFallbackProvider
 from gossipmesh_engine.providers.models import GenerationRequest, Message
 
-class TestLocalLlamaFallbackProvider(unittest.TestCase):
 
+class TestLocalLlamaFallbackProvider(unittest.TestCase):
     def setUp(self):
         self.provider = LocalLlamaFallbackProvider(model_path="dummy_path.gguf")
 
@@ -19,17 +19,14 @@ class TestLocalLlamaFallbackProvider(unittest.TestCase):
         mock_model = MagicMock()
         mock_model.create_chat_completion.return_value = {
             "choices": [
-                {
-                    "message": {"role": "assistant", "content": "Hello from local llama!"}
-                }
+                {"message": {"role": "assistant", "content": "Hello from local llama!"}}
             ],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
         }
         mock_llama_cls.return_value = mock_model
 
         request = GenerationRequest(
-            model="llama-3-8b",
-            messages=[Message(role="user", content="Hi")]
+            model="llama-3-8b", messages=[Message(role="user", content="Hi")]
         )
 
         loop = asyncio.get_event_loop()
@@ -46,6 +43,7 @@ class TestLocalLlamaFallbackProvider(unittest.TestCase):
         health = loop.run_until_complete(self.provider.check_health())
         self.assertFalse(health.is_healthy)
         self.assertIn("Model path not found", health.error)
+
 
 if __name__ == "__main__":
     unittest.main()

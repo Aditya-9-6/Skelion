@@ -1,8 +1,5 @@
-import os
-import re
-
-file_path = r'g:\My Drive\helios\skelion_agent\chat_routes.py'
-with open(file_path, 'r', encoding='utf-8') as f:
+file_path = r"g:\My Drive\helios\skelion_agent\chat_routes.py"
+with open(file_path, "r", encoding="utf-8") as f:
     content = f.read()
 
 # Helper function to insert
@@ -37,13 +34,13 @@ def extract_file_blocks_from_text(text: str) -> list[dict[str, str]]:
 '''
 
 # Check if helpers already exist
-if 'def materialize_file_to_workspace' not in content:
-    idx = content.find('async def generate_smart_ai_response')
+if "def materialize_file_to_workspace" not in content:
+    idx = content.find("async def generate_smart_ai_response")
     content = content[:idx] + helper_funcs + "\n\n" + content[idx:]
     print("Added helper functions.")
 
 # Now check execution logic
-execution_block = '''    # =========================================================================
+execution_block = """    # =========================================================================
     # 0. AUTONOMOUS GITHUB BOT: PULL REQUEST CREATION
     # =========================================================================
     is_pr_request = any(k in p_lower for k in [
@@ -256,19 +253,21 @@ execution_block = '''    # =====================================================
             f"- **Next Action**: You can view and edit the files directly in VS Code, or tell me **'Make PR'** to open an automated GitHub Pull Request right now!",
             primary_tool_call
         )
-'''
+"""
 
 # Check if execution block is already in content
-if 'is_pr_request = any(k in p_lower' not in content:
+if "is_pr_request = any(k in p_lower" not in content:
     # Insert right before the Groq/Gemini calls or right before keyword checks
-    target_insert = '    # 4. Built-in Skelion Contextual Reasoning Engine'
+    target_insert = "    # 4. Built-in Skelion Contextual Reasoning Engine"
     if target_insert in content:
-        content = content.replace(target_insert, execution_block + "\n    " + target_insert, 1)
+        content = content.replace(
+            target_insert, execution_block + "\n    " + target_insert, 1
+        )
         print("Inserted autonomous execution block.")
     else:
         print("Could not find target_insert!")
 
-with open(file_path, 'w', encoding='utf-8', newline='\r\n') as f:
+with open(file_path, "w", encoding="utf-8", newline="\r\n") as f:
     f.write(content)
 
 print("Updated chat_routes.py successfully.")

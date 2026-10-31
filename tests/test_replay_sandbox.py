@@ -1,7 +1,6 @@
 # tests/test_replay_sandbox.py — Replay Sandbox Verification Tests
 
-import pytest
-from core.replay_sandbox import run_replay_verification, calculate_confidence, IDEMPOTENT_METHODS
+from core.replay_sandbox import run_replay_verification, calculate_confidence
 
 
 def test_idempotent_method_enforcement():
@@ -26,7 +25,7 @@ def test_replay_verification_pass_and_regression():
     ]
 
     mock_responses = {
-        "/api/recovered": 200,   # Baseline was 500, now 200 -> Pass!
+        "/api/recovered": 200,  # Baseline was 500, now 200 -> Pass!
         "/api/broken_now": 500,  # Baseline was 200, now 500 -> Regression!
     }
 

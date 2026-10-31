@@ -89,7 +89,7 @@ def run_replay_verification(
     mock_responses: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     """Execute replay verification against target service or mock harness.
-    
+
     Each replay item should be a dict:
     {
         "method": "GET",
@@ -117,12 +117,14 @@ def run_replay_verification(
 
         # Safety check: enforce idempotent methods by default
         if not allow_non_idempotent and method not in IDEMPOTENT_METHODS:
-            details.append({
-                "path": path,
-                "method": method,
-                "status": "skipped",
-                "reason": f"Method {method} is non-idempotent and disallowed by replay safety policy.",
-            })
+            details.append(
+                {
+                    "path": path,
+                    "method": method,
+                    "status": "skipped",
+                    "reason": f"Method {method} is non-idempotent and disallowed by replay safety policy.",
+                }
+            )
             continue
 
         total_replayed += 1
@@ -142,9 +144,15 @@ def run_replay_verification(
             headers.setdefault("User-Agent", "Skelion-Replay-Verifier/2.0")
             body_bytes = None
             if item.get("body"):
-                body_bytes = json.dumps(item["body"]).encode("utf-8") if isinstance(item["body"], dict) else str(item["body"]).encode("utf-8")
+                body_bytes = (
+                    json.dumps(item["body"]).encode("utf-8")
+                    if isinstance(item["body"], dict)
+                    else str(item["body"]).encode("utf-8")
+                )
 
-            req = urllib.request.Request(url, data=body_bytes, headers=headers, method=method)
+            req = urllib.request.Request(
+                url, data=body_bytes, headers=headers, method=method
+            )
             try:
                 with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
                     actual_status = resp.status
@@ -167,7 +175,7 @@ def run_replay_verification(
         # Assessment
         # If baseline was failing (>=400) and actual is now 2xx -> Fix Verified!
         # If baseline was 200 and actual is now >=400 -> Regression!
-        is_regression = (baseline_status < 400 and actual_status >= 400)
+        is_regression = baseline_status < 400 and actual_status >= 400
         is_pass = (actual_status < 400) and not is_regression
 
         if is_regression:
@@ -178,19 +186,25 @@ def run_replay_verification(
         else:
             failed += 1
 
-        details.append({
-            "path": path,
-            "method": method,
-            "baseline_status": baseline_status,
-            "actual_status": actual_status,
-            "latency_ms": round(elapsed_ms, 2),
-            "latency_delta_ms": round(latency_delta, 2),
-            "verdict": "regression" if is_regression else ("pass" if is_pass else "fail"),
-            "error": error_msg,
-        })
+        details.append(
+            {
+                "path": path,
+                "method": method,
+                "baseline_status": baseline_status,
+                "actual_status": actual_status,
+                "latency_ms": round(elapsed_ms, 2),
+                "latency_delta_ms": round(latency_delta, 2),
+                "verdict": "regression"
+                if is_regression
+                else ("pass" if is_pass else "fail"),
+                "error": error_msg,
+            }
+        )
 
     coverage = len(unique_routes) / max(1, len(total_routes_target))
-    avg_latency_delta = (total_latency_delta / max(1, total_replayed)) if total_replayed else 0.0
+    avg_latency_delta = (
+        (total_latency_delta / max(1, total_replayed)) if total_replayed else 0.0
+    )
     conf = calculate_confidence(total_replayed, passed, regressions, coverage)
 
     result = ReplayResult(

@@ -2,7 +2,6 @@
 
 import json
 import os
-import sys
 import urllib.request
 from typing import Dict, Any
 
@@ -24,9 +23,13 @@ def run_diagnostics(config: Optional[LLMConfig] = None) -> Dict[str, Any]:
         from skelion_agent.database import get_engine
         from sqlmodel import Session, select
         from skelion_agent.models import Organization
+
         with Session(get_engine()) as session:
             count = len(session.exec(select(Organization)).all())
-        results["checks"]["database"] = {"status": "ok", "message": f"SQLite incident store operational ({count} orgs)"}
+        results["checks"]["database"] = {
+            "status": "ok",
+            "message": f"SQLite incident store operational ({count} orgs)",
+        }
     except Exception as e:
         results["checks"]["database"] = {"status": "error", "message": str(e)}
         results["status"] = "degraded"
@@ -42,19 +45,26 @@ def run_diagnostics(config: Optional[LLMConfig] = None) -> Dict[str, Any]:
             if lic_res["valid"]:
                 results["enabled_features"].extend(lic_res.get("features", []))
         except Exception as e:
-            results["checks"]["license"] = {"status": "degraded", "message": f"Failed reading license: {e}"}
+            results["checks"]["license"] = {
+                "status": "degraded",
+                "message": f"Failed reading license: {e}",
+            }
     else:
         results["checks"]["license"] = {
             "status": "community_mode",
             "message": "No license file found. Operating under local community mode.",
         }
-        results["enabled_features"].extend(["proxy_capture", "redaction", "incident_fingerprinting", "audit_cli"])
+        results["enabled_features"].extend(
+            ["proxy_capture", "redaction", "incident_fingerprinting", "audit_cli"]
+        )
 
     # 3. LLM Connectivity Check
     llm = LLMAdapter(cfg)
     try:
         url = f"{cfg.base_url}/models"
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {cfg.api_key}"})
+        req = urllib.request.Request(
+            url, headers={"Authorization": f"Bearer {cfg.api_key}"}
+        )
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             models = [m.get("id") for m in data.get("data", [])]
@@ -84,8 +94,12 @@ def main():
     print("=" * 60)
 
     for component, check in res["checks"].items():
-        status_sym = "✔" if check.get("status") in ("ok", "valid", "community_mode") else "⚠"
-        print(f"[{status_sym}] {component.upper()}: {check.get('message', check.get('status'))}")
+        status_sym = (
+            "✔" if check.get("status") in ("ok", "valid", "community_mode") else "⚠"
+        )
+        print(
+            f"[{status_sym}] {component.upper()}: {check.get('message', check.get('status'))}"
+        )
 
     print("\nActive Features:")
     for feat in set(res["enabled_features"]):

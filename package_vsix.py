@@ -1,10 +1,10 @@
 import os
 import zipfile
-import json
 
 ROOT = r"C:\Users\adity\.gemini\antigravity\brain\5b2cce19-829f-47e8-a475-c50d0b5847f8\skelion_vscode_extension"
 OUT_VSIX = os.path.join(ROOT, "skelion-vscode-0.1.0.vsix")
 DEST_VSIX = r"g:\My Drive\helios\skelion_vscode_extension\skelion-vscode-0.1.0.vsix"
+
 
 def build_vsix():
     print(f"Building VSIX from {ROOT} -> {OUT_VSIX}...")
@@ -66,9 +66,11 @@ def build_vsix():
 
     # Copy to helios folder
     import shutil
+
     shutil.copyfile(OUT_VSIX, DEST_VSIX)
     print(f"VSIX built and copied to {DEST_VSIX}")
     print(f"Size: {os.path.getsize(OUT_VSIX)} bytes")
+
 
 if __name__ == "__main__":
     build_vsix()

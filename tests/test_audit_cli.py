@@ -3,7 +3,6 @@
 import os
 import json
 import tempfile
-import pytest
 from core.audit_cli import parse_log_line, analyze_logs, run_audit
 
 
@@ -18,14 +17,16 @@ def test_parse_nginx_and_jsonl():
     assert parsed["latency_ms"] == 45.0
 
     # 2. JSONL line
-    json_line = json.dumps({
-        "timestamp": "2026-10-24T14:00:00Z",
-        "method": "POST",
-        "path": "/v1/chat",
-        "status": 502,
-        "latency_ms": 120.5,
-        "error": "Upstream connection failed"
-    })
+    json_line = json.dumps(
+        {
+            "timestamp": "2026-10-24T14:00:00Z",
+            "method": "POST",
+            "path": "/v1/chat",
+            "status": 502,
+            "latency_ms": 120.5,
+            "error": "Upstream connection failed",
+        }
+    )
     parsed2 = parse_log_line(json_line)
     assert parsed2 is not None
     assert parsed2["method"] == "POST"
@@ -36,17 +37,49 @@ def test_parse_nginx_and_jsonl():
 def test_analyzers_find_planted_issues():
     records = [
         # Silent 200 failure (HTTP 200 but error body)
-        {"method": "POST", "raw_path": "/api/checkout", "route": "/api/checkout", "status": 200, "latency_ms": 30.0, "body": '{"status":"failed","error":"Payment card expired"}'},
-        {"method": "POST", "raw_path": "/api/checkout", "route": "/api/checkout", "status": 200, "latency_ms": 25.0, "body": '{"error":"Insufficient funds"}'},
-        
+        {
+            "method": "POST",
+            "raw_path": "/api/checkout",
+            "route": "/api/checkout",
+            "status": 200,
+            "latency_ms": 30.0,
+            "body": '{"status":"failed","error":"Payment card expired"}',
+        },
+        {
+            "method": "POST",
+            "raw_path": "/api/checkout",
+            "route": "/api/checkout",
+            "status": 200,
+            "latency_ms": 25.0,
+            "body": '{"error":"Insufficient funds"}',
+        },
         # 5xx Outage
-        {"method": "GET", "raw_path": "/api/products", "route": "/api/products", "status": 500, "latency_ms": 100.0, "body": "Internal Server Error"},
-        
+        {
+            "method": "GET",
+            "raw_path": "/api/products",
+            "route": "/api/products",
+            "status": 500,
+            "latency_ms": 100.0,
+            "body": "Internal Server Error",
+        },
         # 429 LLM Storm
-        {"method": "POST", "raw_path": "/v1/agent", "route": "/v1/agent", "status": 429, "latency_ms": 15.0, "body": "Rate limit exceeded"},
-        
+        {
+            "method": "POST",
+            "raw_path": "/v1/agent",
+            "route": "/v1/agent",
+            "status": 429,
+            "latency_ms": 15.0,
+            "body": "Rate limit exceeded",
+        },
         # Normal healthy traffic
-        {"method": "GET", "raw_path": "/healthz", "route": "/healthz", "status": 200, "latency_ms": 5.0, "body": "ok"},
+        {
+            "method": "GET",
+            "raw_path": "/healthz",
+            "route": "/healthz",
+            "status": 200,
+            "latency_ms": 5.0,
+            "body": "ok",
+        },
     ]
 
     metrics = analyze_logs(records)

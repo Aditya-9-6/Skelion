@@ -32,6 +32,7 @@ rate_limits_saved_total = Counter(
     "Number of times a 429 was handled by rotating to another API key",
 )
 
+
 class KeyPool:
     """Manage a rotating pool of API keys.
 
@@ -60,7 +61,11 @@ class KeyPool:
         with self._lock:
             key = next(self._iterator)
             self._usage_counts[key] += 1
-            logger.debug("KeyPool selected key (usage %d): %s", self._usage_counts[key], key[:4] + "***")
+            logger.debug(
+                "KeyPool selected key (usage %d): %s",
+                self._usage_counts[key],
+                key[:4] + "***",
+            )
             return key
 
     def report_rate_limit(self) -> None:

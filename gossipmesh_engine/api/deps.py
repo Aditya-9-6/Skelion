@@ -1,5 +1,5 @@
 from typing import Generator, Any
-from fastapi import Depends, status
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from sqlalchemy.orm import Session
@@ -11,7 +11,9 @@ from gossipmesh.models.user import User
 from gossipmesh.core.exceptions import AuthenticationError, AuthorizationError
 from gossipmesh.db.redis import redis_client
 
-reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login/access-token")
+reusable_oauth2 = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/login/access-token"
+)
 
 
 def get_db() -> Generator:
@@ -26,7 +28,9 @@ from datetime import timedelta
 from gossipmesh.models.session import UserSession
 
 
-def get_current_user(db: Session = Depends(get_db), token: str = Depends(reusable_oauth2)) -> User:
+def get_current_user(
+    db: Session = Depends(get_db), token: str = Depends(reusable_oauth2)
+) -> User:
     try:
         payload = jwt.decode(
             token,
@@ -59,7 +63,9 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(reusabl
 
         # Check session invalidation (password change)
         if iat:
-            invalidated_before = redis_client.get(f"sessions_invalidated_before:{user_id}")
+            invalidated_before = redis_client.get(
+                f"sessions_invalidated_before:{user_id}"
+            )
             if invalidated_before and float(iat) < float(invalidated_before):
                 raise AuthenticationError(message="Session has been invalidated")
 
@@ -75,10 +81,11 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(reusabl
 
 
 def get_scim_token(
-    authorization: str = Depends(OAuth2PasswordBearer(tokenUrl="token", auto_error=False)),
+    authorization: str = Depends(
+        OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+    ),
     db: Session = Depends(get_db),
 ) -> Any:
-    from fastapi import Header
     from gossipmesh.models.service_account import APIKey
     from gossipmesh.core.security import verify_password
     from datetime import datetime, timezone
@@ -96,7 +103,11 @@ def get_scim_token(
     parts = raw_token.split(".", 1)
     if len(parts) == 2:
         prefix, secret = parts
-        api_key = db.query(APIKey).filter(APIKey.prefix == prefix, APIKey.is_revoked == False).first()
+        api_key = (
+            db.query(APIKey)
+            .filter(APIKey.prefix == prefix, APIKey.is_revoked == False)
+            .first()
+        )
         if api_key and verify_password(secret, api_key.hashed_key):
             if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
                 raise AuthenticationError(message="Token has expired")
@@ -104,7 +115,11 @@ def get_scim_token(
             db.commit()
             return api_key
 
-    api_key = db.query(APIKey).filter(APIKey.prefix == raw_token, APIKey.is_revoked == False).first()
+    api_key = (
+        db.query(APIKey)
+        .filter(APIKey.prefix == raw_token, APIKey.is_revoked == False)
+        .first()
+    )
     if api_key:
         return api_key
     raise AuthenticationError(message="Invalid SCIM token")

@@ -78,7 +78,9 @@ def issue_license(
     }
 
     # Canonical JSON serialization for reproducible signing
-    canonical_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    canonical_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
 
     priv_key, kid = get_private_key()
     signature_bytes = priv_key.sign(canonical_bytes)
