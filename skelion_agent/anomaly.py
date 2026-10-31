@@ -1,7 +1,7 @@
 import math
 import threading
 from collections import deque
-from typing import Deque, Tuple, Optional, Dict
+from typing import Deque, Tuple, Dict
 
 
 class WelfordOnlineStats:
@@ -67,9 +67,9 @@ class SlidingZScoreFilter:
             # recalculating or maintaining full stats on eviction is robust and accurate.
             if len(self.window) >= self.window_size:
                 self.window.popleft()
-            
+
             self.window.append(value)
-            
+
             # Recompute Welford stats over current window for accuracy
             count = len(self.window)
             if count < 5:
@@ -78,12 +78,16 @@ class SlidingZScoreFilter:
 
             # Fast recomputation
             mean = sum(self.window) / count
-            variance = sum((x - mean) ** 2 for x in self.window) / (count - 1) if count > 1 else 0.0
+            variance = (
+                sum((x - mean) ** 2 for x in self.window) / (count - 1)
+                if count > 1
+                else 0.0
+            )
             std_dev = math.sqrt(variance) if variance > 0.0 else 0.0
 
             if std_dev == 0.0:
                 is_anomaly = abs(value - mean) > 1e-9
-                z_score = 0.0 if not is_anomaly else float('inf')
+                z_score = 0.0 if not is_anomaly else float("inf")
                 return is_anomaly, z_score
 
             z_score = (value - mean) / std_dev
@@ -94,13 +98,11 @@ class SlidingZScoreFilter:
         with self._lock:
             count = len(self.window)
             if count == 0:
-                return {"count": 0,
-                        "mean": 0.0,
-                        "std_dev": 0.0}
+                return {"count": 0, "mean": 0.0, "std_dev": 0.0}
             mean = sum(self.window) / count
-            variance = sum((x - mean) ** 2 for x in self.window) / (count - 1) if count > 1 else 0.0
-            return {
-                "count": count,
-                "mean": mean,
-                "std_dev": math.sqrt(variance)
-            }
+            variance = (
+                sum((x - mean) ** 2 for x in self.window) / (count - 1)
+                if count > 1
+                else 0.0
+            )
+            return {"count": count, "mean": mean, "std_dev": math.sqrt(variance)}
