@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, Set, Optional, Tuple, Generator
+from typing import Dict, Set, Optional, Tuple, Generator, List
 
 
 class VectorClock:
