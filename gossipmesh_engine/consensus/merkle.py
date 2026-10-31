@@ -1,5 +1,5 @@
 import hashlib
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 
 def hash_data(data: str) -> str:
@@ -45,7 +45,9 @@ class MerkleTree:
         if not sorted_keys:
             self.root = None
             return
-        nodes = [MerkleNode(key=k, value_hash=hash_data(self.items[k])) for k in sorted_keys]
+        nodes = [
+            MerkleNode(key=k, value_hash=hash_data(self.items[k])) for k in sorted_keys
+        ]
         self.root = self._build_level(nodes)
 
     def _build_level(self, nodes: List[MerkleNode]) -> MerkleNode:

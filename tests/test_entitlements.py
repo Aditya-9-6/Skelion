@@ -1,6 +1,6 @@
 # tests/test_entitlements.py — Plan Entitlements & Limits Tests
 
-from core.entitlements import can, limit, explain_denial, normalize_plan_id
+from core.entitlements import can, limit, explain_denial
 
 
 def test_entitlement_gating():

@@ -1,4 +1,3 @@
-import os
 import json
 import time
 import uuid
@@ -6,7 +5,7 @@ from collections import deque
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Any, Set
-from gossipmesh.p2p.pow import mine_pow, verify_pow
+from gossipmesh.p2p.pow import mine_pow
 from gossipmesh.p2p.scatter import AdaptiveScatterGovernor
 
 
@@ -52,7 +51,7 @@ class GossipMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'GossipMessage':
+    def from_dict(cls, data: Dict[str, Any]) -> "GossipMessage":
         return cls(
             topic=data["topic"],
             origin_node=data["origin_node"],
@@ -69,6 +68,7 @@ class GossipNode:
     """Decentralized Gossip Peer Node with Proof-of-Work Sybil Deterrence
     and Adaptive Scatter-Width CPU-Load Feedback Shaping.
     Communicates via a shared ledger directory (file-backed mesh) or local bus."""
+
     def __init__(
         self,
         node_id: str,
@@ -111,7 +111,11 @@ class GossipNode:
         self.subscribers[topic_str].append(handler)
 
     def publish(
-        self, topic: GossipTopic, payload: Dict[str, Any], repo: str = "global", ttl: int = 10
+        self,
+        topic: GossipTopic,
+        payload: Dict[str, Any],
+        repo: str = "global",
+        ttl: int = 10,
     ) -> GossipMessage:
         """Broadcasts an epidemic gossip event across the mesh with adaptive scatter shaping."""
         current_scatter = self.scatter_governor.update()

@@ -7,6 +7,7 @@ and Replay Sandbox verification proof into the local control plane database.
 
 import sys
 import os
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import uuid
@@ -20,7 +21,7 @@ from skelion_agent.models import Incident, Organization
 def simulate_incident(
     route: str = "POST /api/v1/orders/checkout",
     error_msg: str = "TypeError: Cannot read properties of undefined (reading 'payment_method_id')",
-    org_id: str = None
+    org_id: str = None,
 ):
     engine = get_engine()
     with Session(engine) as s:
@@ -30,10 +31,14 @@ def simulate_incident(
             ).first()
             if not dev_org:
                 dev_org = s.exec(
-                    select(Organization).where(Organization.github_username == "Aditya-9-6")
+                    select(Organization).where(
+                        Organization.github_username == "Aditya-9-6"
+                    )
                 ).first()
             if not dev_org:
-                dev_org = s.exec(select(Organization).where(Organization.id == "org_default")).first()
+                dev_org = s.exec(
+                    select(Organization).where(Organization.id == "org_default")
+                ).first()
             if not dev_org:
                 dev_org = s.exec(select(Organization)).first()
             org_id = dev_org.id if dev_org else "org_default"
@@ -82,20 +87,30 @@ def simulate_incident(
         print("🚨 LIVE PRODUCTION INCIDENT SIMULATED SUCCESSFULLY!")
         print("=" * 65)
         print(f"• Incident ID  : {inc.id}")
-        print(f"• Route        : {inc.http_method} {inc.route_path} (HTTP {inc.status_code})")
+        print(
+            f"• Route        : {inc.http_method} {inc.route_path} (HTTP {inc.status_code})"
+        )
         print(f"• Error        : {inc.error_summary}")
         print(f"• Fingerprint  : {inc.fingerprint}")
         print(f"• Organization : {org.github_username if org else 'Default'}")
         print("-" * 65)
         print("👉 In your VS Code sidebar:")
-        print("   1. Click 'Refresh' in the 🚨 Incidents tab to see the live edge crash.")
+        print(
+            "   1. Click 'Refresh' in the 🚨 Incidents tab to see the live edge crash."
+        )
         print("   2. Switch to ⚡ Fixes tab to review the Replay Sandbox verification.")
-        print("   3. Click '⚡ Apply Verified Fix' to auto-heal the code without downtime!")
+        print(
+            "   3. Click '⚡ Apply Verified Fix' to auto-heal the code without downtime!"
+        )
         print("=" * 65 + "\n")
         return inc
 
 
 if __name__ == "__main__":
     route_arg = sys.argv[1] if len(sys.argv) > 1 else "POST /api/v1/orders/checkout"
-    err_arg = sys.argv[2] if len(sys.argv) > 2 else "TypeError: Cannot read properties of undefined (reading 'payment_method_id')"
+    err_arg = (
+        sys.argv[2]
+        if len(sys.argv) > 2
+        else "TypeError: Cannot read properties of undefined (reading 'payment_method_id')"
+    )
     simulate_incident(route_arg, err_arg)

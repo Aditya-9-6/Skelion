@@ -13,8 +13,6 @@
 """
 
 import hashlib
-import os
-from datetime import timedelta
 from typing import Optional
 
 import httpx
@@ -45,6 +43,7 @@ def hash_api_key(raw_key: str) -> str:
 # Pydantic request / response schemas
 # ---------------------------------------------------------------------------
 
+
 class GitHubAuthRequest(BaseModel):
     access_token: str
 
@@ -67,21 +66,28 @@ class ApiKeyResponse(BaseModel):
 # Helper to load organization from JWT
 # ---------------------------------------------------------------------------
 
+
 def get_org_from_jwt(
     authorization: Optional[str] = Header(None),
     x_organization_id: Optional[str] = Header(None),
-    session: Session = Depends(get_db)
+    session: Session = Depends(get_db),
 ) -> Organization:
     # 1. Direct org header or fallback if provided
     target_id = x_organization_id or "org_default"
-    
+
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ", 1)[1]
         if token in ("dev", "default", "test"):
             org = session.get(Organization, target_id)
             if not org:
                 import uuid
-                org = Organization(id=target_id, name="Default Org", token=f"skl_live_{uuid.uuid4().hex}", plan="pilot")
+
+                org = Organization(
+                    id=target_id,
+                    name="Default Org",
+                    token=f"skl_live_{uuid.uuid4().hex}",
+                    plan="pilot",
+                )
                 session.add(org)
                 session.commit()
                 session.refresh(org)
@@ -89,7 +95,9 @@ def get_org_from_jwt(
 
         # Support persistent API keys (skl_live_...) directly
         if token.startswith("skl_live_"):
-            org = session.exec(select(Organization).where(Organization.token == token)).first()
+            org = session.exec(
+                select(Organization).where(Organization.token == token)
+            ).first()
             if org:
                 return org
 
@@ -104,7 +112,13 @@ def get_org_from_jwt(
     org = session.get(Organization, target_id)
     if not org:
         import uuid
-        org = Organization(id=target_id, name="Default Org", token=f"skl_live_{uuid.uuid4().hex}", plan="pilot")
+
+        org = Organization(
+            id=target_id,
+            name="Default Org",
+            token=f"skl_live_{uuid.uuid4().hex}",
+            plan="pilot",
+        )
         session.add(org)
         session.commit()
         session.refresh(org)
@@ -114,6 +128,7 @@ def get_org_from_jwt(
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/github")
 async def github_auth(req: GitHubAuthRequest, session: Session = Depends(get_db)):
@@ -160,7 +175,11 @@ async def github_auth(req: GitHubAuthRequest, session: Session = Depends(get_db)
                 )
                 if email_resp.status_code == 200:
                     emails_list = email_resp.json()
-                    primary_emails = [e["email"] for e in emails_list if e.get("primary") and e.get("verified")]
+                    primary_emails = [
+                        e["email"]
+                        for e in emails_list
+                        if e.get("primary") and e.get("verified")
+                    ]
                     if primary_emails:
                         email = primary_emails[0]
                     elif emails_list:
@@ -256,7 +275,9 @@ def me(org: Organization = Depends(get_org_from_jwt)):
 
 @router.post("/register")
 def register(req: RegisterRequest, session: Session = Depends(get_db)):
-    existing = session.exec(select(Organization).where(Organization.email == req.email)).first()
+    existing = session.exec(
+        select(Organization).where(Organization.email == req.email)
+    ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     pilot_quota = PLAN_DEFINITIONS.get("pilot", {}).get("quota", 100)
@@ -277,7 +298,9 @@ def register(req: RegisterRequest, session: Session = Depends(get_db)):
 
 @router.post("/token")
 def token(req: TokenRequest, session: Session = Depends(get_db)):
-    org = session.exec(select(Organization).where(Organization.email == req.email)).first()
+    org = session.exec(
+        select(Organization).where(Organization.email == req.email)
+    ).first()
     if not org or not org.password_hash:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not verify_password(req.password, org.password_hash):
@@ -287,7 +310,9 @@ def token(req: TokenRequest, session: Session = Depends(get_db)):
 
 
 @router.post("/api-key", response_model=ApiKeyResponse)
-def api_key(org: Organization = Depends(get_org_from_jwt), session: Session = Depends(get_db)):
+def api_key(
+    org: Organization = Depends(get_org_from_jwt), session: Session = Depends(get_db)
+):
     raw_key = generate_api_key()
     key_hash = hash_api_key(raw_key)
     node = ProxyNode(

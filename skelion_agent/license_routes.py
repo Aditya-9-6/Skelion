@@ -1,14 +1,14 @@
 # skelion_agent/license_routes.py — License Issuance & Offline Download Endpoints
 
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from skelion_agent.auth_routes import get_org_from_jwt
 from skelion_agent.database import get_db
-from skelion_agent.models import Organization, License, utc_now
+from skelion_agent.models import Organization, License
 from license.issuer import issue_license
 from license.verifier import verify_license_offline
 
@@ -113,7 +113,9 @@ def download_license(
     return Response(
         content=content,
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename=skelion-{lic.id}.license"},
+        headers={
+            "Content-Disposition": f"attachment; filename=skelion-{lic.id}.license"
+        },
     )
 
 

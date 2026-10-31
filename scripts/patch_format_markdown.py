@@ -1,11 +1,9 @@
-import os
-
-file_path = r'skelion_vscode_extension/src/extension.ts'
-with open(file_path, 'r', encoding='utf-8') as f:
+file_path = r"skelion_vscode_extension/src/extension.ts"
+with open(file_path, "r", encoding="utf-8") as f:
     text = f.read()
 
-idx1 = text.find('function formatMarkdown')
-idx2 = text.find('function newChat')
+idx1 = text.find("function formatMarkdown")
+idx2 = text.find("function newChat")
 
 if idx1 == -1 or idx2 == -1:
     print(f"Could not find indices: idx1={idx1}, idx2={idx2}")
@@ -61,7 +59,7 @@ new_func = """function formatMarkdown(raw) {
     """
 
 text = text[:idx1] + new_func + text[idx2:]
-with open(file_path, 'w', encoding='utf-8', newline='\r\n') as f:
+with open(file_path, "w", encoding="utf-8", newline="\r\n") as f:
     f.write(text)
 
 print("Updated formatMarkdown successfully!")

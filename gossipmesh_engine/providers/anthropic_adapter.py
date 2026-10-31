@@ -1,6 +1,5 @@
 import os
 import asyncio
-from prometheus_client import Counter
 from gossipmesh_agent.key_pool import KeyPool
 
 # Initialize global key pool for Anthropic API keys (reuse OPENAI_API_KEYS env var for simplicity)
@@ -11,7 +10,12 @@ import time
 from anthropic import AsyncAnthropic
 
 from gossipmesh.providers.base import BaseProvider
-from gossipmesh.providers.models import GenerationRequest, GenerationResponse, ProviderHealth, Usage
+from gossipmesh.providers.models import (
+    GenerationRequest,
+    GenerationResponse,
+    ProviderHealth,
+    Usage,
+)
 
 
 class AnthropicProvider(BaseProvider):
@@ -30,8 +34,14 @@ class AnthropicProvider(BaseProvider):
         while True:
             key = _key_pool.get_key()
             client = AsyncAnthropic(api_key=key)
-            system_prompt = next((msg.content for msg in request.messages if msg.role == "system"), "")
-            messages = [{"role": msg.role, "content": msg.content} for msg in request.messages if msg.role != "system"]
+            system_prompt = next(
+                (msg.content for msg in request.messages if msg.role == "system"), ""
+            )
+            messages = [
+                {"role": msg.role, "content": msg.content}
+                for msg in request.messages
+                if msg.role != "system"
+            ]
             try:
                 response = await client.messages.create(
                     model=request.model,
@@ -65,12 +75,23 @@ class AnthropicProvider(BaseProvider):
             content = response.content[0].text  # type: ignore
 
         return GenerationResponse(
-            content=content, model=request.model, usage=usage, raw_response={"id": response.id, "type": response.type}
+            content=content,
+            model=request.model,
+            usage=usage,
+            raw_response={"id": response.id, "type": response.type},
         )
 
-    async def generate_stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:  # type: ignore
-        system_prompt = next((msg.content for msg in request.messages if msg.role == "system"), "")
-        messages = [{"role": msg.role, "content": msg.content} for msg in request.messages if msg.role != "system"]
+    async def generate_stream(
+        self, request: GenerationRequest
+    ) -> AsyncGenerator[str, None]:  # type: ignore
+        system_prompt = next(
+            (msg.content for msg in request.messages if msg.role == "system"), ""
+        )
+        messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in request.messages
+            if msg.role != "system"
+        ]
 
         async with self.client.messages.stream(
             model=request.model,
@@ -89,7 +110,9 @@ class AnthropicProvider(BaseProvider):
         try:
             # simple ping query
             await self.client.messages.create(
-                model="claude-3-haiku-20240307", max_tokens=1, messages=[{"role": "user", "content": "hello"}]
+                model="claude-3-haiku-20240307",
+                max_tokens=1,
+                messages=[{"role": "user", "content": "hello"}],
             )
             latency = (time.time() - start_time) * 1000
             return ProviderHealth(is_healthy=True, latency_ms=latency)

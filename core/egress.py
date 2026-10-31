@@ -5,13 +5,14 @@ import argparse
 import hashlib
 import json
 import os
-import sys
 from datetime import datetime, timezone
 from typing import Dict, Any, List
 
 from core.redact import redact_text, normalize_route_path
 
-SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "..", "docs", "specs", "egress_schema.json")
+SCHEMA_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "docs", "specs", "egress_schema.json"
+)
 
 # In-memory circular buffer of recently emitted hybrid metadata payloads
 _LAST_EGRESS_PAYLOADS: List[Dict[str, Any]] = []
@@ -71,13 +72,25 @@ def sanitize_for_egress(
 def validate_egress_payload(payload: Dict[str, Any]) -> bool:
     """Validate payload against strict allow-list egress schema."""
     disallowed_keys = {
-        "body", "headers", "ip", "user_id", "email", "authorization",
-        "cookie", "password", "query", "token", "prompt", "stack_trace"
+        "body",
+        "headers",
+        "ip",
+        "user_id",
+        "email",
+        "authorization",
+        "cookie",
+        "password",
+        "query",
+        "token",
+        "prompt",
+        "stack_trace",
     }
 
     for k in payload.keys():
         if k.lower() in disallowed_keys:
-            raise ValueError(f"CRITICAL SECURITY VIOLATION: Disallowed field '{k}' detected in egress payload!")
+            raise ValueError(
+                f"CRITICAL SECURITY VIOLATION: Disallowed field '{k}' detected in egress payload!"
+            )
 
     # Verify against schema definition if available
     if os.path.exists(SCHEMA_PATH):
@@ -86,12 +99,16 @@ def validate_egress_payload(payload: Dict[str, Any]) -> bool:
         allowed_properties = set(schema.get("properties", {}).keys())
         for k in payload.keys():
             if k not in allowed_properties:
-                raise ValueError(f"Schema violation: Field '{k}' is not in the allow-list egress schema!")
+                raise ValueError(
+                    f"Schema violation: Field '{k}' is not in the allow-list egress schema!"
+                )
 
     return True
 
 
-def preview_llm_prompt(incident_summary: str, route_path: str, proposed_code_snippet: str) -> str:
+def preview_llm_prompt(
+    incident_summary: str, route_path: str, proposed_code_snippet: str
+) -> str:
     """Preview the exact redacted prompt that will be sent to the configured LLM."""
     redacted_snippet = redact_text(proposed_code_snippet)
     normalized_route = normalize_route_path(route_path)
@@ -107,16 +124,29 @@ def preview_llm_prompt(incident_summary: str, route_path: str, proposed_code_sni
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Skelion Egress Verifier & Payload Inspector (skelion egress)")
-    parser.add_argument("--dry-run", action="store_true", help="Preview exact redacted prompt that leaves for an LLM")
-    parser.add_argument("--show-last", type=int, default=5, help="Display the last N metadata payloads emitted")
+    parser = argparse.ArgumentParser(
+        description="Skelion Egress Verifier & Payload Inspector (skelion egress)"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview exact redacted prompt that leaves for an LLM",
+    )
+    parser.add_argument(
+        "--show-last",
+        type=int,
+        default=5,
+        help="Display the last N metadata payloads emitted",
+    )
     args = parser.parse_args()
 
     print("[*] Skelion Egress Transparency Inspector")
 
     if args.dry_run:
         sample_code = "const token = 'skl_live_1234567890'; function checkout() { db.query('SELECT * FROM users'); }"
-        preview = preview_llm_prompt("Unhandled database deadlock", "/api/v1/orders/99401", sample_code)
+        preview = preview_llm_prompt(
+            "Unhandled database deadlock", "/api/v1/orders/99401", sample_code
+        )
         print("\n=== DRY-RUN LLM EGRESS PREVIEW (What your LLM receives) ===")
         print(preview)
         print("=" * 60)
@@ -126,7 +156,7 @@ def main():
         if not _LAST_EGRESS_PAYLOADS:
             print("  (Zero payloads emitted yet. Local mode is strictly offline.)")
         else:
-            for i, p in enumerate(_LAST_EGRESS_PAYLOADS[-args.show_last:], 1):
+            for i, p in enumerate(_LAST_EGRESS_PAYLOADS[-args.show_last :], 1):
                 print(f"#{i}: {json.dumps(p, indent=2)}")
 
 

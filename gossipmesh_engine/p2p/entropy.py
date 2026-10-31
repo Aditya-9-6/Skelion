@@ -26,7 +26,9 @@ class VectorClockRingBuffer:
         return len(self._buffer)
 
 
-def compute_divergence_vector(local_clock: Dict[str, int], peer_clock: Dict[str, int]) -> Dict[str, int]:
+def compute_divergence_vector(
+    local_clock: Dict[str, int], peer_clock: Dict[str, int]
+) -> Dict[str, int]:
     """Computes absolute element-wise divergence between local and peer vector clocks."""
     all_keys = set(local_clock.keys()).union(set(peer_clock.keys()))
     divergence: Dict[str, int] = {}
@@ -65,7 +67,9 @@ class AntiEntropyScraper:
 
     def _get_or_create_buffer(self, peer_id: str) -> VectorClockRingBuffer:
         if peer_id not in self.peer_buffers:
-            self.peer_buffers[peer_id] = VectorClockRingBuffer(capacity=self.buffer_capacity)
+            self.peer_buffers[peer_id] = VectorClockRingBuffer(
+                capacity=self.buffer_capacity
+            )
         return self.peer_buffers[peer_id]
 
     def record_peer_clock(self, peer_id: str, vector_clock: Dict[str, int]) -> None:
@@ -73,7 +77,9 @@ class AntiEntropyScraper:
         buf = self._get_or_create_buffer(peer_id)
         buf.push(vector_clock)
 
-    def evaluate_peer(self, local_clock: Dict[str, int], peer_id: str) -> Tuple[float, bool]:
+    def evaluate_peer(
+        self, local_clock: Dict[str, int], peer_id: str
+    ) -> Tuple[float, bool]:
         """Evaluates divergence entropy for a peer against the local clock.
         Returns (entropy_value, should_sync_flag).
         """
@@ -102,10 +108,17 @@ class AntiEntropyScraper:
 class AntiEntropyEngine:
     """Engine supporting both scraper-based divergence and state reconciliation tests."""
 
-    def __init__(self, node_id: str = "node-1", entropy_threshold: float = 1.5, buffer_capacity: int = 100):
+    def __init__(
+        self,
+        node_id: str = "node-1",
+        entropy_threshold: float = 1.5,
+        buffer_capacity: int = 100,
+    ):
         self.node_id = node_id
         self.state_store: Dict[str, Any] = {}
-        self.scraper = AntiEntropyScraper(entropy_threshold=entropy_threshold, buffer_capacity=buffer_capacity)
+        self.scraper = AntiEntropyScraper(
+            entropy_threshold=entropy_threshold, buffer_capacity=buffer_capacity
+        )
 
     def set_state(self, key: str, value: Any) -> None:
         self.state_store[key] = value
@@ -118,7 +131,9 @@ class AntiEntropyEngine:
                 diffs.append(k)
         return diffs
 
-    def evaluate_peer(self, local_clock: Dict[str, int], peer_id: str) -> Tuple[float, bool]:
+    def evaluate_peer(
+        self, local_clock: Dict[str, int], peer_id: str
+    ) -> Tuple[float, bool]:
         return self.scraper.evaluate_peer(local_clock, peer_id)
 
     def record_peer_clock(self, peer_id: str, vector_clock: Dict[str, int]) -> None:

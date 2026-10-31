@@ -4,7 +4,11 @@ from typing import Dict, List, Optional, Tuple
 
 class MerkleNode:
     def __init__(
-        self, key: str, value_hash: str, left: Optional["MerkleNode"] = None, right: Optional["MerkleNode"] = None
+        self,
+        key: str,
+        value_hash: str,
+        left: Optional["MerkleNode"] = None,
+        right: Optional["MerkleNode"] = None,
     ):
         self.key = key
         self.value_hash = value_hash
@@ -42,13 +46,18 @@ class MerkleTree:
 
         combined_key = f"{items[0][0]}-{items[-1][0]}"
         v_hash = hashlib.sha256(combined_key.encode("utf-8")).hexdigest()
-        return MerkleNode(key=combined_key, value_hash=v_hash, left=left_node, right=right_node)
+        return MerkleNode(
+            key=combined_key, value_hash=v_hash, left=left_node, right=right_node
+        )
 
     def get_root_hash(self) -> Optional[str]:
         return self.root.hash if self.root else None
 
     def get_diff(
-        self, other_root: Optional["MerkleNode"], current_node: Optional[MerkleNode], divergent_keys: List[str]
+        self,
+        other_root: Optional["MerkleNode"],
+        current_node: Optional[MerkleNode],
+        divergent_keys: List[str],
     ) -> List[str]:
         if current_node is None:
             return divergent_keys
@@ -58,8 +67,16 @@ class MerkleTree:
         if current_node.hash == other_root.hash:
             return divergent_keys
 
-        if not current_node.left and not current_node.right and not other_root.left and not other_root.right:
-            if current_node.key == other_root.key and current_node.value_hash != other_root.value_hash:
+        if (
+            not current_node.left
+            and not current_node.right
+            and not other_root.left
+            and not other_root.right
+        ):
+            if (
+                current_node.key == other_root.key
+                and current_node.value_hash != other_root.value_hash
+            ):
                 if current_node.key not in divergent_keys:
                     divergent_keys.append(current_node.key)
             return divergent_keys

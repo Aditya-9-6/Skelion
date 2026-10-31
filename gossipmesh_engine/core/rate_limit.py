@@ -60,6 +60,7 @@ class RateLimiter:
         is_allowed, remaining, reset_time = self.check_limit(identifier, limit_type)
         if not is_allowed:
             raise RateLimitError(
-                message="Rate limit exceeded", details={"limit": self.limit, "remaining": 0, "reset": reset_time}
+                message="Rate limit exceeded",
+                details={"limit": self.limit, "remaining": 0, "reset": reset_time},
             )
         return remaining, reset_time

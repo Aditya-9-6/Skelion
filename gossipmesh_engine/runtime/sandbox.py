@@ -24,7 +24,9 @@ class SandboxEnvironment:
         if self.workspace_dir and os.path.exists(self.workspace_dir):
             shutil.rmtree(self.workspace_dir)
 
-    def run_command(self, cmd: Union[str, List[str]], timeout: int = 30) -> Tuple[int, str, str]:
+    def run_command(
+        self, cmd: Union[str, List[str]], timeout: int = 30
+    ) -> Tuple[int, str, str]:
         """Runs a command within the sandbox workspace."""
         if not self.workspace_dir:
             raise RuntimeError("Sandbox not initialized")
@@ -35,10 +37,18 @@ class SandboxEnvironment:
         if os.name == "nt" and cmd and cmd[0].lower() == "echo":
             import sys
 
-            cmd = [sys.executable, "-c", "import sys; print(' '.join(sys.argv[1:]))"] + cmd[1:]
+            cmd = [
+                sys.executable,
+                "-c",
+                "import sys; print(' '.join(sys.argv[1:]))",
+            ] + cmd[1:]
 
         process = subprocess.Popen(
-            cmd, cwd=self.workspace_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            cmd,
+            cwd=self.workspace_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
         try:
             stdout, stderr = process.communicate(timeout=timeout)

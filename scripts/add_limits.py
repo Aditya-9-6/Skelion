@@ -1,4 +1,4 @@
-with open(r'skelion_agent/chat_routes.py', 'r', encoding='utf-8') as f:
+with open(r"skelion_agent/chat_routes.py", "r", encoding="utf-8") as f:
     text = f.read()
 
 limits_endpoints = """
@@ -27,8 +27,10 @@ def toggle_limit_enforcement(
 
 target = '@router.get("/conversations")'
 if target in text:
-    text = text.replace(target, limits_endpoints + '\n\n' + target, 1)
-    with open(r'skelion_agent/chat_routes.py', 'w', encoding='utf-8', newline='\r\n') as f:
+    text = text.replace(target, limits_endpoints + "\n\n" + target, 1)
+    with open(
+        r"skelion_agent/chat_routes.py", "w", encoding="utf-8", newline="\r\n"
+    ) as f:
         f.write(text)
     print("Added limits endpoints successfully!")
 else:

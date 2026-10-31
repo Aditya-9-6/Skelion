@@ -3,16 +3,23 @@
 import hashlib
 import json
 import uuid
-import asyncio
-from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, Depends, HTTPException, Header, BackgroundTasks, status
-from pydantic import BaseModel, HttpUrl
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from skelion_agent.database import get_db
-from skelion_agent.models import Organization, Incident, ApiKey, WebhookSubscription, utc_now
-from skelion_agent.api_key_service import get_org_from_api_key_or_jwt, generate_scoped_api_key, hash_api_key
+from skelion_agent.models import (
+    Organization,
+    Incident,
+    ApiKey,
+    WebhookSubscription,
+    utc_now,
+)
+from skelion_agent.api_key_service import (
+    get_org_from_api_key_or_jwt,
+    generate_scoped_api_key,
+)
 from skelion_agent.email_service import email_service
 from core.redact import redact_headers, redact_text as redact_payload
 
@@ -22,6 +29,7 @@ router = APIRouter(prefix="/v1", tags=["SaaS Ingress & Keys"])
 # ---------------------------------------------------------------------------
 # Request & Response Schemas
 # ---------------------------------------------------------------------------
+
 
 class IngestIncidentRequest(BaseModel):
     http_method: str = "POST"
@@ -50,13 +58,16 @@ class CreateWebhookRequest(BaseModel):
 # Background Webhook Dispatcher
 # ---------------------------------------------------------------------------
 
-async def dispatch_webhooks(org_id: str, event_type: str, payload: dict, db_session: Session):
+
+async def dispatch_webhooks(
+    org_id: str, event_type: str, payload: dict, db_session: Session
+):
     """Dispatch webhook event to all active endpoints registered by the organization."""
     import httpx
+
     webhooks = db_session.exec(
         select(WebhookSubscription).where(
-            WebhookSubscription.org_id == org_id,
-            WebhookSubscription.is_active == True
+            WebhookSubscription.org_id == org_id, WebhookSubscription.is_active == True
         )
     ).all()
 
@@ -70,11 +81,11 @@ async def dispatch_webhooks(org_id: str, event_type: str, payload: dict, db_sess
                         json={
                             "event": event_type,
                             "timestamp": utc_now().isoformat(),
-                            "data": payload
+                            "data": payload,
                         },
-                        headers={"X-Skelion-Event": event_type}
+                        headers={"X-Skelion-Event": event_type},
                     )
-        except Exception as e:
+        except Exception:
             # Webhook dispatch failures never disrupt production
             pass
 
@@ -82,6 +93,7 @@ async def dispatch_webhooks(org_id: str, event_type: str, payload: dict, db_sess
 # ---------------------------------------------------------------------------
 # Telemetry Ingress Endpoint
 # ---------------------------------------------------------------------------
+
 
 @router.post("/ingest/incident")
 async def ingest_production_incident(
@@ -112,7 +124,7 @@ async def ingest_production_incident(
         select(Incident).where(
             Incident.org_id == org.id,
             Incident.fingerprint == fingerprint,
-            Incident.status != "resolved"
+            Incident.status != "resolved",
         )
     ).first()
 
@@ -143,7 +155,7 @@ async def ingest_production_incident(
             occurrence_count=1,
             status="analyzing",
             created_at=utc_now(),
-            last_seen_at=utc_now()
+            last_seen_at=utc_now(),
         )
         db.add(new_inc)
         db.commit()
@@ -160,9 +172,9 @@ async def ingest_production_incident(
                 "route": f"{req.http_method} {clean_route}",
                 "status_code": req.status_code,
                 "summary": req.error_summary,
-                "fingerprint": fingerprint
+                "fingerprint": fingerprint,
             },
-            db_session=db
+            db_session=db,
         )
 
         # Dispatch email alert if notification email configured
@@ -175,8 +187,8 @@ async def ingest_production_incident(
                 incident_data={
                     "route": f"{req.http_method} {clean_route}",
                     "status_code": req.status_code,
-                    "summary": req.error_summary
-                }
+                    "summary": req.error_summary,
+                },
             )
 
     return {
@@ -184,13 +196,14 @@ async def ingest_production_incident(
         "incident_id": incident_id,
         "fingerprint": fingerprint,
         "fail_open": True,
-        "message": "Telemetry accepted with zero PII exposure."
+        "message": "Telemetry accepted with zero PII exposure.",
     }
 
 
 # ---------------------------------------------------------------------------
 # Scoped API Keys Management
 # ---------------------------------------------------------------------------
+
 
 @router.get("/keys")
 def list_api_keys(
@@ -208,7 +221,9 @@ def list_api_keys(
             "name": k.name,
             "prefix": k.key_prefix,
             "scopes": k.scopes.split(",") if k.scopes else ["ingest"],
-            "created_at": k.created_at.isoformat() if k.created_at else utc_now().isoformat(),
+            "created_at": k.created_at.isoformat()
+            if k.created_at
+            else utc_now().isoformat(),
             "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
         }
         for k in keys
@@ -248,7 +263,7 @@ def create_api_key(
         "prefix": key_prefix,
         "scopes": req.scopes,
         "created_at": api_key.created_at.isoformat(),
-        "warning": "Copy this key now. You will not be able to retrieve it again."
+        "warning": "Copy this key now. You will not be able to retrieve it again.",
     }
 
 
@@ -274,6 +289,7 @@ def revoke_api_key(
 # Webhook Subscriptions Management
 # ---------------------------------------------------------------------------
 
+
 @router.get("/webhooks")
 def list_webhooks(
     org: Organization = Depends(get_org_from_api_key_or_jwt),
@@ -282,8 +298,7 @@ def list_webhooks(
     """List all registered webhook alert subscriptions."""
     webhooks = db.exec(
         select(WebhookSubscription).where(
-            WebhookSubscription.org_id == org.id,
-            WebhookSubscription.is_active == True
+            WebhookSubscription.org_id == org.id, WebhookSubscription.is_active == True
         )
     ).all()
 
@@ -292,7 +307,9 @@ def list_webhooks(
             "id": w.id,
             "url": w.url,
             "events": json.loads(w.events_json) if w.events_json else [],
-            "created_at": w.created_at.isoformat() if w.created_at else utc_now().isoformat(),
+            "created_at": w.created_at.isoformat()
+            if w.created_at
+            else utc_now().isoformat(),
         }
         for w in webhooks
     ]
@@ -309,7 +326,7 @@ def create_webhook(
         org_id=org.id,
         url=req.url,
         events_json=json.dumps(req.events or ["incident.created"]),
-        is_active=True
+        is_active=True,
     )
     db.add(wh)
     db.commit()

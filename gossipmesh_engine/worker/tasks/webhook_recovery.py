@@ -1,4 +1,3 @@
-from celery import shared_task
 import logging
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -22,7 +21,10 @@ def recover_stuck_webhooks():
         threshold = datetime.utcnow() - timedelta(hours=1)
         stuck_events = (
             db.query(WebhookEvent)
-            .filter(WebhookEvent.status == "processing", WebhookEvent.created_at <= threshold)
+            .filter(
+                WebhookEvent.status == "processing",
+                WebhookEvent.created_at <= threshold,
+            )
             .all()
         )
 

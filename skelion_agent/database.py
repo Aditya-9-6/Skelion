@@ -17,9 +17,11 @@ DATABASE_URL = os.getenv(
 # Create the SQLAlchemy engine
 engine: Engine = create_engine(DATABASE_URL, echo=False)
 
+
 def get_engine() -> Engine:
     """Return the SQLAlchemy engine instance."""
     return engine
+
 
 # Compatibility helper used by existing code/tests – returns the engine (bind) directly
 def get_session() -> Engine:
@@ -30,14 +32,15 @@ def get_session() -> Engine:
     """
     return engine
 
+
 # FastAPI dependency that yields a proper Session object
 def get_db() -> Generator[Session, None, None]:
     """Yield a ``Session`` bound to the engine for request handling."""
     with Session(engine) as session:
         yield session
 
+
 def init_db() -> None:
     """Create all tables defined in the models module."""
-    from skelion_agent import models
 
     SQLModel.metadata.create_all(engine)

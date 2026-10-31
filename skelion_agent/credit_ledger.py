@@ -1,9 +1,9 @@
 # skelion_agent/credit_ledger.py — Append-Only Ledger & Entitlement Engine (Billing v2)
 
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Any, Optional, Tuple
-from sqlmodel import Session, select, func
+from datetime import datetime, timedelta
+from typing import Dict, Optional, Tuple
+from sqlmodel import Session, select
 
 from skelion_agent.models import Organization, CreditLedger, utc_now
 from skelion_agent.plan_config import PLAN_DEFINITIONS
@@ -38,7 +38,9 @@ def get_ledger_balances(session: Session, org_id: str) -> Dict[str, int]:
     for k in balances:
         balances[k] = max(0, balances[k])
 
-    balances["total_coding"] = balances["allowance"] + balances["pack"] + balances["grant"]
+    balances["total_coding"] = (
+        balances["allowance"] + balances["pack"] + balances["grant"]
+    )
     return balances
 
 
@@ -140,7 +142,11 @@ def activate_plan_period(
     session.add(org)
 
     # Record ledger grant
-    idemp_key = f"period:{payment_id}" if payment_id else f"period:{org.id}:{end_date.isoformat()}"
+    idemp_key = (
+        f"period:{payment_id}"
+        if payment_id
+        else f"period:{org.id}:{end_date.isoformat()}"
+    )
     record_ledger_entry(
         session=session,
         org_id=org.id,
@@ -171,7 +177,9 @@ def activate_token_pack(
     now = utc_now()
     expires_at = now + timedelta(days=365)
     bucket = "autofix" if token_type == "topup_autofix" else "pack"
-    idemp_key = f"pack:{payment_id}" if payment_id else f"pack:{org_id}:{uuid.uuid4().hex[:10]}"
+    idemp_key = (
+        f"pack:{payment_id}" if payment_id else f"pack:{org_id}:{uuid.uuid4().hex[:10]}"
+    )
 
     record_ledger_entry(
         session=session,

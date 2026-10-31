@@ -96,7 +96,9 @@ class MemeticKnowledgeBase:
         try:
             self.storage_path.parent.mkdir(parents=True, exist_ok=True)
             serializable = [m.to_dict() for m in self.memes.values()]
-            self.storage_path.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
+            self.storage_path.write_text(
+                json.dumps(serializable, indent=2), encoding="utf-8"
+            )
         except Exception:
             pass
 
@@ -145,7 +147,13 @@ class MemeticKnowledgeBase:
         self.save()
 
     def record_or_update(
-        self, meme_id: str, title: str, rule: str, anti_pattern: str, correct_pattern: str, repo: str = "global"
+        self,
+        meme_id: str,
+        title: str,
+        rule: str,
+        anti_pattern: str,
+        correct_pattern: str,
+        repo: str = "global",
     ) -> KnowledgeMeme:
         if meme_id in self.memes:
             m = self.memes[meme_id]
@@ -155,7 +163,9 @@ class MemeticKnowledgeBase:
             m.correct_pattern = correct_pattern
             m.repo = repo
         else:
-            m = KnowledgeMeme(meme_id, title, rule, anti_pattern, correct_pattern, repo=repo)
+            m = KnowledgeMeme(
+                meme_id, title, rule, anti_pattern, correct_pattern, repo=repo
+            )
             self.memes[meme_id] = m
         self.save()
         return m
@@ -170,12 +180,15 @@ class MemeticKnowledgeBase:
             self.memes[meme_id].penalize(delta)
             self.save()
 
-    def get_top_memes(self, repo: str = "global", min_fitness: float = 1.0, limit: int = 10) -> List[KnowledgeMeme]:
+    def get_top_memes(
+        self, repo: str = "global", min_fitness: float = 1.0, limit: int = 10
+    ) -> List[KnowledgeMeme]:
         """Returns surviving high-fitness memes for prompt injection, filtered by repo."""
         candidates = [
             m
             for m in self.memes.values()
-            if m.fitness_score >= min_fitness and (m.repo == repo or m.repo == "global" or repo == "global")
+            if m.fitness_score >= min_fitness
+            and (m.repo == repo or m.repo == "global" or repo == "global")
         ]
         candidates.sort(key=lambda m: m.fitness_score, reverse=True)
         return candidates[:limit]
