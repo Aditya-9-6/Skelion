@@ -2,10 +2,12 @@
 """feat(sre): Implement Epoll Edge Reactor with Bounded MPMC Circular Buffer"""
 
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+
 
 class FeatsreImplementEpollEdge:
     """Autonomous resilience implementation for feat(sre): Implement Epoll Edge Reactor with Bounded MPMC Circular Buffer."""
+
     def __init__(self, capacity: int = 1000):
         self.capacity = capacity
         self.active_items: Dict[str, Any] = {}
@@ -16,7 +18,7 @@ class FeatsreImplementEpollEdge:
         self.active_items[key] = {
             "payload": payload,
             "processed_at": time.time(),
-            "status": "verified"
+            "status": "verified",
         }
         return {"status": "ok", "key": key, "capacity_used": len(self.active_items)}
 
