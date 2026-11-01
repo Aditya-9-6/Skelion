@@ -12,7 +12,12 @@ async def test_mirroring_engine_lifecycle():
     assert engine._running
     assert engine._client is not None
 
-    success = engine.mirror("POST", "/api/v1/agents", {"content-type": "application/json"}, b'{"test": true}')
+    success = engine.mirror(
+        "POST",
+        "/api/v1/agents",
+        {"content-type": "application/json"},
+        b'{"test": true}',
+    )
     assert success
     assert engine.total_mirrored == 1
 
@@ -28,14 +33,12 @@ async def test_mirroring_engine_backpressure_drop():
 
     # Fill up queue beyond capacity without worker consuming fast enough
     # Pause worker by not letting it process immediately or setting queue manually
-    engine.queue._queue.append({"method": "GET", "path": "/1", "headers": {}, "body": b"", "timestamp": 0})
-    engine.queue._queue.append({
-        "method": "GET", 
-        "path": "/2", 
-        "headers": {},
-        "body": b"",
-        "timestamp": 0
-    })
+    engine.queue._queue.append(
+        {"method": "GET", "path": "/1", "headers": {}, "body": b"", "timestamp": 0}
+    )
+    engine.queue._queue.append(
+        {"method": "GET", "path": "/2", "headers": {}, "body": b"", "timestamp": 0}
+    )
 
     # Queue is now at max_queue_size (2)
     success = engine.mirror("GET", "/overflow", {}, b"")
@@ -48,13 +51,12 @@ async def test_mirroring_engine_backpressure_drop():
 @pytest.mark.asyncio
 async def test_mirroring_engine_dispatch_with_diff():
     diff_results = []
+
     def mock_diff_cb(prod, sand):
         diff_results.append((prod, sand))
 
     engine = TrafficMirroringEngine(
-        sandbox_url="http://test-sandbox", 
-        max_queue_size=10,
-        diff_callback=mock_diff_cb
+        sandbox_url="http://test-sandbox", max_queue_size=10, diff_callback=mock_diff_cb
     )
 
     mock_response = MagicMock()
@@ -65,7 +67,7 @@ async def test_mirroring_engine_dispatch_with_diff():
     with patch.object(engine, "_client", new_callable=AsyncMock) as mock_client:
         mock_client.request.return_value = mock_response
         await engine.start()
-        
+
         prod_meta = {"status_code": 200, "body": '{"status": "ok"}'}
         engine.mirror("GET", "/health", {}, b"", prod_response_meta=prod_meta)
 

@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 
 
 class ResponseDiffer:
@@ -12,21 +12,34 @@ class ResponseDiffer:
     def diff_responses(
         prod_response: Dict[str, Any],
         sandbox_response: Dict[str, Any],
-        ignore_headers: List[str] = None
+        ignore_headers: List[str] = None,
     ) -> Dict[str, Any]:
         """
         Compares production and sandbox response metadata and payloads.
         Returns a detailed diff report.
         """
-        ignore_headers = [h.lower() for h in (ignore_headers or ["date", "server", "content-length", "x-request-id"])]
-        
+        ignore_headers = [
+            h.lower()
+            for h in (
+                ignore_headers or ["date", "server", "content-length", "x-request-id"]
+            )
+        ]
+
         prod_status = prod_response.get("status_code", 200)
         sandbox_status = sandbox_response.get("status_code", 200)
         status_matched = prod_status == sandbox_status
 
-        prod_headers = {k.lower(): v for k, v in prod_response.get("headers", {}).items() if k.lower() not in ignore_headers}
-        sandbox_headers = {k.lower(): v for k, v in sandbox_response.get("headers", {}).items() if k.lower() not in ignore_headers}
-        
+        prod_headers = {
+            k.lower(): v
+            for k, v in prod_response.get("headers", {}).items()
+            if k.lower() not in ignore_headers
+        }
+        sandbox_headers = {
+            k.lower(): v
+            for k, v in sandbox_response.get("headers", {}).items()
+            if k.lower() not in ignore_headers
+        }
+
         header_diffs = ResponseDiffer._dict_diff(prod_headers, sandbox_headers)
 
         prod_body = ResponseDiffer._parse_body(prod_response.get("body", ""))
@@ -42,7 +55,7 @@ class ResponseDiffer:
             "sandbox_status": sandbox_status,
             "header_diffs": header_diffs,
             "body_diffs": body_diffs,
-            "has_regression": has_regression
+            "has_regression": has_regression,
         }
 
     @staticmethod
@@ -73,25 +86,63 @@ class ResponseDiffer:
         if type(v1) != type(v2):
             # If both are numeric or string representations that could match, handle leniently, else flag diff
             if not (isinstance(v1, (int, float)) and isinstance(v2, (int, float))):
-                return [{"path": path, "type_production": type(v1).__name__, "type_sandbox": type(v2).__name__, "production": v1, "sandbox": v2}]
+                return [
+                    {
+                        "path": path,
+                        "type_production": type(v1).__name__,
+                        "type_sandbox": type(v2).__name__,
+                        "production": v1,
+                        "sandbox": v2,
+                    }
+                ]
 
         if isinstance(v1, dict):
             keys1 = set(v1.keys())
             keys2 = set(v2.keys())
             for k in keys1 - keys2:
-                diffs.append({"path": f"{path}.{k}", "issue": "missing_in_sandbox", "production_value": v1[k]})
+                diffs.append(
+                    {
+                        "path": f"{path}.{k}",
+                        "issue": "missing_in_sandbox",
+                        "production_value": v1[k],
+                    }
+                )
             for k in keys2 - keys1:
-                diffs.append({"path": f"{path}.{k}", "issue": "extra_in_sandbox", "sandbox_value": v2[k]})
+                diffs.append(
+                    {
+                        "path": f"{path}.{k}",
+                        "issue": "extra_in_sandbox",
+                        "sandbox_value": v2[k],
+                    }
+                )
             for k in keys1.intersection(keys2):
-                diffs.extend(ResponseDiffer._compare_structures(v1[k], v2[k], f"{path}.{k}"))
+                diffs.extend(
+                    ResponseDiffer._compare_structures(v1[k], v2[k], f"{path}.{k}")
+                )
 
         elif isinstance(v1, list):
             if len(v1) != len(v2):
-                diffs.append({"path": path, "issue": "list_length_mismatch", "production_length": len(v1), "sandbox_length": len(v2)})
+                diffs.append(
+                    {
+                        "path": path,
+                        "issue": "list_length_mismatch",
+                        "production_length": len(v1),
+                        "sandbox_length": len(v2),
+                    }
+                )
             for i in range(min(len(v1), len(v2))):
-                diffs.extend(ResponseDiffer._compare_structures(v1[i], v2[i], f"{path}[{i}]"))
+                diffs.extend(
+                    ResponseDiffer._compare_structures(v1[i], v2[i], f"{path}[{i}]")
+                )
 
         elif v1 != v2:
-            diffs.append({"path": path, "issue": "value_mismatch", "production": v1, "sandbox": v2})
+            diffs.append(
+                {
+                    "path": path,
+                    "issue": "value_mismatch",
+                    "production": v1,
+                    "sandbox": v2,
+                }
+            )
 
         return diffs
