@@ -448,6 +448,48 @@ class SkelionSidebarProvider {
                     }
                     break;
                 }
+                case 'fetchAutonomousStatus': {
+                    const token = await this.getValidToken() || 'dev';
+                    try {
+                        const res = await fetch('http://127.0.0.1:8003/v1/autonomous/status', {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            webview.postMessage({ type: 'autonomousStatusData', data });
+                        }
+                    }
+                    catch (e) {
+                        console.error('fetchAutonomousStatus error:', e);
+                    }
+                    break;
+                }
+                case 'triggerAutonomousLoop': {
+                    const token = await this.getValidToken() || 'dev';
+                    vscode.window.showInformationMessage('Skelion: Triggering Autonomous DevOps Loop Cycle...');
+                    try {
+                        const res = await fetch('http://127.0.0.1:8003/v1/autonomous/trigger', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({})
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            vscode.window.showInformationMessage('Skelion: Autonomous advancement cycle completed!');
+                            webview.postMessage({ type: 'autonomousCycleResult', data });
+                        }
+                        else {
+                            vscode.window.showErrorMessage(`Autonomous Loop Error: ${data.detail || 'Failed'}`);
+                        }
+                    }
+                    catch (e) {
+                        vscode.window.showErrorMessage(`Autonomous Loop Exception: ${e.message}`);
+                    }
+                    break;
+                }
                 case 'loadConversationDetails': {
                     const token = await this.getValidToken();
                     if (token && msg.conversationId) {
@@ -1246,6 +1288,8 @@ class SkelionSidebarProvider {
 
       <button class="tab-btn" data-tab="limits">⏱️ Limits</button>
 
+      <button class="tab-btn" data-tab="autonomous">🚀 Loop</button>
+
       <button class="tab-btn" data-tab="billing">💳 Pricing</button>
 
     </div>
@@ -1750,6 +1794,38 @@ class SkelionSidebarProvider {
 
 
 
+    <!-- TAB: AUTONOMOUS LOOP & 24/7 SELF-HEALING -->
+    <div id="tab-autonomous" class="tab-content" style="display:none; flex-direction:column; gap:12px;">
+      <div class="card" style="border-left: 4px solid var(--gold-primary);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h3 style="margin:0; font-size:14px; font-weight:700; color:#1e293b;">🚀 Autonomous DevOps & Self-Healing Loop</h3>
+          <span id="autonomous-badge" style="font-size:11px; padding:3px 8px; border-radius:12px; background:rgba(212,175,55,0.15); color:var(--gold-dark); font-weight:700; border:1px solid rgba(212,175,55,0.3);">IDLE</span>
+        </div>
+        <p style="font-size:12px; color:#475569; margin:0 0 10px 0; line-height:1.4;">
+          Continuously scans backlog, detects user <code>accepted</code> comments, generates zero-regression code, creates Pull Requests, repairs CI test breaks, and auto-merges into <code>main</code>.
+        </p>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+          <button id="trigger-autonomous-btn" class="glass-btn primary" data-action="triggerAutonomousLoop" style="flex:1; padding:8px 12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
+            <span>⚡ Trigger Autonomous Cycle</span>
+          </button>
+          <button id="refresh-autonomous-btn" class="glass-btn secondary" data-action="refreshAutonomousStatus" style="padding:8px 12px; cursor:pointer;">
+            <span>🔄 Status</span>
+          </button>
+        </div>
+        <div style="font-size:11px; color:#475569; display:flex; justify-content:space-between; border-top:1px solid rgba(212,175,55,0.15); padding-top:8px;">
+          <span>Target Repo: <b id="autonomous-repo-name">Aditya-9-6/Skelion</b></span>
+          <span>Tokens: <b id="autonomous-tokens-val" style="color:var(--gold-dark);">54,750 Available</b></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4 style="margin:0 0 8px 0; font-size:12px; font-weight:700; color:#1e293b; text-transform:uppercase; letter-spacing:0.5px;">Live Execution & Audit Journal</h4>
+        <div id="autonomous-activity-stream" style="max-height:240px; overflow-y:auto; font-family:monospace; font-size:11px; background:rgba(255,255,255,0.7); border:1px solid rgba(212,175,55,0.25); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:6px;">
+          <div style="color:#64748b;">Autonomous loop initialized. Click "Trigger Autonomous Cycle" or comment "accepted" on any Skelion issue to begin.</div>
+        </div>
+      </div>
+    </div>
+
   <script nonce="${nonce}">
 
     const vscode = acquireVsCodeApi();
@@ -2002,6 +2078,25 @@ class SkelionSidebarProvider {
 
           break;
 
+        }
+
+        case 'triggerAutonomousLoop': {
+          setElText('autonomous-badge', 'RUNNING');
+          const stream = document.getElementById('autonomous-activity-stream');
+          if (stream) {
+            const row = document.createElement('div');
+            row.style.color = '#b8860b';
+            row.style.fontWeight = 'bold';
+            row.textContent = '[' + new Date().toLocaleTimeString() + '] Triggering autonomous advancement cycle...';
+            stream.prepend(row);
+          }
+          vscode.postMessage({ type: 'triggerAutonomousLoop' });
+          break;
+        }
+
+        case 'refreshAutonomousStatus': {
+          vscode.postMessage({ type: 'fetchAutonomousStatus' });
+          break;
         }
 
         case 'refreshHistory': {
@@ -2276,6 +2371,22 @@ class SkelionSidebarProvider {
 
           if (devBtn) devBtn.innerHTML = '🚀 Instant Access (Aditya / Dev Session)';
 
+        } else if (msg.type === 'autonomousStatusData' || msg.type === 'autonomousCycleResult') {
+          const d = msg.data || {};
+          setElText('autonomous-badge', d.last_status || d.status || 'IDLE');
+          if (d.autofix_tokens_remaining !== undefined) {
+            setElText('autonomous-tokens-val', Number(d.autofix_tokens_remaining).toLocaleString() + ' Available');
+          }
+          if (d.repo) {
+            setElText('autonomous-repo-name', d.repo);
+          }
+          const stream = document.getElementById('autonomous-activity-stream');
+          if (stream && (d.activity_log || d.recent_activity)) {
+            const logs = d.activity_log || d.recent_activity;
+            stream.innerHTML = logs.map(function(l) {
+              return '<div style="padding:3px 0; border-bottom:1px solid rgba(0,0,0,0.05);"><span style="color:#b8860b; font-weight:600;">[' + new Date(l.timestamp).toLocaleTimeString() + ']</span> <span style="font-weight:700;">[' + l.level + ']</span> ' + l.message + '</div>';
+            }).reverse().join('');
+          }
         } else if (msg.type === 'incidentsData') {
 
           renderIncidentsList(msg.incidents);
@@ -2555,6 +2666,7 @@ class SkelionSidebarProvider {
         if (tab === 'limits') vscode.postMessage({ type: 'fetchLimits' });
 
         if (tab === 'history') vscode.postMessage({ type: 'fetchConversations' });
+        if (tab === 'autonomous') vscode.postMessage({ type: 'fetchAutonomousStatus' });
 
       } catch (err) {
 

@@ -187,6 +187,21 @@ jobs:
             else
               echo "[*] Issue #$ISSUE_NUM belongs to another shard. Skipping."
             fi
+          elif [ "${{ github.event_name }}" = "issue_comment" ] && [ -z "${{ github.event.issue.pull_request }}" ]; then
+            COMMENT_BODY=$(echo "${{ github.event.comment.body }}" | tr '[:upper:]' '[:lower:]')
+            ISSUE_NUM="${{ github.event.issue.number }}"
+            if echo "$COMMENT_BODY" | grep -Eq "accepted|accept|/accept|approved|approve"; then
+              if [ "$(( ISSUE_NUM % 4 ))" -eq "${{ matrix.shard }}" ]; then
+                ISSUE_TITLE="${{ github.event.issue.title }}"
+                echo "[*] Maintainer accepted Issue #$ISSUE_NUM! Triggering autonomous solver on shard ${{ matrix.shard }}..."
+                BODY=$(gh issue view "$ISSUE_NUM" --json body -q .body)
+                PYTHONPATH=.gossipmesh python .gossipmesh/scripts/ai_issue_solver.py --issue-number "$ISSUE_NUM" --issue-title "$ISSUE_TITLE" --issue-body "$BODY" --workspace .
+              else
+                echo "[*] Issue #$ISSUE_NUM belongs to another shard. Skipping."
+              fi
+            else
+              echo "[*] Comment does not contain acceptance keywords. Skipping."
+            fi
           elif [ "${{ github.event.inputs.mode }}" = "fallback-all" ]; then
             if [ "${{ matrix.shard }}" -eq 0 ]; then
               echo "[*] Fallback mode active: handled by primary runner."

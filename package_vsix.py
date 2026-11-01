@@ -1,13 +1,24 @@
 import os
 import zipfile
+import shutil
 
-ROOT = r"C:\Users\adity\.gemini\antigravity\brain\5b2cce19-829f-47e8-a475-c50d0b5847f8\skelion_vscode_extension"
-OUT_VSIX = os.path.join(ROOT, "skelion-vscode-0.1.0.vsix")
-DEST_VSIX = r"g:\My Drive\helios\skelion_vscode_extension\skelion-vscode-0.1.0.vsix"
+SRC_DIR = r"g:\My Drive\helios\skelion_vscode_extension"
+BRAIN_DIR = r"C:\Users\adity\.gemini\antigravity\brain\5b2cce19-829f-47e8-a475-c50d0b5847f8\skelion_vscode_extension"
+OUT_VSIX = os.path.join(SRC_DIR, "skelion-vscode-0.1.0.vsix")
+BRAIN_VSIX = os.path.join(BRAIN_DIR, "skelion-vscode-0.1.0.vsix")
 
 
 def build_vsix():
-    print(f"Building VSIX from {ROOT} -> {OUT_VSIX}...")
+    print(f"Building VSIX from {SRC_DIR} -> {OUT_VSIX}...")
+    os.makedirs(BRAIN_DIR, exist_ok=True)
+    os.makedirs(os.path.join(BRAIN_DIR, "out"), exist_ok=True)
+
+    # Sync compiled outputs to brain directory as artifacts
+    for f in ["out/extension.js", "out/extension.js.map", "package.json"]:
+        src_f = os.path.join(SRC_DIR, f)
+        brain_f = os.path.join(BRAIN_DIR, f)
+        if os.path.exists(src_f):
+            shutil.copyfile(src_f, brain_f)
 
     # Files to include in the extension/ folder
     files_to_pack = [
@@ -33,8 +44,8 @@ def build_vsix():
   <Metadata>
     <Identity Id="skelion-vscode" Version="0.1.0" Language="en-US" Publisher="AdityaDnyaneshwarDahale" />
     <DisplayName>Skelion Agent</DisplayName>
-    <Description xml:space="preserve">VS Code panel for Skelion authentication &amp; billing</Description>
-    <Tags>AI,DevOps,Incident</Tags>
+    <Description xml:space="preserve">VS Code panel for Skelion authentication &amp; billing with Autonomous DevOps Loop</Description>
+    <Tags>AI,DevOps,Incident,AutonomousLoop</Tags>
     <Categories>AI,Other</Categories>
     <GalleryFlags>Public</GalleryFlags>
     <Icon>extension/media/icon.svg</Icon>
@@ -57,18 +68,15 @@ def build_vsix():
         z.writestr("extension.vsixmanifest", manifest)
 
         for src, dest in files_to_pack:
-            full_src = os.path.join(ROOT, src)
+            full_src = os.path.join(SRC_DIR, src)
             if os.path.exists(full_src):
                 z.write(full_src, dest)
                 print(f"Packed: {src} -> {dest}")
             else:
                 print(f"Warning: Missing {full_src}")
 
-    # Copy to helios folder
-    import shutil
-
-    shutil.copyfile(OUT_VSIX, DEST_VSIX)
-    print(f"VSIX built and copied to {DEST_VSIX}")
+    shutil.copyfile(OUT_VSIX, BRAIN_VSIX)
+    print(f"VSIX built and copied to {BRAIN_VSIX}")
     print(f"Size: {os.path.getsize(OUT_VSIX)} bytes")
 
 
