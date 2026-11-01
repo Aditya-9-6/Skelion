@@ -41,7 +41,8 @@ class TrafficMirroringEngine:
         if self._running:
             return
         self._running = True
-        self._client = httpx.AsyncClient(timeout=self.timeout)
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=self.timeout)
         self._worker_task = asyncio.create_task(self._worker_loop())
         logger.info(
             f"TrafficMirroringEngine started targeting sandbox: {self.sandbox_url}"

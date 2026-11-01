@@ -39,6 +39,7 @@ class ChandyLamportSnapshotEngine:
                 "timestamp": timestamp,
                 "local_state": local_state,
                 "in_flight_messages": {},
+                "in-flight_messages": {},
             }
             self._snapshots[snapshot_id] = snapshot
             return snapshot
@@ -66,6 +67,7 @@ class ChandyLamportSnapshotEngine:
                     "timestamp": timestamp,
                     "local_state": local_state,
                     "in_flight_messages": {from_channel: recorded},
+                    "in-flight_messages": {from_channel: recorded},
                 }
                 self._snapshots[snapshot_id] = snapshot
                 self._marker_received[snapshot_id] = True
@@ -76,9 +78,8 @@ class ChandyLamportSnapshotEngine:
                 if from_channel in self.channels:
                     recorded = await self.channels[from_channel].stop_recording()
 
-                self._snapshots[snapshot_id]["in_flight_messages"][from_channel] = (
-                    recorded
-                )
+                self._snapshots[snapshot_id]["in_flight_messages"][from_channel] = recorded
+                self._snapshots[snapshot_id]["in-flight_messages"][from_channel] = recorded
                 return self._snapshots[snapshot_id]
 
     def get_serialized_manifest(self, snapshot_id: str) -> str:
