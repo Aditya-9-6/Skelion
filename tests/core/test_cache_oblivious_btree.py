@@ -1,4 +1,3 @@
-import pytest
 import threading
 from skelion_agent.core.cache_oblivious_btree import CacheObliviousBTree
 
@@ -26,7 +25,14 @@ def test_btree_range_query():
         btree.insert(i, f"val_{i}")
 
     results = btree.range_query(20, 25)
-    expected = [(20, "val_20"), (21, "val_21"), (22, "val_22"), (23, "val_23"), (24, "val_24"), (25, "val_25")]
+    expected = [
+        (20, "val_20"),
+        (21, "val_21"),
+        (22, "val_22"),
+        (23, "val_23"),
+        (24, "val_24"),
+        (25, "val_25"),
+    ]
     assert results == expected
 
     empty_results = btree.range_query(200, 300)
