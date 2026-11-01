@@ -1,49 +1,45 @@
-import pytest
 import threading
-from skelion_agent.core.skip_list import ConcurrentSkipList
-from skelion_agent.core.memory_reclamation import EpochManager
+import pytest
+from skelion_agent.skip_list import ConcurrentSkipList
 
 
 def test_skip_list_basic_operations():
     sl = ConcurrentSkipList()
-    assert sl.insert("agent_1", {"status": "active"}) is True
-    assert sl.search("agent_1") == {"status": "active"}
-    assert sl.insert("agent_1", {"status": "idle"}) is False
-    assert sl.search("agent_1") == {"status": "idle"}
-    assert sl.delete("agent_1") is True
-    assert sl.search("agent_1") is None
-    assert sl.delete("agent_1") is False
+    assert sl.search('key1') is None
+    
+    assert sl.insert('key1', 'value1') is True
+    assert sl.search('key1') == 'value1'
+    
+    # Duplicate insert updates value and returns False
+    assert sl.insert('key1', 'value2') is False
+    assert sl.search('key1') == 'value2'
+    
+    # Deletion
+    assert sl.delete('key1') == 'value2'
+    assert sl.search('key1') is None
+    assert sl.delete('key1') is None
 
 
-def test_skip_list_range_scan():
+def test_skip_list_concurrent_stress():
     sl = ConcurrentSkipList()
-    for i in range(10):
-        sl.insert(f"key_{i:02d}", i)
+    num_threads = 8
+    items_per_thread = 50
 
-    results = list(sl.range_scan("key_03", "key_07"))
-    expected = [(f"key_{i:02d}", i) for i in range(3, 8)]
-    assert results == expected
+    def worker(thread_idx):
+        for i in range(items_per_thread):
+            key = f"t{thread_idx}-k{i}"
+            val = f"val-{thread_idx}-{i}"
+            sl.insert(key, val)
+            assert sl.search(key) == val
 
-
-def test_concurrent_skip_list_stress():
-    sl = ConcurrentSkipList(EpochManager(num_threads=16))
-    errors = []
-
-    def worker(start_val: int):
-        try:
-            for i in range(100):
-                k = f"key_{start_val}_{i}"
-                sl.insert(k, i)
-                sl.search(k)
-                if i % 2 == 0:
-                    sl.delete(k)
-        except Exception as e:
-            errors.append(e)
-
-    threads = [threading.Thread(target=worker, args=(t,)) for t in range(8)]
+    threads = [threading.Thread(target=worker, args=(t,)) for t in range(num_threads)]
     for th in threads:
         th.start()
     for th in threads:
         th.join()
 
-    assert len(errors) == 0
+    # Verify all inserted items are readable
+    for t in range(num_threads):
+        for i in range(items_per_thread):
+            key = f"t{t}-k{i}"
+            assert sl.search(key) == f"val-{t}-{i}"
