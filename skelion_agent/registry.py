@@ -1,14 +1,12 @@
 import threading
-import time
-import weakref
-from typing import Any, Dict, Optional, List, Set, Callable
+from typing import Any, Dict, Optional, List, Set
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class HazardPointerNode:
-    __slots__ = ('agent_id', 'state', 'version', 'retired', '_ref_count')
+    __slots__ = ("agent_id", "state", "version", "retired", "_ref_count")
 
     def __init__(self, agent_id: str, state: Dict[str, Any], version: int):
         self.agent_id = agent_id
@@ -28,12 +26,14 @@ class HazardPointerRegistry:
 
     def __init__(self, max_hazard_pointers: int = 64, gc_batch_threshold: int = 32):
         self._registry: Dict[str, HazardPointerNode] = {}
-        self._registry_lock = threading.Lock()  # Only for write mutations and map updates
-        
+        self._registry_lock = (
+            threading.Lock()
+        )  # Only for write mutations and map updates
+
         # Hazard pointer slots: maps thread_id -> HazardPointerNode being read
         self._hazard_pointers: Dict[int, Optional[HazardPointerNode]] = {}
         self._hp_lock = threading.Lock()
-        
+
         # Retired list for deferred memory reclamation
         self._retired_list: List[HazardPointerNode] = []
         self._gc_batch_threshold = gc_batch_threshold
@@ -48,7 +48,7 @@ class HazardPointerRegistry:
         The caller can safely read the node without blocking writer threads.
         """
         tid = self._get_thread_id()
-        
+
         # Fast path lock-free lookup attempt or synchronized retrieval
         while True:
             node = self._registry.get(agent_id)
@@ -56,15 +56,15 @@ class HazardPointerRegistry:
                 with self._hp_lock:
                     self._hazard_pointers[tid] = None
                 return None
-            
+
             with self._hp_lock:
                 self._hazard_pointers[tid] = node
-            
+
             # Double-check validation after setting hazard pointer
             current_node = self._registry.get(agent_id)
             if current_node is node and not node.retired:
                 return node
-            
+
             # If state changed concurrently, clear and retry
             with self._hp_lock:
                 self._hazard_pointers[tid] = None
@@ -77,7 +77,9 @@ class HazardPointerRegistry:
         with self._hp_lock:
             self._hazard_pointers[tid] = None
 
-    def register_or_update(self, agent_id: str, state: Dict[str, Any]) -> HazardPointerNode:
+    def register_or_update(
+        self, agent_id: str, state: Dict[str, Any]
+    ) -> HazardPointerNode:
         """
         Register a new remediation agent state or atomically update an existing one.
         Old node versions are retired and scheduled for deferred lock-free garbage collection.
@@ -85,8 +87,10 @@ class HazardPointerRegistry:
         with self._registry_lock:
             old_node = self._registry.get(agent_id)
             new_version = (old_node.version + 1) if old_node else 1
-            new_node = HazardPointerNode(agent_id=agent_id, state=state, version=new_version)
-            
+            new_node = HazardPointerNode(
+                agent_id=agent_id, state=state, version=new_version
+            )
+
             self._registry[agent_id] = new_node
             self._total_registrations += 1
 
@@ -120,16 +124,18 @@ class HazardPointerRegistry:
         that are no longer protected by any thread.
         """
         with self._hp_lock:
-            protected_nodes: Set[int] = {id(n) for n in self._hazard_pointers.values() if n is not None}
+            protected_nodes: Set[int] = {
+                id(n) for n in self._hazard_pointers.values() if n is not None
+            }
             surviving_retired: List[HazardPointerNode] = []
-            
+
             for node in self._retired_list:
                 if id(node) in protected_nodes:
                     surviving_retired.append(node)
                 else:
                     # Safely reclaim memory (drop reference)
                     del node
-            
+
             self._retired_list = surviving_retired
 
     def force_gc(self) -> int:
@@ -146,6 +152,8 @@ class HazardPointerRegistry:
             return {
                 "active_agents": len(self._registry),
                 "retired_nodes": len(self._retired_list),
-                "active_hazard_pointers": sum(1 for n in self._hazard_pointers.values() if n is not None),
+                "active_hazard_pointers": sum(
+                    1 for n in self._hazard_pointers.values() if n is not None
+                ),
                 "total_registrations": self._total_registrations,
             }

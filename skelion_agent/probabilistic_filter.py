@@ -1,7 +1,8 @@
 import math
 import threading
 import hashlib
-from typing import Any, List, Optional
+from typing import List
+
 
 class ProbabilisticFilterMesh:
     """
@@ -13,7 +14,9 @@ class ProbabilisticFilterMesh:
     to bit offsets, supporting lock-free or fine-grained thread-safe updates.
     """
 
-    def __init__(self, capacity: int = 100000, error_rate: float = 0.01, seed: int = 0x51E10):
+    def __init__(
+        self, capacity: int = 100000, error_rate: float = 0.01, seed: int = 0x51E10
+    ):
         if capacity <= 0:
             raise ValueError("Capacity must be greater than 0.")
         if not (0.0 < error_rate < 1.0):
@@ -24,13 +27,13 @@ class ProbabilisticFilterMesh:
         self.seed = seed
 
         # Optimal bit array size m = - (n * ln(p)) / (ln(2)^2)
-        self.num_bits = int(- (capacity * math.log(error_rate)) / (math.log(2) ** 2))
+        self.num_bits = int(-(capacity * math.log(error_rate)) / (math.log(2) ** 2))
         # Align bits to full cache lines / bytes (64-byte chunks)
         self.num_bytes = math.ceil(self.num_bits / 8)
         # Pad to multiple of 64 bytes for cache-line alignment
         remainder = self.num_bytes % 64
         if remainder != 0:
-            self.num_bytes += (64 - remainder)
+            self.num_bytes += 64 - remainder
         self.num_bits = self.num_bytes * 8
 
         # Optimal number of hash functions k = (m / n) * ln(2)
@@ -61,7 +64,7 @@ class ProbabilisticFilterMesh:
             for pos in positions:
                 byte_idx = pos >> 3
                 bit_offset = pos & 7
-                self._bit_vector[byte_idx] |= (1 << bit_offset)
+                self._bit_vector[byte_idx] |= 1 << bit_offset
             self._count += 1
 
     def __contains__(self, item: str) -> bool:
@@ -90,5 +93,5 @@ class ProbabilisticFilterMesh:
     def fill_ratio(self) -> float:
         """Calculate current proportion of set bits in the bit vector."""
         with self._lock:
-            set_bits = sum(bin(b).count('1') for b in self._bit_vector)
+            set_bits = sum(bin(b).count("1") for b in self._bit_vector)
             return set_bits / self.num_bits

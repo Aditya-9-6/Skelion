@@ -1,5 +1,6 @@
 import re
-from typing import Any, Tuple
+from typing import Any
+
 
 class PriorityQueue:
     def __init__(self):
@@ -15,5 +16,5 @@ class PriorityQueue:
         return self._queue.pop(0)[1]
 
     def clean_text(self, text: str) -> str:
-        p_clean = re.sub(r'[\?\!\.\,\s]+$', '', text.lower()).strip()
+        p_clean = re.sub(r"[\?\!\.\,\s]+$", "", text.lower()).strip()
         return p_clean

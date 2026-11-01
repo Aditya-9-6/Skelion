@@ -1,6 +1,5 @@
 import threading
 import time
-import pytest
 from skelion_agent.cuckoo_map import EpollCuckooHashMap
 
 

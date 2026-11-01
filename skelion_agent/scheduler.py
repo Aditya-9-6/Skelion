@@ -95,7 +95,9 @@ class NUMAAwareScheduler:
     partitioned across NUMA domains for high-throughput SRE incident remediation.
     """
 
-    def __init__(self, num_workers: int = 4, numa_nodes: int = 2, queue_capacity: int = 1024):
+    def __init__(
+        self, num_workers: int = 4, numa_nodes: int = 2, queue_capacity: int = 1024
+    ):
         self.num_workers = num_workers
         self.numa_nodes = numa_nodes
         self.queues: List[WorkStealingQueue] = [
@@ -126,14 +128,16 @@ class NUMAAwareScheduler:
         Attempt to steal work from other queues, prioritizing queues within the same NUMA node.
         """
         thief_numa = self.numa_affinity.get(thief_id, 0)
-        
+
         # First priority: victims in the same NUMA node
         numa_victims = [
-            i for i in range(self.num_workers)
+            i
+            for i in range(self.num_workers)
             if i != thief_id and self.numa_affinity.get(i) == thief_numa
         ]
         other_victims = [
-            i for i in range(self.num_workers)
+            i
+            for i in range(self.num_workers)
             if i != thief_id and self.numa_affinity.get(i) != thief_numa
         ]
 
@@ -167,7 +171,9 @@ class NUMAAwareScheduler:
     def start(self, task_handler=None):
         self._running = True
         self._threads = [
-            threading.Thread(target=self.worker_loop, args=(i, task_handler), daemon=True)
+            threading.Thread(
+                target=self.worker_loop, args=(i, task_handler), daemon=True
+            )
             for i in range(self.num_workers)
         ]
         for t in self._threads:
