@@ -71,6 +71,7 @@ from skelion_agent.waf_routes import router as waf_router
 
 app.include_router(waf_router)
 from skelion_agent.autonomous_routes import router as autonomous_router
+
 app.include_router(autonomous_router)
 from skelion_agent.sync_routes import router as sync_router
 app.include_router(sync_router)
