@@ -58,30 +58,41 @@ class PatchValidator:
         self.max_file_size = max_file_size_bytes
         self.max_total_diff = max_total_diff_bytes
         self.authorized_roots = authorized_roots
-        self.forbidden_patterns = forbidden_patterns if forbidden_patterns is not None else FORBIDDEN_PATTERNS
+        self.forbidden_patterns = (
+            forbidden_patterns if forbidden_patterns is not None else FORBIDDEN_PATTERNS
+        )
 
     def validate_path(self, rel_path: str) -> Path:
         """Validates that a file path is relative, safe, contained in workspace, and authorized."""
         cleaned = rel_path.strip().replace("\\", "/")
 
         # 1. Reject absolute paths
-        if os.path.isabs(cleaned) or cleaned.startswith("/") or re.match(r"^[a-zA-Z]:", cleaned):
+        if (
+            os.path.isabs(cleaned)
+            or cleaned.startswith("/")
+            or re.match(r"^[a-zA-Z]:", cleaned)
+        ):
             raise PatchValidationError(f"Forbidden absolute path: {rel_path}")
 
         # 2. Reject path traversal sequences
         parts = cleaned.split("/")
         if ".." in parts:
-            raise PatchValidationError(f"Path traversal ('..') detected in path: {rel_path}")
+            raise PatchValidationError(
+                f"Path traversal ('..') detected in path: {rel_path}"
+            )
 
         # 3. Check forbidden file patterns
         for pattern in self.forbidden_patterns:
             if re.search(pattern, cleaned, re.IGNORECASE):
-                raise PatchValidationError(f"Forbidden file pattern '{pattern}' matched for path: {rel_path}")
+                raise PatchValidationError(
+                    f"Forbidden file pattern '{pattern}' matched for path: {rel_path}"
+                )
 
         # 4. Check authorized root directories if configured
         if self.authorized_roots:
             is_authorized = any(
-                cleaned == root or cleaned.startswith(root.rstrip("/") + "/") for root in self.authorized_roots
+                cleaned == root or cleaned.startswith(root.rstrip("/") + "/")
+                for root in self.authorized_roots
             )
             if not is_authorized:
                 raise PatchValidationError(
@@ -93,7 +104,9 @@ class PatchValidator:
         try:
             target.relative_to(self.workspace)
         except ValueError:
-            raise PatchValidationError(f"Workspace escape detected: {rel_path} resolves outside {self.workspace}")
+            raise PatchValidationError(
+                f"Workspace escape detected: {rel_path} resolves outside {self.workspace}"
+            )
 
         # 6. Check symlink escapes
         curr = target
@@ -118,7 +131,9 @@ class PatchValidator:
                 text = content.decode("utf-8")
                 raw_bytes = content
             except UnicodeDecodeError as e:
-                raise PatchValidationError(f"Content for {rel_path} is not valid UTF-8: {e}")
+                raise PatchValidationError(
+                    f"Content for {rel_path} is not valid UTF-8: {e}"
+                )
         else:
             text = content
             raw_bytes = content.encode("utf-8")
@@ -134,7 +149,9 @@ class PatchValidator:
             try:
                 ast.parse(text, filename=rel_path)
             except SyntaxError as e:
-                raise PatchValidationError(f"Python syntax error in {rel_path} at line {e.lineno}: {e.msg}")
+                raise PatchValidationError(
+                    f"Python syntax error in {rel_path} at line {e.lineno}: {e.msg}"
+                )
 
         # 4. JSON validation
         if rel_path.endswith(".json"):
@@ -157,7 +174,10 @@ class PatchValidator:
             errors.append(err)
 
         # 2. Total diff size limit
-        total_size = sum(len(c) if isinstance(c, bytes) else len(c.encode("utf-8")) for c in files.values())
+        total_size = sum(
+            len(c) if isinstance(c, bytes) else len(c.encode("utf-8"))
+            for c in files.values()
+        )
         if total_size > self.max_total_diff:
             err = f"Total patch size exceeded: {total_size} bytes (max: {self.max_total_diff})"
             errors.append(err)
@@ -173,6 +193,8 @@ class PatchValidator:
                 errors.append(f"Validation error for {path}: {e}")
 
         if errors and raise_on_error:
-            raise PatchValidationError("Patch validation failed:\n - " + "\n - ".join(errors))
+            raise PatchValidationError(
+                "Patch validation failed:\n - " + "\n - ".join(errors)
+            )
 
         return len(errors) == 0, errors

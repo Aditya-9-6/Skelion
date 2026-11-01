@@ -24,7 +24,9 @@ class MerkleSyncer(ConsensusSyncer):
     """Alias for ConsensusSyncer for Merkle tree synchronization."""
 
     def get_sync_manifest(self) -> dict[str, str]:
-        if hasattr(self.merkle_tree, "items") and isinstance(self.merkle_tree.items, dict):
+        if hasattr(self.merkle_tree, "items") and isinstance(
+            self.merkle_tree.items, dict
+        ):
             return {str(k): str(v) for k, v in self.merkle_tree.items.items()}
         return {}
 

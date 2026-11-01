@@ -1,4 +1,3 @@
-import os
 import sys
 import logging
 from alembic.config import Config
@@ -29,7 +28,9 @@ def validate_migrations():
     head_rev = script.get_current_head()
 
     if current_rev != head_rev:
-        logger.error(f"Database is not up-to-date. Current revision: {current_rev}, Head revision: {head_rev}")
+        logger.error(
+            f"Database is not up-to-date. Current revision: {current_rev}, Head revision: {head_rev}"
+        )
         sys.exit(1)
 
     logger.info(f"Database is up-to-date. Current revision: {current_rev}")

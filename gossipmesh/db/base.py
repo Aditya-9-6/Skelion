@@ -6,7 +6,11 @@ except ImportError:
     Base = declarative_base()
 
 from gossipmesh.models.user import User, UserGitHubCredential, UserOIDCCredential
-from gossipmesh.models.organization import Organization, UserOrganization, OrganizationInvitation
+from gossipmesh.models.organization import (
+    Organization,
+    UserOrganization,
+    OrganizationInvitation,
+)
 from gossipmesh.models.project import Project
 from gossipmesh.models.audit import AuditEvent
 from gossipmesh.models.provider import ProviderCredential

@@ -58,12 +58,16 @@ class APIKeyResponse(BaseModel):
 def _ensure_org_access(db: Session, user_id: int, organization_id: int):
     user_org = (
         db.query(UserOrganization)
-        .filter(UserOrganization.user_id == user_id, UserOrganization.organization_id == organization_id)
+        .filter(
+            UserOrganization.user_id == user_id,
+            UserOrganization.organization_id == organization_id,
+        )
         .first()
     )
     if not user_org:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions for this organization"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions for this organization",
         )
     return user_org
 
@@ -77,7 +81,9 @@ def create_service_account(
     _ensure_org_access(db, current_user.id, account_in.organization_id)
 
     account = ServiceAccount(
-        organization_id=account_in.organization_id, name=account_in.name, description=account_in.description
+        organization_id=account_in.organization_id,
+        name=account_in.name,
+        description=account_in.description,
     )
     db.add(account)
     db.commit()
@@ -98,11 +104,17 @@ def create_service_account(
 
 @router.get("/", response_model=List[ServiceAccountResponse])
 def read_service_accounts(
-    organization_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    organization_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     _ensure_org_access(db, current_user.id, organization_id)
 
-    accounts = db.query(ServiceAccount).filter(ServiceAccount.organization_id == organization_id).all()
+    accounts = (
+        db.query(ServiceAccount)
+        .filter(ServiceAccount.organization_id == organization_id)
+        .all()
+    )
     return accounts
 
 
@@ -122,7 +134,9 @@ def create_api_key(
     current_user: User = Depends(deps.get_current_user),
     db: Session = Depends(deps.get_db),
 ) -> Any:
-    account = db.query(ServiceAccount).filter(ServiceAccount.id == service_account_id).first()
+    account = (
+        db.query(ServiceAccount).filter(ServiceAccount.id == service_account_id).first()
+    )
     if not account:
         raise HTTPException(status_code=404, detail="Service account not found")
 
@@ -151,7 +165,11 @@ def create_api_key(
         action="api_key.create",
         actor_id=current_user.id,
         organization_id=account.organization_id,
-        details={"service_account_id": account.id, "api_key_id": api_key.id, "prefix": prefix},
+        details={
+            "service_account_id": account.id,
+            "api_key_id": api_key.id,
+            "prefix": prefix,
+        },
     )
     db.add(audit_event)
     db.commit()
@@ -168,9 +186,13 @@ def create_api_key(
 
 @router.get("/{service_account_id}/keys", response_model=List[APIKeyResponse])
 def read_api_keys(
-    service_account_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    service_account_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
-    account = db.query(ServiceAccount).filter(ServiceAccount.id == service_account_id).first()
+    account = (
+        db.query(ServiceAccount).filter(ServiceAccount.id == service_account_id).first()
+    )
     if not account:
         raise HTTPException(status_code=404, detail="Service account not found")
 
@@ -182,13 +204,19 @@ def read_api_keys(
 
 @router.delete("/keys/{key_id}", response_model=dict)
 def revoke_api_key(
-    key_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    key_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     api_key = db.query(APIKey).filter(APIKey.id == key_id).first()
     if not api_key:
         raise HTTPException(status_code=404, detail="API key not found")
 
-    account = db.query(ServiceAccount).filter(ServiceAccount.id == api_key.service_account_id).first()
+    account = (
+        db.query(ServiceAccount)
+        .filter(ServiceAccount.id == api_key.service_account_id)
+        .first()
+    )
     if not account:
         raise HTTPException(status_code=404, detail="Service account not found")
     _ensure_org_access(db, current_user.id, account.organization_id)
@@ -201,7 +229,11 @@ def revoke_api_key(
         action="api_key.revoke",
         actor_id=current_user.id,
         organization_id=account.organization_id,
-        details={"service_account_id": account.id, "api_key_id": api_key.id, "prefix": api_key.prefix},
+        details={
+            "service_account_id": account.id,
+            "api_key_id": api_key.id,
+            "prefix": api_key.prefix,
+        },
     )
     db.add(audit_event)
     db.commit()

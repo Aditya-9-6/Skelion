@@ -6,7 +6,7 @@ Provides robust 2/3 majority consensus validation resilient to malicious or lagg
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from gossipmesh.consensus import ModelVote, ConsensusResult, ByzantineConsensusEngine
 
@@ -99,9 +99,13 @@ class BFTQuorumEngine(ByzantineConsensusEngine):
         is_approved = approval_ratio >= self.quorum_threshold
 
         # Consensus score derived from weighted average score scaled by approval ratio
-        avg_vote_score = sum(v.score for v in votes) / total_nodes if total_nodes > 0 else 0.0
+        avg_vote_score = (
+            sum(v.score for v in votes) / total_nodes if total_nodes > 0 else 0.0
+        )
         consensus_score = avg_vote_score * approval_ratio
-        avg_confidence_score = total_confidence / confidence_count if confidence_count > 0 else 100.0
+        avg_confidence_score = (
+            total_confidence / confidence_count if confidence_count > 0 else 100.0
+        )
 
         logger.info(
             f"BFT Quorum Evaluation: approved={is_approved}, approval_ratio={approval_ratio:.2f}, "
