@@ -1,6 +1,7 @@
 import pytest
 from skelion_agent.telemetry.heavy_hitters import HeavyHitters
 
+
 def test_heavy_hitters_basic():
     hh = HeavyHitters(capacity=3)
     hh.add("error_500", 10)
@@ -21,6 +22,7 @@ def test_heavy_hitters_basic():
     assert "info_200" in items
     assert "error_500" in items
 
+
 def test_heavy_hitters_skewed_stream():
     hh = HeavyHitters(capacity=5)
     # Stream with extreme skew: 'dominant' appears 1000 times, others appear once
@@ -38,11 +40,13 @@ def test_heavy_hitters_skewed_stream():
     assert hitters[0][0] == "dominant"
     assert hitters[0][1] == 1000
 
+
 def test_heavy_hitters_invalid_capacity():
     with pytest.raises(ValueError):
         HeavyHitters(capacity=0)
     with pytest.raises(ValueError):
         HeavyHitters(capacity=-5)
+
 
 def test_heavy_hitters_reset():
     hh = HeavyHitters(capacity=10)

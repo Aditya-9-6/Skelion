@@ -1,15 +1,15 @@
 import threading
-import time
-import atomic
 from typing import Dict, Any, Optional, List, Tuple
 import logging
 
 logger = logging.getLogger("skelion_agent.rcu_mesh")
 
+
 class RCUEpochTracker:
     """
     Tracks active reader epochs across worker threads for deferred memory reclamation.
     """
+
     def __init__(self):
         self._global_epoch = 0
         self._reader_epochs: Dict[int, int] = {}
@@ -45,6 +45,7 @@ class RCURoutingTable:
     Readers access routing metadata completely lock-free with zero overhead.
     Writers duplicate, modify, and swap table pointers atomically.
     """
+
     def __init__(self):
         self._table_pointer: Dict[str, Any] = {}
         self._epoch_tracker = RCUEpochTracker()
@@ -81,10 +82,10 @@ class RCURoutingTable:
             old_table = self._table_pointer
             new_table = dict(old_table)
             new_table[route_key] = route_data
-            
+
             # Atomic publish
             self._table_pointer = new_table
-            
+
             # Advance global epoch and queue old table for reclamation
             retired_epoch = self._epoch_tracker.advance_epoch()
             self._reclamation_queue.append((retired_epoch, old_table))
@@ -100,7 +101,7 @@ class RCURoutingTable:
                 return False
             new_table = dict(old_table)
             del new_table[route_key]
-            
+
             self._table_pointer = new_table
             retired_epoch = self._epoch_tracker.advance_epoch()
             self._reclamation_queue.append((retired_epoch, old_table))

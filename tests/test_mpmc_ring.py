@@ -1,12 +1,14 @@
 import pytest
 from skelion_agent.core.mpmc_ring import MPMCRingBuffer
 
+
 def test_ring_buffer_init():
     ring = MPMCRingBuffer(capacity=4)
     assert len(ring) == 0
 
     with pytest.raises(ValueError):
         MPMCRingBuffer(capacity=3)
+
 
 def test_ring_buffer_push_pop():
     ring = MPMCRingBuffer(capacity=4)
@@ -18,6 +20,7 @@ def test_ring_buffer_push_pop():
     assert ring.pop() == "agent_2"
     assert ring.pop() is None
     assert len(ring) == 0
+
 
 def test_ring_buffer_overflow():
     ring = MPMCRingBuffer(capacity=2)

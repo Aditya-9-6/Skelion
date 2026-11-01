@@ -1,7 +1,5 @@
 import threading
-import atomicwrites
-import time
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Set, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +10,7 @@ class EpochManager:
     Manages global epoch counters and thread registration for epoch-based
     memory reclamation (EBMR) across concurrent Skelion agent nodes and workers.
     """
+
     def __init__(self):
         self._epoch = 0
         self._active_threads: Dict[int, int] = {}  # thread_id -> registered_epoch
@@ -65,8 +64,11 @@ class HazardPointerRegistry:
     Thread-safe hazard pointer registry protecting shared state graph nodes
     from premature deallocation while being actively traversed by worker threads.
     """
+
     def __init__(self):
-        self._hazards: Dict[int, Any] = {}  # thread_id -> protected object id or reference
+        self._hazards: Dict[
+            int, Any
+        ] = {}  # thread_id -> protected object id or reference
         self._lock = threading.Lock()
 
     def protect(self, obj: Any) -> Any:
@@ -99,10 +101,15 @@ class EpochGarbageCollector:
     High-performance lock-free epoch-based garbage collector combining hazard pointers
     and generational deferred retirement lists for agent state graph nodes.
     """
+
     def __init__(self, cleanup_interval_retirements: int = 64):
         self.epoch_manager = EpochManager()
         self.hazard_registry = HazardPointerRegistry()
-        self._retirement_generations: List[List[Tuple[int, Callable[[], None]]]] = [[], [], []]
+        self._retirement_generations: List[List[Tuple[int, Callable[[], None]]]] = [
+            [],
+            [],
+            [],
+        ]
         self._cleanup_threshold = cleanup_interval_retirements
         self._retire_count = 0
         self._lock = threading.Lock()
@@ -114,7 +121,9 @@ class EpochGarbageCollector:
         """
         current_ep = self.epoch_manager.current_epoch
         with self._lock:
-            self._retirement_generations[current_ep % 3].append((current_ep, destructor))
+            self._retirement_generations[current_ep % 3].append(
+                (current_ep, destructor)
+            )
             self._retire_count += 1
             if self._retire_count >= self._cleanup_threshold:
                 self._collect_internal()
@@ -146,7 +155,9 @@ class EpochGarbageCollector:
                         destructor()
                         reclaimed_count += 1
                     except Exception as e:
-                        logger.error(f"Error executing destructor during GC collection: {e}")
+                        logger.error(
+                            f"Error executing destructor during GC collection: {e}"
+                        )
                 else:
                     kept.append((ep, destructor))
             surviving_generations[gen_idx] = kept

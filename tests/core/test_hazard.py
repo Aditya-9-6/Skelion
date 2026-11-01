@@ -1,6 +1,5 @@
 import threading
 import time
-import pytest
 from skelion_agent.core.hazard import HazardPointerManager
 
 
@@ -76,7 +75,9 @@ def test_concurrent_hazard_pointer_stress():
         except Exception as e:
             errors.append(str(e))
 
-    threads = [threading.Thread(target=worker_thread, args=(i,)) for i in range(num_threads)]
+    threads = [
+        threading.Thread(target=worker_thread, args=(i,)) for i in range(num_threads)
+    ]
 
     for t in threads:
         t.start()
