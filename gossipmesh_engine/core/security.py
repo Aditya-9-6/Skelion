@@ -1,3 +1,4 @@
+import base64
 import uuid
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
@@ -8,7 +9,6 @@ from typing import Any
 from gossipmesh.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-import base64
 
 
 def _init_fernet() -> Fernet:
@@ -41,11 +41,9 @@ def create_access_token(
     expires_delta: timedelta | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
-    if expires_delta:
-        expire = now + expires_delta
-    else:
-        expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-
+    expire = now + (
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     to_encode = {
         "exp": expire,
         "iat": now,
@@ -58,11 +56,7 @@ def create_access_token(
     }
     if session_id:
         to_encode["sid"] = str(session_id)
-
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
-    return encoded_jwt
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_refresh_token(
@@ -72,11 +66,7 @@ def create_refresh_token(
     expires_delta: timedelta | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
-    if expires_delta:
-        expire = now + expires_delta
-    else:
-        expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-
+    expire = now + (expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     to_encode = {
         "exp": expire,
         "iat": now,
@@ -89,7 +79,6 @@ def create_refresh_token(
     }
     if session_id:
         to_encode["sid"] = str(session_id)
-
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
