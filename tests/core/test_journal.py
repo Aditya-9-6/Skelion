@@ -1,8 +1,7 @@
-import os
 import time
 import pytest
-import struct
 from skelion_agent.core.journal import MmapJournal, JournalCorruptionError
+
 
 @pytest.fixture
 def temp_journal(tmp_path):
@@ -11,9 +10,14 @@ def temp_journal(tmp_path):
     yield journal
     journal.close()
 
+
 def test_journal_basic_append_and_replay(temp_journal):
-    offset1 = temp_journal.append("PLAYBOOK_STARTED", {"playbook_id": "pb-123", "target": "svc-auth"})
-    offset2 = temp_journal.append("STEP_EXECUTED", {"step": "restart_container", "status": "success"})
+    offset1 = temp_journal.append(
+        "PLAYBOOK_STARTED", {"playbook_id": "pb-123", "target": "svc-auth"}
+    )
+    offset2 = temp_journal.append(
+        "STEP_EXECUTED", {"step": "restart_container", "status": "success"}
+    )
 
     assert offset1 >= MmapJournal.HEADER_SIZE
     assert offset2 > offset1
@@ -25,9 +29,10 @@ def test_journal_basic_append_and_replay(temp_journal):
     assert records[1]["type"] == "STEP_EXECUTED"
     assert records[1]["data"]["status"] == "success"
 
+
 def test_journal_cold_boot_recovery(tmp_path):
     path = str(tmp_path / "cold_boot.journal")
-    
+
     # Write entries with initial instance
     j1 = MmapJournal(path, capacity_bytes=8192)
     j1.append("INIT_STATE", {"state": "active"})
@@ -40,10 +45,13 @@ def test_journal_cold_boot_recovery(tmp_path):
     records = j2.replay()
     elapsed_ms = (time.perf_counter() - start_time) * 1000
 
-    assert elapsed_ms < 5.0, f"Cold boot recovery took {elapsed_ms:.2f}ms (exceeded 5ms limit)"
+    assert (
+        elapsed_ms < 5.0
+    ), f"Cold boot recovery took {elapsed_ms:.2f}ms (exceeded 5ms limit)"
     assert len(records) == 2
     assert records[1]["data"]["to"] == "remediating"
     j2.close()
+
 
 def test_journal_corruption_detection(tmp_path):
     path = str(tmp_path / "corrupted.journal")
@@ -53,17 +61,18 @@ def test_journal_corruption_detection(tmp_path):
 
     # Corrupt the payload inside the file directly
     with open(path, "r+b") as f:
-        f.seek(MmapJournal.HEADER_SIZE + 4) # Corrupt inside CRC/payload
-        f.write(b'\xFF\xFF\xFF\xFF')
+        f.seek(MmapJournal.HEADER_SIZE + 4)  # Corrupt inside CRC/payload
+        f.write(b"\xff\xff\xff\xff")
 
     with pytest.raises(JournalCorruptionError):
         MmapJournal(path, capacity_bytes=8192)
+
 
 def test_journal_compaction_and_rotation(tmp_path):
     path = str(tmp_path / "compact.journal")
     # Small capacity to force rotation
     journal = MmapJournal(path, capacity_bytes=512)
-    
+
     journal.append("EVENT_1", {"data": "A" * 50})
     journal.append("EVENT_2", {"data": "B" * 50})
     journal.append("EVENT_3", {"data": "C" * 50})

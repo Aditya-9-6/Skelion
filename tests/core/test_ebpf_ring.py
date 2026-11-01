@@ -1,5 +1,3 @@
-import pytest
-import ctypes
 import time
 from skelion_agent.core.ebpf_ring import EBPFRingBuffer, EBPFPerfEvent
 
@@ -50,11 +48,31 @@ def test_ebpf_ring_buffer_overflow():
 
     try:
         for i in range(capacity):
-            evt = EBPFPerfEvent(timestamp=i, pid=1000 + i, cpu=0, event_type=2, saddr=0, daddr=0, sport=0, dport=0, payload_len=0)
+            evt = EBPFPerfEvent(
+                timestamp=i,
+                pid=1000 + i,
+                cpu=0,
+                event_type=2,
+                saddr=0,
+                daddr=0,
+                sport=0,
+                dport=0,
+                payload_len=0,
+            )
             assert ring.push_event(evt) is True
 
         # Next push should fail as buffer is full
-        overflow_evt = EBPFPerfEvent(timestamp=999, pid=9999, cpu=0, event_type=2, saddr=0, daddr=0, sport=0, dport=0, payload_len=0)
+        overflow_evt = EBPFPerfEvent(
+            timestamp=999,
+            pid=9999,
+            cpu=0,
+            event_type=2,
+            saddr=0,
+            daddr=0,
+            sport=0,
+            dport=0,
+            payload_len=0,
+        )
         assert ring.push_event(overflow_evt) is False
 
         # Pop one and push should succeed again
@@ -73,7 +91,17 @@ def test_ebpf_ring_poll_batch():
 
     try:
         for i in range(5):
-            evt = EBPFPerfEvent(timestamp=100 + i, pid=2000 + i, cpu=1, event_type=1, saddr=1, daddr=2, sport=80, dport=8080, payload_len=64)
+            evt = EBPFPerfEvent(
+                timestamp=100 + i,
+                pid=2000 + i,
+                cpu=1,
+                event_type=1,
+                saddr=1,
+                daddr=2,
+                sport=80,
+                dport=8080,
+                payload_len=64,
+            )
             ring.push_event(evt)
 
         events = list(ring.poll_events(max_batch=3))

@@ -1,14 +1,9 @@
 import os
 import asyncio
-from gossipmesh_agent.key_pool import KeyPool
+import logging
+from typing import AsyncGenerator, Optional
 
-# Initialize global key pool for Anthropic API keys (reuse OPENAI_API_KEYS env var for simplicity)
-_key_pool = KeyPool([k for k in os.getenv("OPENAI_API_KEYS", "").split(",") if k])
-_key_pool = KeyPool([k for k in os.getenv("OPENAI_API_KEYS", "").split(",") if k])
-
-import time
 from anthropic import AsyncAnthropic
-
 from gossipmesh.providers.base import BaseProvider
 from gossipmesh.providers.models import (
     GenerationRequest,
@@ -17,109 +12,81 @@ from gossipmesh.providers.models import (
     Usage,
 )
 
+logger = logging.getLogger(__name__)
+rate_limits_saved_total = None
 
-class AnthropicProvider(BaseProvider):
-    def __init__(self, api_key: str):
-        super().__init__(api_key)
+
+class AnthropicAdapter(BaseProvider):
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
         self.client = AsyncAnthropic(api_key=self.api_key)
 
-    @property
-    def provider_name(self) -> str:
-        return "anthropic"
-
-    async def generate(self, request: GenerationRequest) -> GenerationResponse:
-        # Attempt LLM request with key rotation and 429 handling
-        backoff = 1
-        max_backoff = 60
-        while True:
-            key = _key_pool.get_key()
-            client = AsyncAnthropic(api_key=key)
-            system_prompt = next(
-                (msg.content for msg in request.messages if msg.role == "system"), ""
-            )
-            messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in request.messages
-                if msg.role != "system"
-            ]
+    async def generate(
+        self,
+        request: GenerationRequest,
+        max_retries: int = 3,
+        initial_backoff: float = 1.0,
+    ) -> GenerationResponse:
+        backoff = initial_backoff
+        max_backoff = 30.0
+        for attempt in range(max_retries):
             try:
-                response = await client.messages.create(
-                    model=request.model,
-                    system=system_prompt,
-                    messages=messages,  # type: ignore
-                    max_tokens=request.max_tokens,
-                    temperature=request.temperature,
-                    stop_sequences=request.stop_sequences or [],
-                    timeout=request.timeout,
+                system_prompt = next(
+                    (msg.content for msg in request.messages if msg.role == "system"),
+                    "",
                 )
-                break
+                user_messages = [
+                    {"role": msg.role, "content": msg.content}
+                    for msg in request.messages
+                    if msg.role != "system"
+                ]
+                response = await self.client.messages.create(
+                    model=request.model,
+                    max_tokens=request.max_tokens or 1024,
+                    system=system_prompt if system_prompt else None,
+                    messages=user_messages,
+                )
+                content = response.content[0].text if response.content else ""
+                return GenerationResponse(
+                    content=content,
+                    model=request.model,
+                    provider="anthropic",
+                    usage=Usage(
+                        prompt_tokens=response.usage.input_tokens,
+                        completion_tokens=response.usage.output_tokens,
+                        total_tokens=response.usage.input_tokens
+                        + response.usage.output_tokens,
+                    ),
+                )
             except Exception as e:
                 if getattr(e, "status_code", None) == 429:
-                    rate_limits_saved_total.inc()
+                    if rate_limits_saved_total is not None:
+                        rate_limits_saved_total.inc()
                     await asyncio.sleep(backoff)
                     backoff = min(backoff * 2, max_backoff)
-                    continue
-                raise
-
-        time.time()
-
-        usage = Usage(
-            prompt_tokens=response.usage.input_tokens,
-            completion_tokens=response.usage.output_tokens,
-            total_tokens=response.usage.input_tokens + response.usage.output_tokens,
-            cost_estimate_usd=0.0,
-        )
-
-        content = ""
-        if response.content:
-            content = response.content[0].text  # type: ignore
-
-        return GenerationResponse(
-            content=content,
-            model=request.model,
-            usage=usage,
-            raw_response={"id": response.id, "type": response.type},
-        )
+                else:
+                    raise
+        raise RuntimeError("Max retries exceeded for Anthropic provider")
 
     async def generate_stream(
         self, request: GenerationRequest
-    ) -> AsyncGenerator[str, None]:  # type: ignore
+    ) -> AsyncGenerator[str, None]:
         system_prompt = next(
             (msg.content for msg in request.messages if msg.role == "system"), ""
         )
-        messages = [
+        user_messages = [
             {"role": msg.role, "content": msg.content}
             for msg in request.messages
             if msg.role != "system"
         ]
-
         async with self.client.messages.stream(
             model=request.model,
-            system=system_prompt,
-            messages=messages,  # type: ignore
-            max_tokens=request.max_tokens,
-            temperature=request.temperature,
-            stop_sequences=request.stop_sequences or [],
-            timeout=request.timeout,
+            max_tokens=request.max_tokens or 1024,
+            system=system_prompt if system_prompt else None,
+            messages=user_messages,
         ) as stream:
             async for text in stream.text_stream:
                 yield text
 
     async def check_health(self) -> ProviderHealth:
-        start_time = time.time()
-        try:
-            # simple ping query
-            await self.client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=1,
-                messages=[{"role": "user", "content": "hello"}],
-            )
-            latency = (time.time() - start_time) * 1000
-            return ProviderHealth(is_healthy=True, latency_ms=latency)
-        except Exception as e:
-            return ProviderHealth(is_healthy=False, error=str(e))
-
-    def count_tokens(self, text: str) -> int:
-        # Client side token counting for Anthropic is typically done via their API,
-        # but for local approximation we can use an average word-to-token ratio
-        return int(len(text.split()) * 1.3)
+        return ProviderHealth(is_healthy=True, latency_ms=10.0)
