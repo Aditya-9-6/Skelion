@@ -1,14 +1,13 @@
 import concurrent.futures
 import random
 import time
-import pytest
 
-from skelion_agent.registry import HazardPointerRegistry, HazardPointerNode
+from skelion_agent.registry import HazardPointerRegistry
 
 
 def test_registry_basic_crud():
     registry = HazardPointerRegistry()
-    
+
     # Register
     node1 = registry.register_or_update("agent-001", {"status": "idle", "term": 1})
     assert node1.agent_id == "agent-001"
@@ -22,7 +21,9 @@ def test_registry_basic_crud():
     registry.release_hazard_pointer()
 
     # Update
-    node2 = registry.register_or_update("agent-001", {"status": "remediating", "term": 1})
+    node2 = registry.register_or_update(
+        "agent-001", {"status": "remediating", "term": 1}
+    )
     assert node2.version == 2
     assert node2.state["status"] == "remediating"
 
@@ -68,9 +69,10 @@ def test_concurrent_hazard_pointer_readers_and_writers():
         return writes
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        futures = [executor.submit(reader_worker) for _ in range(4)] + \
-                  [executor.submit(writer_worker) for _ in range(2)]
-        
+        futures = [executor.submit(reader_worker) for _ in range(4)] + [
+            executor.submit(writer_worker) for _ in range(2)
+        ]
+
         time.sleep(0.5)
         stop_event = True
         results = [f.result() for f in futures]
@@ -78,7 +80,7 @@ def test_concurrent_hazard_pointer_readers_and_writers():
     assert sum(results) > 0
     stats = registry.get_stats()
     assert stats["active_agents"] == len(agent_ids)
-    
+
     # Force GC and check cleanup
     surviving = registry.force_gc()
     assert isinstance(surviving, int)

@@ -1,6 +1,5 @@
 import threading
 import time
-import pytest
 from skelion_agent.core.lcrq import LCRQ, HazardPointerTable, EpochReclaimer, LCRQNode
 
 
@@ -71,7 +70,7 @@ def test_lcrq_concurrent_stress():
 def test_hazard_pointer_and_reclaimer():
     table = HazardPointerTable()
     reclaimer = EpochReclaimer(table, threshold=2)
-    
+
     node1 = LCRQNode("a")
     node2 = LCRQNode("b")
 
@@ -81,7 +80,7 @@ def test_hazard_pointer_and_reclaimer():
 
     reclaimer.retire(node1)
     reclaimer.retire(node2)
-    
+
     # node1 is protected so should remain in reclaimer buffer
     assert node1 in reclaimer._retired
 

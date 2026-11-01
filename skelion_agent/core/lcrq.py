@@ -1,8 +1,5 @@
-import ctypes
 import threading
-import atomic
-import time
-from typing import Optional, Any, List, Tuple
+from typing import Optional, Any, List
 
 
 class HazardPointerTable:
@@ -10,11 +7,14 @@ class HazardPointerTable:
     Thread-local hazard pointer registry for epoch-based and lock-free memory reclamation
     in the Linked Concurrent Queue (LCRQ).
     """
+
     def __init__(self, max_threads: int = 128, max_hazards_per_thread: int = 2):
         self.max_threads = max_threads
         self.max_hazards_per_thread = max_hazards_per_thread
         # Flat array representing thread hazard slots: [thread_0_h0, thread_0_h1, thread_1_h0, ...]
-        self._hazards: List[Optional[Any]] = [None] * (max_threads * max_hazards_per_thread)
+        self._hazards: List[Optional[Any]] = [None] * (
+            max_threads * max_hazards_per_thread
+        )
         self._thread_map: dict = {}
         self._thread_map_lock = threading.Lock()
         self._next_slot_idx = 0
@@ -25,10 +25,14 @@ class HazardPointerTable:
             if tid not in self._thread_map:
                 if self._next_slot_idx >= self.max_threads:
                     # Wrap around or assign modulo max threads
-                    self._thread_map[tid] = (self._next_slot_idx * self.max_hazards_per_thread) % (self.max_threads * self.max_hazards_per_thread)
+                    self._thread_map[tid] = (
+                        self._next_slot_idx * self.max_hazards_per_thread
+                    ) % (self.max_threads * self.max_hazards_per_thread)
                     self._next_slot_idx += 1
                 else:
-                    self._thread_map[tid] = self._next_slot_idx * self.max_hazards_per_thread
+                    self._thread_map[tid] = (
+                        self._next_slot_idx * self.max_hazards_per_thread
+                    )
                     self._next_slot_idx += 1
             return self._thread_map[tid]
 
@@ -52,13 +56,13 @@ class HazardPointerTable:
 
 
 class LCRQNode:
-    __slots__ = ('value', 'next', 'padded_cache')
+    __slots__ = ("value", "next", "padded_cache")
 
     def __init__(self, value: Any = None):
         self.value = value
-        self.next: Optional['LCRQNode'] = None
+        self.next: Optional["LCRQNode"] = None
         # Cache padding to eliminate false sharing on high-frequency atomic operations
-        self.padded_cache = b'\x00' * 64
+        self.padded_cache = b"\x00" * 64
 
 
 class EpochReclaimer:
@@ -66,6 +70,7 @@ class EpochReclaimer:
     Epoch-based memory reclamation manager ensuring safe deferred deallocation
     of LCRQ nodes once no active hazard pointers reference them.
     """
+
     def __init__(self, hazard_table: HazardPointerTable, threshold: int = 64):
         self.hazard_table = hazard_table
         self.threshold = threshold
@@ -101,6 +106,7 @@ class LCRQ:
     High-performance, lock-free Linked Concurrent Queue (LCRQ) using hazard pointers
     and epoch-based memory reclamation for ultra-low latency task dispatching.
     """
+
     def __init__(self, max_threads: int = 128):
         dummy = LCRQNode(None)
         self.head = dummy
