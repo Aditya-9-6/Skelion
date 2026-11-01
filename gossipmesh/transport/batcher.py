@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 import threading
-from typing import Any, List, Optional, Tuple, Callable
+from typing import Any, List, Optional, Callable
 
 
 class SlippedWindowBatcher:
@@ -67,7 +67,8 @@ class SlippedWindowBatcher:
         effective_factor = max(fill_ratio, min(max(bp_factor, 0.0), 1.0))
 
         window = self.base_coalesce_window_sec + (
-            (self.max_coalesce_window_sec - self.base_coalesce_window_sec) * effective_factor
+            (self.max_coalesce_window_sec - self.base_coalesce_window_sec)
+            * effective_factor
         )
         return min(window, self.max_coalesce_window_sec)
 

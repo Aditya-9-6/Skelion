@@ -11,9 +11,15 @@ class WorkflowManager:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_workflow(self, organization_id: int, repository_id: int, actor_id: int | None = None) -> Workflow:
+    def create_workflow(
+        self, organization_id: int, repository_id: int, actor_id: int | None = None
+    ) -> Workflow:
         try:
-            workflow = Workflow(organization_id=organization_id, repository_id=repository_id, status="pending")
+            workflow = Workflow(
+                organization_id=organization_id,
+                repository_id=repository_id,
+                status="pending",
+            )
             self.db.add(workflow)
             self.db.flush()
 
@@ -32,13 +38,17 @@ class WorkflowManager:
             self.db.rollback()
             raise
 
-    def add_job(self, workflow_id: int, agent_name: str, actor_id: int | None = None) -> Job:
+    def add_job(
+        self, workflow_id: int, agent_name: str, actor_id: int | None = None
+    ) -> Job:
         try:
             job = Job(workflow_id=workflow_id, agent_name=agent_name, status="pending")
             self.db.add(job)
             self.db.flush()
 
-            workflow = self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            workflow = (
+                self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            )
             if workflow:
                 audit = AuditEvent(
                     action="job_added",
@@ -56,10 +66,18 @@ class WorkflowManager:
             raise
 
     def create_workflow_with_job(
-        self, organization_id: int, repository_id: int, agent_name: str, actor_id: int | None = None
+        self,
+        organization_id: int,
+        repository_id: int,
+        agent_name: str,
+        actor_id: int | None = None,
     ) -> tuple[Workflow, Job]:
         try:
-            workflow = Workflow(organization_id=organization_id, repository_id=repository_id, status="pending")
+            workflow = Workflow(
+                organization_id=organization_id,
+                repository_id=repository_id,
+                status="pending",
+            )
             self.db.add(workflow)
             self.db.flush()
 
@@ -91,7 +109,13 @@ class WorkflowManager:
             self.db.rollback()
             raise
 
-    def update_job_status(self, job_id: int, status: str, state: dict | None = None, actor_id: int | None = None):
+    def update_job_status(
+        self,
+        job_id: int,
+        status: str,
+        state: dict | None = None,
+        actor_id: int | None = None,
+    ):
         try:
             job = self.db.query(Job).filter(Job.id == job_id).first()
             if job:
@@ -100,7 +124,11 @@ class WorkflowManager:
                     job.state = state
                 self.db.flush()
 
-                workflow = self.db.query(Workflow).filter(Workflow.id == job.workflow_id).first()
+                workflow = (
+                    self.db.query(Workflow)
+                    .filter(Workflow.id == job.workflow_id)
+                    .first()
+                )
                 if workflow:
                     audit = AuditEvent(
                         action="job_status_updated",
@@ -150,7 +178,9 @@ class WorkflowManager:
         Returns True if cancelled or timed out, False otherwise.
         """
         try:
-            workflow = self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            workflow = (
+                self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            )
             if not workflow:
                 return False
 
@@ -166,7 +196,9 @@ class WorkflowManager:
                     db_deadline = db_deadline.replace(tzinfo=timezone.utc)
                 if datetime.now(timezone.utc) > db_deadline:
                     workflow.status = "failed"
-                    jobs = self.db.query(Job).filter(Job.workflow_id == workflow_id).all()
+                    jobs = (
+                        self.db.query(Job).filter(Job.workflow_id == workflow_id).all()
+                    )
                     for job in jobs:
                         if job.status not in ("completed", "failed"):
                             job.status = "cancelled"
@@ -192,7 +224,9 @@ class WorkflowManager:
 
     def cancel_workflow(self, workflow_id: int, actor_id: int | None = None):
         try:
-            workflow = self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            workflow = (
+                self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            )
             if workflow and workflow.status not in ("completed", "failed"):
                 workflow.status = "cancelled"
                 jobs = self.db.query(Job).filter(Job.workflow_id == workflow_id).all()
@@ -216,12 +250,16 @@ class WorkflowManager:
     def approve_patch(self, workflow_id: int, actor_id: int | None = None):
         """Unblocks a workflow that requires human patch approval."""
         try:
-            workflow = self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            workflow = (
+                self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            )
             if workflow and workflow.status == "blocked":
                 workflow.status = "running"
                 self.db.flush()
 
-                BudgetManager(self.db).record_spend(workflow.organization_id, 1.0, commit=False)
+                BudgetManager(self.db).record_spend(
+                    workflow.organization_id, 1.0, commit=False
+                )
 
                 audit = AuditEvent(
                     action="workflow_approved",

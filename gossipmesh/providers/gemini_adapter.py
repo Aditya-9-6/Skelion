@@ -1,4 +1,4 @@
-from typing import AsyncGenerator, Any
+from typing import AsyncGenerator
 import time
 
 try:
@@ -10,7 +10,12 @@ except ImportError:
     genai = None  # type: ignore
 
 from gossipmesh.providers.base import BaseProvider
-from gossipmesh.providers.models import GenerationRequest, GenerationResponse, ProviderHealth, Usage
+from gossipmesh.providers.models import (
+    GenerationRequest,
+    GenerationResponse,
+    ProviderHealth,
+    Usage,
+)
 
 
 class GeminiProvider(BaseProvider):
@@ -47,7 +52,9 @@ class GeminiProvider(BaseProvider):
         )
 
         usage = Usage(
-            prompt_tokens=self.count_tokens(" ".join([m.content for m in request.messages])),
+            prompt_tokens=self.count_tokens(
+                " ".join([m.content for m in request.messages])
+            ),
             completion_tokens=self.count_tokens(response.text),
             total_tokens=0,
             cost_estimate_usd=0.0,
@@ -58,10 +65,14 @@ class GeminiProvider(BaseProvider):
             content=response.text,
             model=request.model,
             usage=usage,
-            raw_response={"prompt_feedback": str(getattr(response, "prompt_feedback", ""))},
+            raw_response={
+                "prompt_feedback": str(getattr(response, "prompt_feedback", ""))
+            },
         )
 
-    async def generate_stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:  # type: ignore
+    async def generate_stream(
+        self, request: GenerationRequest
+    ) -> AsyncGenerator[str, None]:  # type: ignore
         if not GENAI_AVAILABLE or genai is None:
             raise RuntimeError("google.generativeai package is not installed.")
         model = genai.GenerativeModel(request.model)
@@ -83,10 +94,14 @@ class GeminiProvider(BaseProvider):
 
     async def check_health(self) -> ProviderHealth:
         if genai is None:
-            return ProviderHealth(is_healthy=False, error="google.generativeai package not installed")
+            return ProviderHealth(
+                is_healthy=False, error="google.generativeai package not installed"
+            )
         start_time = time.time()
         if not GENAI_AVAILABLE or genai is None:
-            return ProviderHealth(is_healthy=False, error="google.generativeai not installed")
+            return ProviderHealth(
+                is_healthy=False, error="google.generativeai not installed"
+            )
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
             await model.generate_content_async("ping")

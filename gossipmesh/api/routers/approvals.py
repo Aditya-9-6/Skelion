@@ -97,7 +97,9 @@ def decide_approval(
         raise HTTPException(status_code=404, detail="Approval gate not found")
 
     if gate.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Approval gate is already {gate.status}")
+        raise HTTPException(
+            status_code=400, detail=f"Approval gate is already {gate.status}"
+        )
 
     expires_at = gate.expires_at
     if expires_at.tzinfo is None:
@@ -109,7 +111,9 @@ def decide_approval(
         raise HTTPException(status_code=400, detail="Approval gate has expired")
 
     if req.decision not in ["approved", "rejected"]:
-        raise HTTPException(status_code=400, detail="Invalid decision. Must be 'approved' or 'rejected'")
+        raise HTTPException(
+            status_code=400, detail="Invalid decision. Must be 'approved' or 'rejected'"
+        )
 
     gate.status = req.decision
     gate.approver_id = current_user.id

@@ -3,7 +3,7 @@ from __future__ import annotations
 import array
 import mmh3
 import numpy as np
-from typing import List, Union, Sequence
+from typing import Union, Sequence
 
 
 class MinHashSketch:
@@ -58,7 +58,9 @@ class MinHashSketch:
         using vectorized bitwise comparisons over memory views.
         """
         if self.num_perm != other.num_perm:
-            raise ValueError("Cannot compare sketches with different permutation counts.")
+            raise ValueError(
+                "Cannot compare sketches with different permutation counts."
+            )
 
         v1 = self.memory_view.cast("I")
         v2 = other.memory_view.cast("I")
