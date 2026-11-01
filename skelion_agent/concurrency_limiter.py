@@ -4,12 +4,17 @@ import os
 import time
 import select
 import threading
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 
 
 class ConcurrencyLimitExceededError(Exception):
     """Raised when the adaptive concurrency limit is breached and requests are shed."""
-    def __init__(self, message: str = "Concurrency limit exceeded, shedding load via Little's Law", details: Optional[Dict[str, Any]] = None):
+
+    def __init__(
+        self,
+        message: str = "Concurrency limit exceeded, shedding load via Little's Law",
+        details: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(message)
         self.details = details or {}
         self.status_code = 429
@@ -44,7 +49,7 @@ class AdaptiveConcurrencyLimiter:
         self._shed_requests = 0
 
         self._lock = threading.Lock()
-        
+
         # Initialize epoll pipe for non-blocking reactor notification if supported
         self._use_epoll = hasattr(select, "epoll")
         if self._use_epoll:
@@ -123,10 +128,12 @@ class AdaptiveConcurrencyLimiter:
             if self._smoothed_latency > 0:
                 latency_ratio = self.target_latency_ms / self._smoothed_latency
                 # Gradient adjustment
-                adjustment = self._current_limit * (latency_ratio - 1.0) * self.smoothing_factor
+                adjustment = (
+                    self._current_limit * (latency_ratio - 1.0) * self.smoothing_factor
+                )
                 self._current_limit = max(
                     float(self.min_limit),
-                    min(float(self.max_limit), self._current_limit + adjustment)
+                    min(float(self.max_limit), self._current_limit + adjustment),
                 )
 
         # Trigger epoll wake-up notification if active
