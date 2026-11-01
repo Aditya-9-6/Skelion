@@ -15,11 +15,13 @@ class TrafficMirroringEngine:
     """
 
     def __init__(
-        self, 
-        sandbox_url: str, 
+        self,
+        sandbox_url: str,
         max_queue_size: int = 1000,
         timeout: float = 3.0,
-        diff_callback: Optional[Callable[[Dict[str, Any], Dict[str, Any]], None]] = None
+        diff_callback: Optional[
+            Callable[[Dict[str, Any], Dict[str, Any]], None]
+        ] = None,
     ):
         self.sandbox_url = sandbox_url.rstrip("/")
         self.max_queue_size = max_queue_size
@@ -41,7 +43,9 @@ class TrafficMirroringEngine:
         self._running = True
         self._client = httpx.AsyncClient(timeout=self.timeout)
         self._worker_task = asyncio.create_task(self._worker_loop())
-        logger.info(f"TrafficMirroringEngine started targeting sandbox: {self.sandbox_url}")
+        logger.info(
+            f"TrafficMirroringEngine started targeting sandbox: {self.sandbox_url}"
+        )
 
     async def stop(self):
         """Gracefully stops the worker task and flushes remaining frames."""
@@ -59,12 +63,12 @@ class TrafficMirroringEngine:
         logger.info("TrafficMirroringEngine stopped.")
 
     def mirror(
-        self, 
-        method: str, 
-        path: str, 
-        headers: Dict[str, str], 
+        self,
+        method: str,
+        path: str,
+        headers: Dict[str, str],
         body: bytes,
-        prod_response_meta: Optional[Dict[str, Any]] = None
+        prod_response_meta: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
         Non-blocking enqueue for request mirroring. Drops frame gracefully if queue is full.
@@ -78,7 +82,7 @@ class TrafficMirroringEngine:
             "headers": headers,
             "body": body,
             "prod_response_meta": prod_response_meta,
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
 
         try:
@@ -106,7 +110,9 @@ class TrafficMirroringEngine:
                 await self._dispatch_to_sandbox(item)
             except Exception as e:
                 self.total_errors += 1
-                logger.error(f"[TrafficMirroringEngine] Error dispatching mirrored request: {e}")
+                logger.error(
+                    f"[TrafficMirroringEngine] Error dispatching mirrored request: {e}"
+                )
             finally:
                 self.queue.task_done()
 
@@ -140,7 +146,7 @@ class TrafficMirroringEngine:
                 "status_code": response.status_code,
                 "headers": dict(response.headers),
                 "body": response.text,
-                "duration_ms": duration_ms
+                "duration_ms": duration_ms,
             }
 
             if self.diff_callback and prod_meta:
@@ -151,4 +157,6 @@ class TrafficMirroringEngine:
 
         except httpx.RequestError as exc:
             self.total_errors += 1
-            logger.warning(f"[TrafficMirroringEngine] Sandbox request failed for {method} {url}: {exc}")
+            logger.warning(
+                f"[TrafficMirroringEngine] Sandbox request failed for {method} {url}: {exc}"
+            )
