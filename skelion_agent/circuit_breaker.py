@@ -1,43 +1,46 @@
 import time
 import random
 import threading
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from enum import Enum
+
 
 class CircuitState(Enum):
     CLOSED = "CLOSED"
     OPEN = "OPEN"
     HALF_OPEN = "HALF_OPEN"
 
+
 class RingBuffer:
-    __slots__ = ('capacity', 'buffer', 'head', 'size', 'lock')
-    
+    __slots__ = ("capacity", "buffer", "head", "size", "lock")
+
     def __init__(self, capacity: int):
         self.capacity = capacity
         self.buffer = [0.0] * capacity
         self.head = 0
         self.size = 0
         self.lock = threading.Lock()
-        
+
     def append(self, val: float) -> None:
         with self.lock:
             self.buffer[self.head] = val
             self.head = (self.head + 1) % self.capacity
             if self.size < self.capacity:
                 self.size += 1
-                
+
     def get_values(self) -> list[float]:
         with self.lock:
             if self.size == 0:
                 return []
             if self.size < self.capacity:
-                return self.buffer[:self.size]
-            return self.buffer[self.head:] + self.buffer[:self.head]
-            
+                return self.buffer[: self.size]
+            return self.buffer[self.head :] + self.buffer[: self.head]
+
     def clear(self) -> None:
         with self.lock:
             self.head = 0
             self.size = 0
+
 
 class CircuitBreaker:
     def __init__(
@@ -59,11 +62,11 @@ class CircuitBreaker:
         self.backoff_multiplier = backoff_multiplier
         self.max_backoff = max_backoff
         self.jitter = jitter
-        
+
         self.state = CircuitState.CLOSED
         self._ring = RingBuffer(window_size)
         self._lock = threading.Lock()
-        
+
         self._failure_count = 0
         self._next_attempt_time = 0.0
         self._current_backoff = recovery_timeout
@@ -99,7 +102,9 @@ class CircuitBreaker:
             self._ring.append(0.0)
             if self.state == CircuitState.HALF_OPEN:
                 self._half_open_successes += 1
-                self._half_open_probes_in_flight = max(0, self._half_open_probes_in_flight - 1)
+                self._half_open_probes_in_flight = max(
+                    0, self._half_open_probes_in_flight - 1
+                )
                 if self._half_open_successes >= self.half_open_max_probes:
                     self.state = CircuitState.CLOSED
                     self._current_backoff = self.recovery_timeout
@@ -111,7 +116,9 @@ class CircuitBreaker:
         with self._lock:
             self._ring.append(1.0)
             if self.state == CircuitState.HALF_OPEN:
-                self._half_open_probes_in_flight = max(0, self._half_open_probes_in_flight - 1)
+                self._half_open_probes_in_flight = max(
+                    0, self._half_open_probes_in_flight - 1
+                )
                 self._trip()
             elif self.state == CircuitState.CLOSED:
                 error_rate = self._calculate_error_rate()
@@ -124,7 +131,9 @@ class CircuitBreaker:
         if self.jitter:
             backoff = backoff * (0.5 + random.random())
         self._next_attempt_time = time.time() + backoff
-        self._current_backoff = min(self._current_backoff * self.backoff_multiplier, self.max_backoff)
+        self._current_backoff = min(
+            self._current_backoff * self.backoff_multiplier, self.max_backoff
+        )
         self._half_open_probes_in_flight = 0
 
     def get_metrics(self) -> Dict[str, Any]:
@@ -136,6 +145,7 @@ class CircuitBreaker:
                 "next_attempt_time": self._next_attempt_time,
                 "current_backoff": self._current_backoff,
             }
+
 
 class CircuitBreakerMesh:
     def __init__(self):
@@ -151,6 +161,7 @@ class CircuitBreakerMesh:
     def get_metrics(self) -> Dict[str, Dict[str, Any]]:
         with self._lock:
             return {name: cb.get_metrics() for name, cb in self._breakers.items()}
+
 
 # Global circuit breaker mesh singleton
 mesh = CircuitBreakerMesh()

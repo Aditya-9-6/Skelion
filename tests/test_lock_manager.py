@@ -1,6 +1,5 @@
 import asyncio
 import pytest
-import time
 from skelion_agent.core.lock_manager import DistributedLockManager
 
 
@@ -55,7 +54,9 @@ async def test_concurrent_lock_contention():
         assert released is True
 
         # Now Node 2 should successfully acquire
-        success_2_retry, token_2_retry, owner_2_retry = await manager_2.acquire_lock("shared-db")
+        success_2_retry, token_2_retry, owner_2_retry = await manager_2.acquire_lock(
+            "shared-db"
+        )
         assert success_2_retry is True
         assert owner_2_retry == "node-2"
         assert token_2_retry > token_1
