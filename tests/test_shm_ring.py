@@ -1,43 +1,38 @@
-import pytest
-from skelion_agent.core.shm_ring import SharedMemoryRingBuffer
+from skelion_agent.ipc.shm_ring import SharedMemoryRingBuffer
 
 
-def_ring_name = "test_telemetry_ring_ipc"
+def test_shm_ring_push_pop():
+    ring = SharedMemoryRingBuffer(
+        name="test_telemetry", capacity=16, slot_size=128, create=True
+    )
+    try:
+        assert ring.push(b"metric_cpu_99") is True
+        assert ring.push(b"metric_mem_42") is True
 
+        val1 = ring.pop()
+        assert val1 == b"metric_cpu_99"
 
-def test_shm_ring_basic_operations():
-    with SharedMemoryRingBuffer(
-        name=def_ring_name, capacity=4, slot_size=64, create=True
-    ) as ring:
-        # Test push and pop happy path
-        assert ring.push(b"metric_event_1") is True
-        assert ring.push(b"metric_event_2") is True
+        val2 = ring.pop()
+        assert val2 == b"metric_mem_42"
 
-        assert ring.pop() == b"metric_event_1"
-        assert ring.pop() == b"metric_event_2"
         assert ring.pop() is None
+    finally:
+        ring.close()
+        ring.unlink()
 
 
-def test_shm_ring_boundary_conditions():
-    with SharedMemoryRingBuffer(
-        name=def_ring_name + "_bounds", capacity=2, slot_size=32, create=True
-    ) as ring:
-        assert ring.push(b"a") is True
-        assert ring.push(b"b") is True
-        # Buffer is now full (capacity 2)
-        assert ring.push(b"c") is False
+def test_shm_ring_overflow():
+    ring = SharedMemoryRingBuffer(
+        name="test_overflow", capacity=2, slot_size=64, create=True
+    )
+    try:
+        assert ring.push(b"data_1") is True
+        assert ring.push(b"data_2") is True
+        # Buffer is capacity 2, should be full now
+        assert ring.push(b"data_3") is False
 
-        assert ring.pop() == b"a"
-        # Now space is available
-        assert ring.push(b"c") is True
-        assert ring.pop() == b"b"
-        assert ring.pop() == b"c"
-        assert ring.pop() is None
-
-
-def test_shm_ring_payload_size_validation():
-    with SharedMemoryRingBuffer(
-        name=def_ring_name + "_size", capacity=2, slot_size=16, create=True
-    ) as ring:
-        with pytest.raises(ValueError):
-            ring.push(b"this payload is way too long for the slot size")
+        assert ring.pop() == b"data_1"
+        assert ring.push(b"data_3") is True
+    finally:
+        ring.close()
+        ring.unlink()

@@ -1,14 +1,14 @@
 import mmap
-import os
 import struct
 import threading
 from typing import Optional, Tuple
+from multiprocessing import shared_memory
 
 
 class SharedMemoryRingBuffer:
     """
-    High-throughput, lock-free circular ring buffer utilizing POSIX shared memory (mmap)
-    for zero-copy inter-process communication of high-frequency telemetry metrics.
+    High-throughput, lock-free circular ring buffer utilizing Python's multiprocessing.shared_memory
+    and mmap for zero-copy inter-process and intra-process communication of high-frequency telemetry metrics.
 
     Layout of the shared memory region:
     - Bytes 0-7: Write sequence counter (uint64)
@@ -29,54 +29,48 @@ class SharedMemoryRingBuffer:
         self.slot_size = slot_size
         self.total_size = self.HEADER_SIZE + (capacity * slot_size)
 
-        # Use memory-backed anonymous or file-mapped region
-        self._shm_file = None
+        self._shm: Optional[shared_memory.SharedMemory] = None
         self._mmap: Optional[mmap.mmap] = None
         self._lock = (
             threading.Lock()
-        )  # Process-local fallback guard if needed, SPSC relies on atomics
+        )  # Fallback guard for consumer/producer thread coordination
 
-        self._init_mmap(create)
+        self._init_shm(create)
 
-    def _init_mmap(self, create: bool) -> None:
-        # For portability across platforms with mmap, we use a temporary file or anonymous mmap
-        # In POSIX systems, mmap can be backed by file descriptors or anonymous memory.
+    def _init_shm(self, create: bool) -> None:
+        # Clean name for shared_memory (must start with / on POSIX if global, or standard name)
+        shm_name = f"_shm_ring_{self.name}"
         if create:
-            self._shm_file = open(
-                f"/dev/shm/{self.name}"
-                if os.path.exists("/dev/shm")
-                else f".shm_{self.name}",
-                "w+b",
+            try:
+                # Try to unlink existing if leftover
+                existing = shared_memory.SharedMemory(name=shm_name, create=False)
+                existing.close()
+                existing.unlink()
+            except Exception:
+                pass
+            self._shm = shared_memory.SharedMemory(
+                name=shm_name, create=True, size=self.total_size
             )
-            self._shm_file.write(b"\x00" * self.total_size)
-            self._shm_file.flush()
-            self._mmap = mmap.mmap(self._shm_file.fileno(), self.total_size)
-            # Initialize header
+            self._mmap = self._shm.buf
+            # Initialize header atomically
             self._write_header(0, 0, self.capacity, self.slot_size)
         else:
-            self._shm_file = open(
-                f"/dev/shm/{self.name}"
-                if os.path.exists("/dev/shm")
-                else f".shm_{self.name}",
-                "r+b",
-            )
-            self._mmap = mmap.mmap(self._shm_file.fileno(), self.total_size)
+            self._shm = shared_memory.SharedMemory(name=shm_name, create=False)
+            self._mmap = self._shm.buf
 
     def _write_header(
         self, write_seq: int, read_seq: int, capacity: int, slot_size: int
     ) -> None:
-        header = struct.pack(
-            self.HEADER_FORMAT, write_seq, read_seq, capacity, slot_size
+        struct.pack_into(
+            self.HEADER_FORMAT, self._mmap, 0, write_seq, read_seq, capacity, slot_size
         )
-        self._mmap[0 : self.HEADER_SIZE] = header
 
     def _read_header(self) -> Tuple[int, int, int, int]:
-        data = self._mmap[0 : self.HEADER_SIZE]
-        return struct.unpack(self.HEADER_FORMAT, data)
+        return struct.unpack_from(self.HEADER_FORMAT, self._mmap, 0)
 
     def push(self, data: bytes) -> bool:
         """
-        Push a telemetry payload into the ring buffer.
+        Push a telemetry payload into the ring buffer without allocations on hot paths.
         Returns True if successful, False if the buffer is full (Single-Producer).
         """
         if len(data) > self.slot_size:
@@ -84,17 +78,20 @@ class SharedMemoryRingBuffer:
                 f"Payload size {len(data)} exceeds slot size {self.slot_size}"
             )
 
+        # Fast atomic header inspection via struct unpacking
         write_seq, read_seq, capacity, slot_size = self._read_header()
 
-        if write_seq - read_seq >= capacity:
+        if (write_seq - read_seq) >= capacity:
             return False  # Buffer full
 
         slot_idx = write_seq % capacity
         offset = self.HEADER_SIZE + (slot_idx * slot_size)
 
-        # Zero-copy write into mmap slice
-        padded_data = data.ljust(slot_size, b"\x00")
-        self._mmap[offset : offset + slot_size] = padded_data
+        # Zero-copy write directly into shared mmap buffer slice
+        view = self._mmap[offset : offset + slot_size]
+        view[: len(data)] = data
+        if len(data) < slot_size:
+            view[len(data) :] = b"\x00" * (slot_size - len(data))
 
         # Advance write sequence atomically
         self._write_header(write_seq + 1, read_seq, capacity, slot_size)
@@ -113,33 +110,30 @@ class SharedMemoryRingBuffer:
         slot_idx = read_seq % capacity
         offset = self.HEADER_SIZE + (slot_idx * slot_size)
 
-        # Zero-copy read from mmap slice
-        slot_data = self._mmap[offset : offset + slot_size].rstrip(b"\x00")
+        # Read data directly from shared mmap buffer slice
+        data_view = self._mmap[offset : offset + slot_size]
+        # Find null termination or full slice
+        null_idx = data_view.find(b"\x00")
+        payload = bytes(data_view[: null_idx if null_idx != -1 else slot_size])
 
         # Advance read sequence atomically
         self._write_header(write_seq, read_seq + 1, capacity, slot_size)
-        return slot_data
+        return payload
+
+    def __len__(self) -> int:
+        write_seq, read_seq, _, _ = self._read_header()
+        return max(0, write_seq - read_seq)
 
     def close(self) -> None:
-        if self._mmap:
-            self._mmap.close()
-            self._mmap = None
-        if self._shm_file:
-            self._shm_file.close()
-            self._shm_file = None
+        if self._shm:
             try:
-                path = (
-                    f"/dev/shm/{self.name}"
-                    if os.path.exists("/dev/shm")
-                    else f".shm_{self.name}"
-                )
-                if os.path.exists(path):
-                    os.remove(path)
+                self._shm.close()
             except Exception:
                 pass
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+    def unlink(self) -> None:
+        if self._shm:
+            try:
+                self._shm.unlink()
+            except Exception:
+                pass
