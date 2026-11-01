@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 
 class CountMinSketch:
     """Space-efficient frequency sketch backbone for telemetry pruning."""
+
     def __init__(self, width: int = 2048, depth: int = 4) -> None:
         self.width = width
         self.depth = depth
@@ -14,8 +15,8 @@ class CountMinSketch:
     def _hashes(self, item: str) -> List[int]:
         hashes = []
         for i in range(self.depth):
-            h = hashlib.blake2b(item.encode('utf-8'), digest_size=8, person=bytes([i]))
-            hashes.append(int.from_bytes(h.digest(), 'big') % self.width)
+            h = hashlib.blake2b(item.encode("utf-8"), digest_size=8, person=bytes([i]))
+            hashes.append(int.from_bytes(h.digest(), "big") % self.width)
         return hashes
 
     def add(self, item: str, count: int = 1) -> None:
@@ -31,7 +32,7 @@ class CountMinSketch:
 class TrieNode:
     def __init__(self, name: str = "") -> None:
         self.name = name
-        self.children: Dict[str, 'TrieNode'] = {}
+        self.children: Dict[str, "TrieNode"] = {}
         self.incident_count = 0
         self.metadata: List[Dict[str, Any]] = []
         self._lock = threading.Lock()
@@ -39,14 +40,19 @@ class TrieNode:
 
 class IncidentCorrelationEngine:
     """Bounded-Memory Prefix-Tree Incident Root-Cause Correlation Engine."""
-    def __init__(self, max_nodes: int = 50000, sketch_width: int = 2048, sketch_depth: int = 4) -> None:
+
+    def __init__(
+        self, max_nodes: int = 50000, sketch_width: int = 2048, sketch_depth: int = 4
+    ) -> None:
         self.root = TrieNode()
         self.max_nodes = max_nodes
         self.node_count = 1
         self.sketch = CountMinSketch(width=sketch_width, depth=sketch_depth)
         self._lock = threading.Lock()
 
-    def insert_path(self, path_segments: List[str], metadata: Optional[Dict[str, Any]] = None) -> None:
+    def insert_path(
+        self, path_segments: List[str], metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
         if not path_segments:
             return
 
@@ -85,12 +91,14 @@ class IncidentCorrelationEngine:
             while stack:
                 node = stack.pop()
                 if node.incident_count > 0:
-                    results.append({
-                        "name": node.name,
-                        "incident_count": node.incident_count,
-                        "frequency_estimate": self.sketch.estimate(node.name),
-                        "metadata": node.metadata
-                    })
+                    results.append(
+                        {
+                            "name": node.name,
+                            "incident_count": node.incident_count,
+                            "frequency_estimate": self.sketch.estimate(node.name),
+                            "metadata": node.metadata,
+                        }
+                    )
                 for child in node.children.values():
                     stack.append(child)
 

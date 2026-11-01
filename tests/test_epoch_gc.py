@@ -1,11 +1,9 @@
 import threading
 import time
-import pytest
 from skelion_agent.core.epoch_gc import (
     EpochManager,
     HazardPointerRegistry,
     EpochGarbageCollector,
-    GLOBAL_EPOCH_GC,
 )
 
 
@@ -26,6 +24,7 @@ def test_epoch_manager_basic():
 
 
 voices = []
+
 
 class DummyNode:
     def __init__(self, name: str):
@@ -51,6 +50,7 @@ def test_epoch_garbage_collector_lifecycle():
     def make_destructor(name):
         def _destruct():
             reclaimed.append(name)
+
         return _destruct
 
     # Retire nodes

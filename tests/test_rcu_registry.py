@@ -1,7 +1,5 @@
 import threading
 import time
-import random
-import pytest
 from skelion_agent.core.rcu_registry import RCURegistry, RCUEpochTracker
 
 
@@ -69,9 +67,9 @@ def test_epoch_tracker():
     tracker = RCUEpochTracker()
     e1 = tracker.enter()
     assert tracker.can_reclaim(e1) is False
-    
+
     e2 = tracker.advance()
     assert tracker.can_reclaim(e1) is False
-    
+
     tracker.exit(e1)
     assert tracker.can_reclaim(e1) is True

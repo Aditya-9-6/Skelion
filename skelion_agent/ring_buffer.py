@@ -8,6 +8,7 @@ class Cell(ctypes.Structure):
     Represents a single slot in the MPMC ring buffer with a sequence number
     for lock-free synchronization and cache-line padding insulation (64 bytes total).
     """
+
     _fields_ = [
         ("sequence", ctypes.c_int64),
         ("data_ptr", ctypes.c_void_p),
@@ -26,10 +27,10 @@ class MPMCRingBuffer:
     def __init__(self, capacity: int = 1024):
         if capacity <= 0 or (capacity & (capacity - 1)) != 0:
             raise ValueError("Capacity must be a positive power of two")
-        
+
         self.capacity = capacity
         self.mask = capacity - 1
-        
+
         # Allocate circular buffer slots with sequence tracking
         self._buffer = [Cell(sequence=i, data_ptr=0) for i in range(capacity)]
         for i, cell in enumerate(self._buffer):

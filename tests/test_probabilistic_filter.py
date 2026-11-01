@@ -6,7 +6,7 @@ from skelion_agent.probabilistic_filter import ProbabilisticFilterMesh
 def test_probabilistic_filter_basic():
     pf = ProbabilisticFilterMesh(capacity=1000, error_rate=0.01)
     assert "anomaly_123" not in pf
-    
+
     pf.add("anomaly_123")
     assert "anomaly_123" in pf
     assert pf.might_contain("anomaly_123") is True
@@ -14,7 +14,7 @@ def test_probabilistic_filter_basic():
 
 def test_probabilistic_filter_false_positives():
     pf = ProbabilisticFilterMesh(capacity=5000, error_rate=0.05)
-    
+
     # Insert 5000 items
     inserted = [f"telemetry_stream_{i}" for i in range(5000)]
     for item in inserted:
@@ -65,12 +65,12 @@ def test_probabilistic_filter_concurrency():
 def test_probabilistic_filter_clear_and_fill_ratio():
     pf = ProbabilisticFilterMesh(capacity=100, error_rate=0.05)
     assert pf.fill_ratio == 0.0
-    
+
     for i in range(50):
         pf.add(f"item_{i}")
-    
+
     assert pf.fill_ratio > 0.0
-    
+
     pf.clear()
     assert pf.fill_ratio == 0.0
     assert "item_0" not in pf

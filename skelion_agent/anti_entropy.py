@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import socket
 import time
 from typing import Dict, List, Optional, Tuple
 
@@ -16,7 +15,11 @@ class EphemeralAntiEntropyNode:
     """
 
     def __init__(
-        self, host: str, port: int, state: Optional[Dict[str, str]] = None, sync_interval: float = 0.5
+        self,
+        host: str,
+        port: int,
+        state: Optional[Dict[str, str]] = None,
+        sync_interval: float = 0.5,
     ):
         self.host = host
         self.port = port
@@ -122,7 +125,9 @@ class EphemeralAntiEntropyNode:
         except Exception as e:
             logger.error(f"Error handling packet from {addr}: {e}")
 
-    def _reconcile(self, peer_state: Dict[str, str], peer_fingerprints: Dict[str, str]) -> None:
+    def _reconcile(
+        self, peer_state: Dict[str, str], peer_fingerprints: Dict[str, str]
+    ) -> None:
         local_fps = self.merkle_tree.get_subtree_fingerprints()
         # Simple anti-entropy reconciliation: pull missing or divergent keys
         updated = False
