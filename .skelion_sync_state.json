@@ -1,0 +1,28 @@
+{
+  "devproxy": {
+    "last_synced_sha": null,
+    "last_synced_at": null,
+    "status": "UNSYNCED",
+    "active_pr_number": null,
+    "active_pr_url": null
+  },
+  "gossipmesh": {
+    "last_synced_sha": "bc0cfd16054a9ec833162d1a2354d54d0b4fff17",
+    "last_synced_at": "2026-11-01T15:57:55.503529+00:00",
+    "status": "SYNCED",
+    "active_pr_number": null,
+    "active_pr_url": null
+  },
+  "history": [
+    {
+      "timestamp": "2026-11-01T15:57:55.503529+00:00",
+      "repo": "gossipmesh",
+      "event": "DIRECT_MERGE",
+      "sha": "bc0cfd16054a9ec833162d1a2354d54d0b4fff17",
+      "status": "SUCCESS",
+      "details": {
+        "files_synced": 286
+      }
+    }
+  ]
+}

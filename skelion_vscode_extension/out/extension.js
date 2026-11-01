@@ -464,6 +464,48 @@ class SkelionSidebarProvider {
                     }
                     break;
                 }
+                case 'fetchSyncStatus': {
+                    const token = await this.getValidToken() || 'dev';
+                    try {
+                        const res = await fetch('http://127.0.0.1:8003/v1/sync/status', {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            webview.postMessage({ type: 'syncStatusData', data });
+                        }
+                    }
+                    catch (e) {
+                        console.error('fetchSyncStatus error:', e);
+                    }
+                    break;
+                }
+                case 'triggerCrossRepoSync': {
+                    const token = await this.getValidToken() || 'dev';
+                    vscode.window.showInformationMessage('Skelion: Triggering DevProxy & GossipMesh Cross-Repo Auto-Sync...');
+                    try {
+                        const res = await fetch('http://127.0.0.1:8003/v1/sync/trigger', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({})
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            vscode.window.showInformationMessage('Skelion: Upstream synchronization cycle completed!');
+                            webview.postMessage({ type: 'syncCycleResult', data });
+                        }
+                        else {
+                            vscode.window.showErrorMessage(`Sync Error: ${data.detail || 'Failed'}`);
+                        }
+                    }
+                    catch (e) {
+                        vscode.window.showErrorMessage(`Sync Exception: ${e.message}`);
+                    }
+                    break;
+                }
                 case 'triggerAutonomousLoop': {
                     const token = await this.getValidToken() || 'dev';
                     vscode.window.showInformationMessage('Skelion: Triggering Autonomous DevOps Loop Cycle...');
@@ -1818,6 +1860,34 @@ class SkelionSidebarProvider {
         </div>
       </div>
 
+      <div class="card" style="border-left: 4px solid #3b82f6;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h3 style="margin:0; font-size:14px; font-weight:700; color:#1e293b;">🔄 Cross-Repo Upstream Synchronizer</h3>
+          <span id="sync-badge" style="font-size:11px; padding:3px 8px; border-radius:12px; background:rgba(59,130,246,0.15); color:#2563eb; font-weight:700; border:1px solid rgba(59,130,246,0.3);">SYNCED</span>
+        </div>
+        <p style="font-size:12px; color:#475569; margin:0 0 10px 0; line-height:1.4;">
+          Monitors <b>DevProxy</b> and <b>GossipMesh</b> upstream updates. If clean, merges directly into <code>main</code>; if conflicts exist, creates a PR to prevent cross-over breakage.
+        </p>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+          <button id="trigger-sync-btn" class="glass-btn primary" data-action="triggerCrossRepoSync" style="flex:1; padding:8px 12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; background:linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color:#fff;">
+            <span>⚡ Sync DevProxy &amp; GossipMesh</span>
+          </button>
+          <button id="refresh-sync-btn" class="glass-btn secondary" data-action="refreshSyncStatus" style="padding:8px 12px; cursor:pointer;">
+            <span>🔄 Check</span>
+          </button>
+        </div>
+        <div style="font-size:11px; color:#475569; display:flex; flex-direction:column; gap:4px; border-top:1px solid rgba(59,130,246,0.15); padding-top:8px;">
+          <div style="display:flex; justify-content:space-between;">
+            <span>DevProxy (Edge Proxy &amp; WAF):</span>
+            <b id="sync-devproxy-status" style="color:#10b981;">Up to date (c6e1958)</b>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>GossipMesh (P2P &amp; Autonomous):</span>
+            <b id="sync-gossipmesh-status" style="color:#10b981;">Up to date (bc0cfd1)</b>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <h4 style="margin:0 0 8px 0; font-size:12px; font-weight:700; color:#1e293b; text-transform:uppercase; letter-spacing:0.5px;">Live Execution & Audit Journal</h4>
         <div id="autonomous-activity-stream" style="max-height:240px; overflow-y:auto; font-family:monospace; font-size:11px; background:rgba(255,255,255,0.7); border:1px solid rgba(212,175,55,0.25); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:6px;">
@@ -2078,6 +2148,25 @@ class SkelionSidebarProvider {
 
           break;
 
+        }
+
+        case 'triggerCrossRepoSync': {
+          setElText('sync-badge', 'SYNCING');
+          const stream = document.getElementById('autonomous-activity-stream');
+          if (stream) {
+            const row = document.createElement('div');
+            row.style.color = '#2563eb';
+            row.style.fontWeight = 'bold';
+            row.textContent = '[' + new Date().toLocaleTimeString() + '] Starting DevProxy & GossipMesh cross-repo sync...';
+            stream.prepend(row);
+          }
+          vscode.postMessage({ type: 'triggerCrossRepoSync' });
+          break;
+        }
+
+        case 'refreshSyncStatus': {
+          vscode.postMessage({ type: 'fetchSyncStatus' });
+          break;
         }
 
         case 'triggerAutonomousLoop': {
@@ -2371,6 +2460,20 @@ class SkelionSidebarProvider {
 
           if (devBtn) devBtn.innerHTML = '🚀 Instant Access (Aditya / Dev Session)';
 
+        } else if (msg.type === 'syncStatusData' || msg.type === 'syncCycleResult') {
+          const d = msg.data || {};
+          const ups = d.upstreams || (d.summary && d.summary.state) || {};
+          if (ups.devproxy) {
+            const dpHead = (ups.devproxy.upstream_head || ups.devproxy.last_synced_sha || 'c6e1958').substring(0, 7);
+            const dpStatus = ups.devproxy.status || 'SYNCED';
+            setElText('sync-devproxy-status', dpStatus + ' (' + dpHead + ')');
+          }
+          if (ups.gossipmesh) {
+            const gmHead = (ups.gossipmesh.upstream_head || ups.gossipmesh.last_synced_sha || 'bc0cfd1').substring(0, 7);
+            const gmStatus = ups.gossipmesh.status || 'SYNCED';
+            setElText('sync-gossipmesh-status', gmStatus + ' (' + gmHead + ')');
+          }
+          setElText('sync-badge', 'SYNCED');
         } else if (msg.type === 'autonomousStatusData' || msg.type === 'autonomousCycleResult') {
           const d = msg.data || {};
           setElText('autonomous-badge', d.last_status || d.status || 'IDLE');
@@ -2666,7 +2769,10 @@ class SkelionSidebarProvider {
         if (tab === 'limits') vscode.postMessage({ type: 'fetchLimits' });
 
         if (tab === 'history') vscode.postMessage({ type: 'fetchConversations' });
-        if (tab === 'autonomous') vscode.postMessage({ type: 'fetchAutonomousStatus' });
+        if (tab === 'autonomous') {
+          vscode.postMessage({ type: 'fetchAutonomousStatus' });
+          vscode.postMessage({ type: 'fetchSyncStatus' });
+        }
 
       } catch (err) {
 

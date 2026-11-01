@@ -1,0 +1,89 @@
+name: 🔄 Skelion Cross-Repository Upstream Auto-Sync (DevProxy & GossipMesh)
+
+on:
+  schedule:
+    # 24/7 continuous synchronization check every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force sync even if commit SHAs match'
+        required: false
+        default: false
+        type: boolean
+      repo:
+        description: 'Specific upstream repository (leave blank for all)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - devproxy
+          - gossipmesh
+  repository_dispatch:
+    types: [upstream-push, devproxy-push, gossipmesh-push]
+
+concurrency:
+  group: skelion-cross-repo-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  cross-repo-sync:
+    name: 🔄 Cross-Repository Upstream Synchronizer
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Skelion (Main Project)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Checkout Upstream DevProxy
+        uses: actions/checkout@v4
+        with:
+          repository: Aditya-9-6/DevProxy
+          path: .upstream/devproxy
+          fetch-depth: 1
+
+      - name: Checkout Upstream GossipMesh
+        uses: actions/checkout@v4
+        with:
+          repository: Aditya-9-6/GossipMesh
+          path: .upstream/gossipmesh
+          fetch-depth: 1
+
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "Dahale Aditya Dnyaneshwar"
+          git config --global user.email "adityadahale96@gmail.com"
+
+      - name: Run Cross-Repository Sync Engine
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m pip install sqlmodel pydantic httpx
+          python -c "
+          from skelion_agent.cross_repo_syncer import cross_repo_syncer, UPSTREAM_CONFIG
+          from pathlib import Path
+          
+          # Remap local paths to CI checkout directories
+          UPSTREAM_CONFIG['devproxy']['local_path'] = Path('.upstream/devproxy').resolve()
+          UPSTREAM_CONFIG['gossipmesh']['local_path'] = Path('.upstream/gossipmesh').resolve()
+          
+          force_arg = '${{ github.event.inputs.force }}' == 'true'
+          res = cross_repo_syncer.run_full_sync(force=force_arg)
+          print('Sync execution result:', res)
+          "
