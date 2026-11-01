@@ -1,7 +1,6 @@
 import threading
 import time
-import pytest
-from skelion_agent.rcu_mesh import RCURoutingTable, RCUEpochTracker
+from skelion_agent.rcu_mesh import RCURoutingTable
 
 
 def test_rcu_basic_crud():

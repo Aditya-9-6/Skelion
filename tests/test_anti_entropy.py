@@ -7,8 +7,12 @@ from skelion_agent.anti_entropy import EphemeralAntiEntropyNode
 @pytest.mark.asyncio
 async def test_anti_entropy_convergence():
     # Initialize two ephemeral nodes on different ports
-    node1 = EphemeralAntiEntropyNode("127.0.0.1", 19001, state={"keyA": "val1"}, sync_interval=0.1)
-    node2 = EphemeralAntiEntropyNode("127.0.0.1", 19002, state={"keyB": "val2"}, sync_interval=0.1)
+    node1 = EphemeralAntiEntropyNode(
+        "127.0.0.1", 19001, state={"keyA": "val1"}, sync_interval=0.1
+    )
+    node2 = EphemeralAntiEntropyNode(
+        "127.0.0.1", 19002, state={"keyB": "val2"}, sync_interval=0.1
+    )
 
     node1.add_peer("127.0.0.1", 19002)
     node2.add_peer("127.0.0.1", 19001)

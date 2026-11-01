@@ -2,14 +2,18 @@ import select
 import socket
 import threading
 import time
-from typing import Callable, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from skelion_agent.sre.pid_limiter import AdaptivePIDLimiter
+
 
 class EpollTelemetryLoop:
     """
     Epoll-powered non-blocking telemetry and event loop driving the adaptive PID concurrency limiter.
     """
-    def __init__(self, pid_limiter: AdaptivePIDLimiter, host: str = "127.0.0.1", port: int = 9999):
+
+    def __init__(
+        self, pid_limiter: AdaptivePIDLimiter, host: str = "127.0.0.1", port: int = 9999
+    ):
         self.pid_limiter = pid_limiter
         self.host = host
         self.port = port
@@ -45,7 +49,9 @@ class EpollTelemetryLoop:
                     if fileno == self._server_socket.fileno():
                         conn, addr = self._server_socket.accept()
                         conn.setblocking(False)
-                        self._epoll.register(conn.fileno(), select.EPOLLIN | select.EPOLLET)
+                        self._epoll.register(
+                            conn.fileno(), select.EPOLLIN | select.EPOLLET
+                        )
                         self._connections[conn.fileno()] = conn
                     elif event & select.EPOLLIN:
                         conn = self._connections.get(fileno)
@@ -54,7 +60,11 @@ class EpollTelemetryLoop:
                             if data:
                                 start_t = time.monotonic()
                                 # Process telemetry packet and update PID
-                                self.pid_limiter.update(current_latency=0.02, queue_depth=len(self._connections), dropped=False)
+                                self.pid_limiter.update(
+                                    current_latency=0.02,
+                                    queue_depth=len(self._connections),
+                                    dropped=False,
+                                )
                                 conn.sendall(b"ACK\n")
                                 latency = time.monotonic() - start_t
                             else:

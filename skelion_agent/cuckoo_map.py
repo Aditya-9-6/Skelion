@@ -1,7 +1,6 @@
 import threading
 import select
 import os
-import time
 import logging
 from typing import Any, Optional, Tuple, List
 
@@ -12,10 +11,11 @@ class EpochManager:
     """
     Epoch-based memory reclamation (EBR) manager for non-blocking concurrent data structures.
     """
+
     def __init__(self, num_threads: int = 64):
         self._global_epoch = 0
         self._thread_epochs: List[int] = [0] * num_threads
-        self._retired_lists: List[List[Tuple[Any, Any]] ] = [[] for _ in range(3)]
+        self._retired_lists: List[List[Tuple[Any, Any]]] = [[] for _ in range(3)]
         self._lock = threading.Lock()
 
     def enter(self, thread_idx: int) -> int:
@@ -46,9 +46,16 @@ class EpochManager:
 
 
 class CuckooBucket:
-    __slots__ = ('key', 'value', 'hash', 'version', 'tombstone')
+    __slots__ = ("key", "value", "hash", "version", "tombstone")
 
-    def __init__(self, key: Optional[Any] = None, value: Optional[Any] = None, h: int = 0, version: int = 0, tombstone: bool = False):
+    def __init__(
+        self,
+        key: Optional[Any] = None,
+        value: Optional[Any] = None,
+        h: int = 0,
+        version: int = 0,
+        tombstone: bool = False,
+    ):
         self.key = key
         self.value = value
         self.hash = h
@@ -61,22 +68,28 @@ class EpollCuckooHashMap:
     High-performance, non-blocking concurrent cuckoo hash map utilizing epoll-driven
     event notification and epoch-based memory reclamation for sub-microsecond incident state routing.
     """
-    def __init__(self, capacity: int = 1024, load_factor: float = 0.5, max_displacements: int = 64):
+
+    def __init__(
+        self,
+        capacity: int = 1024,
+        load_factor: float = 0.5,
+        max_displacements: int = 64,
+    ):
         self.capacity = self._next_power_of_2(capacity)
         self.load_factor = load_factor
         self.max_displacements = max_displacements
         self.mask = self.capacity - 1
-        
+
         # Two hash tables for cuckoo hashing
         self.table1 = [CuckooBucket() for _ in range(self.capacity)]
         self.table2 = [CuckooBucket() for _ in range(self.capacity)]
         self.size = 0
-        
+
         self._lock = threading.Lock()
         self._epoch_manager = EpochManager()
-        
+
         # Set up epoll for notification events if supported by OS
-        self._has_epoll = hasattr(select, 'epoll')
+        self._has_epoll = hasattr(select, "epoll")
         if self._has_epoll:
             try:
                 self._epoll = select.epoll()
@@ -122,7 +135,7 @@ class EpollCuckooHashMap:
 
             curr_key = key
             curr_val = value
-            
+
             for _ in range(self.max_displacements):
                 # Try table 1
                 h1 = self._hash1(curr_key)
@@ -214,7 +227,7 @@ class EpollCuckooHashMap:
     def _notify_event(self) -> None:
         if self._has_epoll:
             try:
-                os.write(self._write_pipe, b'1')
+                os.write(self._write_pipe, b"1")
             except BlockingIOError:
                 pass
 
