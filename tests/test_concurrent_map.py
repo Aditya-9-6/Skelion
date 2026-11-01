@@ -1,5 +1,4 @@
 import threading
-import pytest
 from skelion_agent.core.concurrent_map import ConcurrentHashMap
 
 
