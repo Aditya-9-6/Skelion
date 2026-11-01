@@ -1,36 +1,27 @@
-from typing import Generator, Any
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-import jwt
 from sqlalchemy.orm import Session
-from pydantic import ValidationError
+import jwt
 
-from gossipmesh.db.session import SessionLocal
-from gossipmesh.core.config import settings
-from gossipmesh.models.user import User
-from gossipmesh.core.exceptions import AuthenticationError, AuthorizationError
-from gossipmesh.db.redis import redis_client
+from gossipmesh_engine.db.session import get_db
+from gossipmesh_engine.models.user import User
+from gossipmesh_engine.models.api_key import APIKey
+from gossipmesh_engine.core.config import settings
 
-reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login/access-token"
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login/access-token", auto_error=False
 )
 
 
-def get_db() -> Generator:
-    try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-from datetime import timedelta
-from gossipmesh.models.session import UserSession
-
-
 def get_current_user(
-    db: Session = Depends(get_db), token: str = Depends(reusable_oauth2)
+    db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
 ) -> User:
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     try:
         payload = jwt.decode(
             token,
@@ -38,88 +29,67 @@ def get_current_user(
             algorithms=[settings.ALGORITHM],
             audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,
-            leeway=timedelta(seconds=10),
         )
-        token_type = payload.get("type")
-        if token_type != "access":
-            raise AuthenticationError(message="Invalid token type")
-
         user_id = payload.get("sub")
-        session_id = payload.get("sid")
-        jti = payload.get("jti")
-        iat = payload.get("iat")
-
         if user_id is None:
-            raise AuthenticationError(message="Could not validate credentials")
-
-        if session_id:
-            session = db.query(UserSession).filter(UserSession.id == session_id).first()
-            if not session or not session.is_active:
-                raise AuthenticationError(message="Session is inactive")
-
-        # Check token blocklist
-        if jti and redis_client.exists(f"revoked_token:{jti}"):
-            raise AuthenticationError(message="Token has been revoked")
-
-        # Check session invalidation (password change)
-        if iat:
-            invalidated_before = redis_client.get(
-                f"sessions_invalidated_before:{user_id}"
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
             )
-            if invalidated_before and float(iat) < float(invalidated_before):
-                raise AuthenticationError(message="Session has been invalidated")
-
-    except (jwt.InvalidTokenError, ValidationError):
-        raise AuthenticationError(message="Could not validate credentials")
-
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
     user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise AuthenticationError(message="User not found")
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
     if not user.is_active:
-        raise AuthorizationError(message="Inactive user")
+        raise HTTPException(status_code=400, detail="Inactive user")
     return user
 
 
-def get_scim_token(
-    authorization: str = Depends(
+def get_current_active_superuser(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if not getattr(current_user, "is_superuser", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges",
+        )
+    return current_user
+
+
+def get_api_key_user(
+    api_key_header: str = Depends(
         OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
     ),
     db: Session = Depends(get_db),
-) -> Any:
-    from gossipmesh.models.service_account import APIKey
-    from gossipmesh.core.security import verify_password
-    from datetime import datetime, timezone
-
-    if not authorization:
-        raise AuthenticationError(message="Bearer token required")
-
-    raw_token = authorization
-    if raw_token.startswith("Bearer "):
-        raw_token = raw_token.split("Bearer ", 1)[1].strip()
-
-    if not raw_token:
-        raise AuthenticationError(message="Bearer token required")
-
-    parts = raw_token.split(".", 1)
-    if len(parts) == 2:
-        prefix, secret = parts
-        api_key = (
-            db.query(APIKey)
-            .filter(APIKey.prefix == prefix, APIKey.is_revoked == False)
-            .first()
+) -> User:
+    if not api_key_header:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="API key missing"
         )
-        if api_key and verify_password(secret, api_key.hashed_key):
-            if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
-                raise AuthenticationError(message="Token has expired")
-            api_key.last_used_at = datetime.now(timezone.utc)
-            db.commit()
-            return api_key
+    if api_key_header.startswith("skl_live_"):
+        parts = api_key_header.split("_")
+        if len(parts) >= 3:
+            prefix = parts[2][:8]
+            api_key = (
+                db.query(APIKey)
+                .filter(APIKey.prefix == prefix, not APIKey.is_revoked)
+                .first()
+            )
+            if api_key and api_key.user:
+                return api_key.user
 
+    raw_token = api_key_header
     api_key = (
         db.query(APIKey)
-        .filter(APIKey.prefix == raw_token, APIKey.is_revoked == False)
+        .filter(APIKey.prefix == raw_token, not APIKey.is_revoked)
         .first()
     )
-    if api_key:
-        return api_key
-    raise AuthenticationError(message="Invalid SCIM token")
+    if api_key and api_key.user:
+        return api_key.user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or revoked API key"
+    )

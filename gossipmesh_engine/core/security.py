@@ -1,17 +1,30 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from cryptography.fernet import Fernet
 import jwt
 from typing import Any
+import base64
 
-from gossipmesh.core.config import settings
+from gossipmesh_engine.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-fernet = Fernet(
-    settings.ENCRYPTION_KEY.encode()
-    if isinstance(settings.ENCRYPTION_KEY, str)
-    else settings.ENCRYPTION_KEY
-)
+
+
+def _init_fernet() -> Fernet:
+    raw_key = (
+        settings.ENCRYPTION_KEY.encode()
+        if isinstance(settings.ENCRYPTION_KEY, str)
+        else (settings.ENCRYPTION_KEY or b"0" * 32)
+    )
+    try:
+        return Fernet(raw_key)
+    except Exception:
+        padded = (raw_key + b"0" * 32)[:32]
+        return Fernet(base64.urlsafe_b64encode(padded))
+
+
+fernet = _init_fernet()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -22,19 +35,15 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-import uuid
-
-
 def create_access_token(
     subject: str | Any,
     session_id: int | None = None,
     expires_delta: timedelta | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
-    if expires_delta:
-        expire = now + expires_delta
-    else:
-        expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = now + (
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
 
     to_encode = {
         "exp": expire,
@@ -49,10 +58,7 @@ def create_access_token(
     if session_id:
         to_encode["sid"] = str(session_id)
 
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
-    return encoded_jwt
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_refresh_token(
@@ -62,10 +68,7 @@ def create_refresh_token(
     expires_delta: timedelta | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
-    if expires_delta:
-        expire = now + expires_delta
-    else:
-        expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = now + (expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
 
     to_encode = {
         "exp": expire,
