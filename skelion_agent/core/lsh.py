@@ -1,7 +1,8 @@
 import re
 import mmh3
 import threading
-from typing import List, Dict, Set, Tuple, Optional
+from typing import List, Dict, Set, Tuple
+
 
 class LSHIndex:
     """
@@ -18,34 +19,40 @@ class LSHIndex:
         self.buckets: Dict[int, Set[str]] = {}
         self.log_minhashes: Dict[str, List[int]] = {}
         self.log_tokens: Dict[str, Set[str]] = {}
-        
+
         # Mersenne prime for MinHash hashing
         self.mersenne_prime = (1 << 31) - 1
         self.max_hash = (1 << 32) - 1
-        
+
         # Generate deterministic random coefficients (a, b) for hash families
         import random
+
         rng = random.Random(self.seed)
         self.hash_coeffs = [
-            (rng.randint(1, self.mersenne_prime - 1), rng.randint(0, self.mersenne_prime - 1))
+            (
+                rng.randint(1, self.mersenne_prime - 1),
+                rng.randint(0, self.mersenne_prime - 1),
+            )
             for _ in range(self.num_perm)
         ]
 
     def _tokenize(self, log_line: str) -> Set[str]:
         # Normalize and tokenize: strip timestamps, numbers, and extract alphanumeric tokens
-        normalized = re.sub(r'\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?', '', log_line)
-        normalized = re.sub(r'0x[0-9a-fA-F]+', '<HEX>', normalized)
-        normalized = re.sub(r'\b\d+\b', '<NUM>', normalized)
-        tokens = set(re.findall(r'\b[a-zA-Z_]\w*\b', normalized.lower()))
+        normalized = re.sub(
+            r"\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?", "", log_line
+        )
+        normalized = re.sub(r"0x[0-9a-fA-F]+", "<HEX>", normalized)
+        normalized = re.sub(r"\b\d+\b", "<NUM>", normalized)
+        tokens = set(re.findall(r"\b[a-zA-Z_]\w*\b", normalized.lower()))
         return tokens
 
     def _compute_minhash(self, tokens: Set[str]) -> List[int]:
         if not tokens:
             return [0] * self.num_perm
-            
+
         # Pre-hash tokens using mmh3 for SIMD-friendly vector operations
         token_hashes = [mmh3.hash(t, self.seed, signed=False) for t in tokens]
-        
+
         minhash = []
         for a, b in self.hash_coeffs:
             min_val = self.max_hash
@@ -56,7 +63,9 @@ class LSHIndex:
             minhash.append(min_val)
         return minhash
 
-    def _get_bands(self, minhash: List[int], num_bands: int = 16) -> List[Tuple[int, int]]:
+    def _get_bands(
+        self, minhash: List[int], num_bands: int = 16
+    ) -> List[Tuple[int, int]]:
         band_size = self.num_perm // num_bands
         bands = []
         for i in range(num_bands):
@@ -101,7 +110,9 @@ class LSHIndex:
                 target_minhash = self.log_minhashes.get(cid)
                 if target_minhash:
                     # Compute Jaccard similarity estimation from minhash
-                    matches = sum(1 for a, b in zip(query_minhash, target_minhash) if a == b)
+                    matches = sum(
+                        1 for a, b in zip(query_minhash, target_minhash) if a == b
+                    )
                     sim = matches / float(self.num_perm)
                     if sim >= self.threshold:
                         similarities.append((cid, sim))
