@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   pr-worker:
-    name: ⚡ PR Reviewer & Auto-Merger Lane
+    name: ⚡ PR Reviewer & Quality Gatekeeper Lane
     if: github.event_name != 'issues'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -64,7 +64,7 @@ jobs:
       - name: Install Reviewer Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r .gossipmesh/requirements.txt
+          pip install -r .gossipmesh/requirements.txt pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Configure Git Committer Identity
@@ -78,7 +78,7 @@ jobs:
         run: |
           gh auth status
 
-      - name: Run Dedicated PR Reviewer & Auto-Merger
+      - name: Run Dedicated PR Reviewer & Quality Gatekeeper
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -99,13 +99,13 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             PR_NUM="${{ github.event.pull_request.number }}"
-            echo "[*] Triggered on PR #$PR_NUM. Running AI Architectural & Security Review..."
+            echo "[*] Triggered on PR #$PR_NUM. Running AI Architectural, Security & Regression Audit..."
             PYTHONPATH=.gossipmesh python .gossipmesh/scripts/ai_pr_reviewer.py --pr-number "$PR_NUM" --workspace .
           elif [ "${{ github.event_name }}" = "issue_comment" ] && [ -n "${{ github.event.issue.pull_request }}" ]; then
             PR_NUM="${{ github.event.issue.number }}"
             echo "[*] Triggered by comment on PR #$PR_NUM. Re-evaluating review..."
             PYTHONPATH=.gossipmesh python .gossipmesh/scripts/ai_pr_reviewer.py --pr-number "$PR_NUM" --workspace .
-          elif [ "${{ github.event_inputs.mode }}" = "fallback-all" ]; then
+          elif [ "${{ github.event.inputs.mode }}" = "fallback-all" ]; then
             echo "[*] Running Fallback Dual-Pool Mode (All)..."
             PYTHONPATH=.gossipmesh python .gossipmesh/scripts/batch_dual_engine.py --repo "${{ github.repository }}" --workspace . --mode all
           else
@@ -114,14 +114,14 @@ jobs:
           fi
 
   issue-worker:
-    name: 🚀 Issue Solver Lane (Shard ${{ matrix.shard }})
+    name: 🚀 Issue Solver Lane (Shard ${{ matrix.shard }}/4)
     if: github.event_name != 'pull_request' && (github.event_name != 'issue_comment' || !github.event.issue.pull_request)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1]
+        shard: [0, 1, 2, 3]
 
     steps:
       - name: Checkout Skelion
@@ -141,10 +141,10 @@ jobs:
           repository: Aditya-9-6/GossipMesh
           path: .gossipmesh
 
-      - name: Install Solver Dependencies
+      - name: Install Solver Dependencies & Testing Tools
         run: |
           python -m pip install --upgrade pip
-          pip install -r .gossipmesh/requirements.txt
+          pip install -r .gossipmesh/requirements.txt pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Configure Git Committer Identity
@@ -158,7 +158,7 @@ jobs:
         run: |
           gh auth status
 
-      - name: Run Dedicated Issue Solver & Auto-PR Synthesis (Shard ${{ matrix.shard }})
+      - name: Run Dedicated Issue Solver with Zero-Negative-Impact Gate (Shard ${{ matrix.shard }}/4)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -179,13 +179,13 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
             ISSUE_NUM="${{ github.event.issue.number }}"
-            if [ "$(( ISSUE_NUM % 2 ))" -eq "${{ matrix.shard }}" ]; then
+            if [ "$(( ISSUE_NUM % 4 ))" -eq "${{ matrix.shard }}" ]; then
               ISSUE_TITLE="${{ github.event.issue.title }}"
-              echo "[*] Triggered on Issue #$ISSUE_NUM (Matches Shard ${{ matrix.shard }}). Resolving..."
+              echo "[*] Triggered on Issue #$ISSUE_NUM (Matches Shard ${{ matrix.shard }}/4). Resolving..."
               BODY=$(gh issue view "$ISSUE_NUM" --json body -q .body)
               PYTHONPATH=.gossipmesh python .gossipmesh/scripts/ai_issue_solver.py --issue-number "$ISSUE_NUM" --issue-title "$ISSUE_TITLE" --issue-body "$BODY" --workspace .
             else
-              echo "[*] Issue #$ISSUE_NUM belongs to other shard. Skipping."
+              echo "[*] Issue #$ISSUE_NUM belongs to another shard. Skipping."
             fi
           elif [ "${{ github.event.inputs.mode }}" = "fallback-all" ]; then
             if [ "${{ matrix.shard }}" -eq 0 ]; then
@@ -193,8 +193,8 @@ jobs:
               PYTHONPATH=.gossipmesh python .gossipmesh/scripts/batch_dual_engine.py --repo "${{ github.repository }}" --workspace . --mode all
             fi
           else
-            echo "[*] Running Dedicated Issue Solver Lane Shard ${{ matrix.shard }}/2 (Max 12 Issues per run)..."
-            PYTHONPATH=.gossipmesh python .gossipmesh/scripts/batch_dual_engine.py --repo "${{ github.repository }}" --workspace . --mode issue-only --shard-id ${{ matrix.shard }} --num-shards 2 --max-issues 12
+            echo "[*] Running Dedicated Issue Solver Lane Shard ${{ matrix.shard }}/4 (Max 12 Issues per run)..."
+            PYTHONPATH=.gossipmesh python .gossipmesh/scripts/batch_dual_engine.py --repo "${{ github.repository }}" --workspace . --mode issue-only --shard-id ${{ matrix.shard }} --num-shards 4 --max-issues 12
           fi
 
       - name: Turbo Autonomous Re-dispatch Loop (Bypass Cron Delays)
