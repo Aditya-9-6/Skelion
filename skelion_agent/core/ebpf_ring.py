@@ -47,7 +47,9 @@ class EBPFRingBuffer:
 
         self._shm_file = None
         self._mmap: Optional[mmap.mmap] = None
-        self._lock = threading.Lock()  # Process-local fallback guard for concurrent consumers
+        self._lock = (
+            threading.Lock()
+        )  # Process-local fallback guard for concurrent consumers
 
         self._init_mmap(create)
 
@@ -86,7 +88,10 @@ class EBPFRingBuffer:
         """
         # Zero-copy buffer view via ctypes string conversion
         raw_data = bytes(
-            ctypes.cast(ctypes.byref(event), ctypes.POINTER(ctypes.c_char * ctypes.sizeof(event))).contents
+            ctypes.cast(
+                ctypes.byref(event),
+                ctypes.POINTER(ctypes.c_char * ctypes.sizeof(event)),
+            ).contents
         )
 
         with self._lock:
@@ -119,7 +124,7 @@ class EBPFRingBuffer:
             offset = self.HEADER_SIZE + (slot_idx * slot_size)
 
             raw_slot = self._mmap[offset : offset + slot_size]
-            event_bytes = raw_slot[:ctypes.sizeof(EBPFPerfEvent)]
+            event_bytes = raw_slot[: ctypes.sizeof(EBPFPerfEvent)]
 
             event = EBPFPerfEvent.from_buffer_copy(event_bytes)
 

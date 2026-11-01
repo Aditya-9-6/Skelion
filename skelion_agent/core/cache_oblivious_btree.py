@@ -1,13 +1,13 @@
 import bisect
 import threading
-import time
-from typing import Any, Dict, List, Optional, Tuple, Generator
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class EpochManager:
     """
     Epoch-based memory reclamation manager for lock-free concurrent reads.
     """
+
     def __init__(self):
         self._current_epoch = 0
         self._reader_epochs: Dict[int, int] = {}
@@ -36,7 +36,7 @@ class EpochManager:
             min_active = self._current_epoch
         else:
             min_active = min(self._reader_epochs.values())
-        
+
         surviving = []
         for epoch, node in self._retired_nodes:
             if epoch < min_active:
@@ -48,14 +48,14 @@ class EpochManager:
 
 
 class CacheObliviousBTreeNode:
-    __slots__ = ('keys', 'values', 'children', 'is_leaf', 'capacity')
+    __slots__ = ("keys", "values", "children", "is_leaf", "capacity")
 
     def __init__(self, capacity: int = 64, is_leaf: bool = True):
         self.capacity = capacity
         self.is_leaf = is_leaf
         self.keys: List[Any] = []
         self.values: List[Any] = []
-        self.children: List['CacheObliviousBTreeNode'] = []
+        self.children: List["CacheObliviousBTreeNode"] = []
 
 
 class CacheObliviousBTree:
@@ -64,6 +64,7 @@ class CacheObliviousBTree:
     and time-series metric indexing in Python. Guarantees optimal cache performance
     across varying memory hierarchy levels with epoch-based concurrency safety.
     """
+
     def __init__(self, node_capacity: int = 64):
         self.node_capacity = max(4, node_capacity)
         self.root = CacheObliviousBTreeNode(capacity=self.node_capacity, is_leaf=True)
@@ -78,16 +79,20 @@ class CacheObliviousBTree:
         with self._lock:
             root = self.root
             if len(root.keys) >= self.node_capacity:
-                new_root = CacheObliviousBTreeNode(capacity=self.node_capacity, is_leaf=False)
+                new_root = CacheObliviousBTreeNode(
+                    capacity=self.node_capacity, is_leaf=False
+                )
                 new_root.children.append(root)
                 self._split_child(new_root, 0, root)
                 self.root = new_root
                 root = new_root
-            
+
             self._insert_non_full(root, key, value)
             self._size += 1
 
-    def _insert_non_full(self, node: CacheObliviousBTreeNode, key: Any, value: Any) -> None:
+    def _insert_non_full(
+        self, node: CacheObliviousBTreeNode, key: Any, value: Any
+    ) -> None:
         idx = bisect.bisect_right(node.keys, key)
         if node.is_leaf:
             node.keys.insert(idx, key)
@@ -100,24 +105,29 @@ class CacheObliviousBTree:
                     idx += 1
             self._insert_non_full(node.children[idx], key, value)
 
-    def _split_child(self, parent: CacheObliviousBTreeNode, index: int, child: CacheObliviousBTreeNode) -> None:
+    def _split_child(
+        self,
+        parent: CacheObliviousBTreeNode,
+        index: int,
+        child: CacheObliviousBTreeNode,
+    ) -> None:
         t = self.node_capacity // 2
         z = CacheObliviousBTreeNode(capacity=self.node_capacity, is_leaf=child.is_leaf)
-        
+
         z.keys = child.keys[t:]
         z.values = child.values[t:] if child.is_leaf else []
-        
+
         if not child.is_leaf:
             z.children = child.children[t:]
             child.children = child.children[:t]
-            
+
         median_key = child.keys[t - 1]
         median_val = child.values[t - 1] if child.is_leaf else None
-        
-        child.keys = child.keys[:t - 1 if child.is_leaf else t]
+
+        child.keys = child.keys[: t - 1 if child.is_leaf else t]
         if child.is_leaf:
-            child.values = child.values[:t - 1]
-            
+            child.values = child.values[: t - 1]
+
         parent.children.insert(index + 1, z)
         parent.keys.insert(index, median_key)
 
@@ -146,7 +156,13 @@ class CacheObliviousBTree:
         finally:
             self._epoch_manager.leave_epoch()
 
-    def _range_query_node(self, node: CacheObliviousBTreeNode, start_key: Any, end_key: Any, results: List[Tuple[Any, Any]]) -> None:
+    def _range_query_node(
+        self,
+        node: CacheObliviousBTreeNode,
+        start_key: Any,
+        end_key: Any,
+        results: List[Tuple[Any, Any]],
+    ) -> None:
         idx = bisect.bisect_left(node.keys, start_key)
         while idx < len(node.keys):
             k = node.keys[idx]
@@ -164,6 +180,8 @@ class CacheObliviousBTree:
     def clear(self) -> None:
         with self._lock:
             old_root = self.root
-            self.root = CacheObliviousBTreeNode(capacity=self.node_capacity, is_leaf=True)
+            self.root = CacheObliviousBTreeNode(
+                capacity=self.node_capacity, is_leaf=True
+            )
             self._size = 0
             self._epoch_manager.retire(old_root)
