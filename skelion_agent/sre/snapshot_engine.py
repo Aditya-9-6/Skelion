@@ -78,8 +78,12 @@ class ChandyLamportSnapshotEngine:
                 if from_channel in self.channels:
                     recorded = await self.channels[from_channel].stop_recording()
 
-                self._snapshots[snapshot_id]["in_flight_messages"][from_channel] = recorded
-                self._snapshots[snapshot_id]["in-flight_messages"][from_channel] = recorded
+                self._snapshots[snapshot_id]["in_flight_messages"][from_channel] = (
+                    recorded
+                )
+                self._snapshots[snapshot_id]["in-flight_messages"][from_channel] = (
+                    recorded
+                )
                 return self._snapshots[snapshot_id]
 
     def get_serialized_manifest(self, snapshot_id: str) -> str:
