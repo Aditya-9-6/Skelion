@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 from skelion_agent.sre.channel_tracker import BoundedFIFOChannelTracker
 from skelion_agent.sre.snapshot_engine import ChandyLamportSnapshotEngine
 

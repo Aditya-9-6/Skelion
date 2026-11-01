@@ -1,6 +1,6 @@
 import asyncio
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, List, Optional
 
 
 class BoundedFIFOChannelTracker:
