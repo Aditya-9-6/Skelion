@@ -4,9 +4,16 @@ from typing import Dict, Tuple, Optional, Any
 from gossipmesh_engine.core.clocks import VectorClock
 from gossipmesh_engine.core.exceptions import GossipMeshException
 
+
 class RateLimitExceededError(GossipMeshException):
-    def __init__(self, message: str = "Rate limit exceeded via gossip mesh", details: Optional[Dict[str, Any]] = None):
-        super().__init__(message, status_code=429, error_code="RATE_LIMIT_EXCEEDED", details=details)
+    def __init__(
+        self,
+        message: str = "Rate limit exceeded via gossip mesh",
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            message, status_code=429, error_code="RATE_LIMIT_EXCEEDED", details=details
+        )
 
 
 class GossipTokenBucket:
@@ -14,7 +21,13 @@ class GossipTokenBucket:
     Thread-safe token bucket state representing capacity and refill metrics
     for a given identifier and rate limit policy.
     """
-    def __init__(self, capacity: float, refill_rate: float, initial_tokens: Optional[float] = None):
+
+    def __init__(
+        self,
+        capacity: float,
+        refill_rate: float,
+        initial_tokens: Optional[float] = None,
+    ):
         self.capacity = float(capacity)
         self.refill_rate = float(refill_rate)  # tokens per second
         self.tokens = float(initial_tokens if initial_tokens is not None else capacity)
@@ -62,6 +75,7 @@ class GossipRateLimiter:
     """
     Distributed, lock-free token bucket rate limiter synchronized via epidemic gossip.
     """
+
     def __init__(self, node_id: str, capacity: float, refill_rate: float):
         self.node_id = node_id
         self.capacity = capacity
@@ -73,10 +87,14 @@ class GossipRateLimiter:
     def _get_bucket(self, identifier: str) -> GossipTokenBucket:
         with self._global_lock:
             if identifier not in self._buckets:
-                self._buckets[identifier] = GossipTokenBucket(self.capacity, self.refill_rate)
+                self._buckets[identifier] = GossipTokenBucket(
+                    self.capacity, self.refill_rate
+                )
             return self._buckets[identifier]
 
-    def check_and_consume(self, identifier: str, tokens: float = 1.0) -> Tuple[bool, float, float]:
+    def check_and_consume(
+        self, identifier: str, tokens: float = 1.0
+    ) -> Tuple[bool, float, float]:
         """
         Evaluates rate limits locally with sub-microsecond atomic operations.
         Returns: (is_allowed, remaining_tokens, reset_time)
@@ -89,12 +107,14 @@ class GossipRateLimiter:
     def enforce(self, identifier: str, tokens: float = 1.0) -> Tuple[float, float]:
         allowed, remaining, reset_time = self.check_and_consume(identifier, tokens)
         if not allowed:
-            raise RateLimitExceededError(details={
-                "capacity": self.capacity,
-                "remaining": remaining,
-                "reset": reset_time,
-                "node_id": self.node_id
-            })
+            raise RateLimitExceededError(
+                details={
+                    "capacity": self.capacity,
+                    "remaining": remaining,
+                    "reset": reset_time,
+                    "node_id": self.node_id,
+                }
+            )
         return remaining, reset_time
 
     def get_gossip_state(self, identifier: str) -> Dict[str, Any]:
@@ -111,7 +131,7 @@ class GossipRateLimiter:
             "tokens": tokens,
             "last_refill": last_refill,
             "vector_clock": self.vector_clock.snapshot(),
-            "node_id": self.node_id
+            "node_id": self.node_id,
         }
 
     def receive_gossip(self, state: Dict[str, Any]) -> None:
