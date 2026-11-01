@@ -6,14 +6,14 @@ from skelion_agent.core.ring_buffer import MPMCRingBuffer
 def test_ring_buffer_init_validation():
     with pytest.raises(ValueError):
         MPMCRingBuffer(capacity=100)  # Not a power of two
-    
+
     buf = MPMCRingBuffer(capacity=16)
     assert len(buf) == 0
 
 
 def test_single_producer_single_consumer():
     buf = MPMCRingBuffer(capacity=4)
-    
+
     assert buf.push("alpha") is True
     assert buf.push("beta") is True
     assert buf.push("gamma") is True
@@ -69,10 +69,7 @@ def test_concurrent_mpmc_stress():
             executor.submit(producer, i * (num_items // num_threads))
             for i in range(num_threads)
         ]
-        cons_futures = [
-            executor.submit(consumer)
-            for _ in range(num_threads)
-        ]
+        cons_futures = [executor.submit(consumer) for _ in range(num_threads)]
 
         concurrent.futures.wait(prod_futures)
         all_consumed = []
