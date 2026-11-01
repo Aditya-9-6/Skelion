@@ -1,6 +1,5 @@
 import time
 import threading
-import pytest
 
 from skelion_agent.sre.shaper import HierarchicalTokenBucketShaper, TokenBucket
 
@@ -32,7 +31,9 @@ def test_hierarchical_bucket_shaping():
     # Global parent bucket limiting total throughput
     shaper.register_bucket("global", capacity=20.0, fill_rate=10.0)
     # Child tenant bucket
-    shaper.register_bucket("tenant_a", capacity=10.0, fill_rate=5.0, parent_name="global")
+    shaper.register_bucket(
+        "tenant_a", capacity=10.0, fill_rate=5.0, parent_name="global"
+    )
 
     # Should succeed for both parent and child
     assert shaper.allow_request("tenant_a", cost=5.0) is True

@@ -1,5 +1,4 @@
 import time
-import pytest
 from skelion_agent.scheduler import WorkStealingQueue, NUMAAwareScheduler
 
 
@@ -52,7 +51,7 @@ def test_work_stealing_mechanism():
 
 def test_numa_aware_scheduler_execution():
     scheduler = NUMAAwareScheduler(num_workers=4, numa_nodes=2, queue_capacity=64)
-    
+
     # Submit tasks load-balanced
     for i in range(10):
         assert scheduler.schedule_load_balanced(f"remediate-{i}") is True

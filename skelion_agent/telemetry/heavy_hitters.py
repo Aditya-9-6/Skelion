@@ -1,12 +1,14 @@
 import heapq
 from typing import Dict, List, Tuple, Any, Optional
 
+
 class HeavyHitters:
     """
     Space-Saving streaming heavy hitters algorithm implementation.
     Provides O(1/epsilon) memory bounds for identifying high-frequency items in
     massive real-time telemetry streams.
     """
+
     def __init__(self, capacity: int = 100):
         if capacity <= 0:
             raise ValueError("Capacity must be greater than 0")
@@ -21,7 +23,7 @@ class HeavyHitters:
         if count <= 0:
             return
         self._total_count += count
-        
+
         if item in self.counters:
             self.counters[item] += count
             # Update min-heap efficiently
@@ -39,14 +41,14 @@ class HeavyHitters:
                 del self.counters[min_item]
                 del self.errors[min_item]
                 self._item_to_heap_node.pop(min_item, None)
-                
+
             self.counters[item] = min_count + count
             self.errors[item] = min_count
-            
+
             node = (min_count + count, item)
             heapq.heappush(self._min_heap, node)
             self._item_to_heap_node[item] = node
-            
+
             # Clean up stale heap elements lazily or explicitly
             self._cleanup_heap()
 
@@ -74,9 +76,13 @@ class HeavyHitters:
         if len(self._min_heap) > 2 * self.capacity:
             self._min_heap = [(self.counters[item], item) for item in self.counters]
             heapq.heapify(self._min_heap)
-            self._item_to_heap_node = {item: (self.counters[item], item) for item in self.counters}
+            self._item_to_heap_node = {
+                item: (self.counters[item], item) for item in self.counters
+            }
 
-    def get_heavy_hitters(self, threshold_fraction: float = 0.01) -> List[Tuple[Any, int, int]]:
+    def get_heavy_hitters(
+        self, threshold_fraction: float = 0.01
+    ) -> List[Tuple[Any, int, int]]:
         """
         Returns items whose frequency exceeds threshold_fraction * total_count.
         Returns a list of tuples: (item, estimated_count, max_error).
