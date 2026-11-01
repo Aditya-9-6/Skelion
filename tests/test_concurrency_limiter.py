@@ -20,27 +20,29 @@ def test_limiter_initialization():
 
 def test_acquire_and_release():
     limiter = AdaptiveConcurrencyLimiter(initial_limit=5, min_limit=1, max_limit=10)
-    
+
     # Acquire slots up to limit
     for _ in range(5):
         assert limiter.acquire(timeout=0.1) is True
-    
+
     assert limiter.in_flight == 5
-    
+
     # Next acquire should fail with zero timeout
     assert limiter.acquire(timeout=0.0) is False
 
     # Release one slot with low latency (should increase or maintain limit)
     limiter.release(latency_ms=50.0)
     assert limiter.in_flight == 4
-    
+
     # Now acquire should succeed
     assert limiter.acquire(timeout=0.1) is True
     assert limiter.in_flight == 5
 
 
 def test_littles_law_adaptation():
-    limiter = AdaptiveConcurrencyLimiter(initial_limit=50, min_limit=10, max_limit=100, target_latency_ms=100.0)
+    limiter = AdaptiveConcurrencyLimiter(
+        initial_limit=50, min_limit=10, max_limit=100, target_latency_ms=100.0
+    )
     initial_limit = limiter.current_limit
 
     # Simulate high latency (slower than target) -> should decrease limit
@@ -61,12 +63,12 @@ def test_littles_law_adaptation():
 def test_enforce_admission_exception():
     limiter = AdaptiveConcurrencyLimiter(initial_limit=1, min_limit=1, max_limit=2)
     assert limiter.acquire(timeout=0.1) is True
-    
+
     with pytest.raises(ConcurrencyLimitExceededError) as exc_info:
         limiter.enforce_admission()
     assert exc_info.value.status_code == 429
     assert "current_limit" in exc_info.value.details
-    
+
     limiter.release(latency_ms=80.0)
     # Should not raise now
     limiter.enforce_admission()
