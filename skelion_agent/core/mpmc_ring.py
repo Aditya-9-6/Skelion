@@ -1,14 +1,15 @@
 import threading
-import atomic
 from typing import Generic, TypeVar, Optional
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class MPMCRingBuffer(Generic[T]):
     """
     High-performance, lock-free (or bounded atomic) MPMC ring buffer
     optimized for high-throughput network proxies and agent message passing.
     """
+
     def __init__(self, capacity: int = 1024):
         if capacity <= 0 or (capacity & (capacity - 1)) != 0:
             raise ValueError("Capacity must be a power of 2")

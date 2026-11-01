@@ -1,7 +1,5 @@
 import concurrent.futures
 import random
-import time
-import pytest
 
 from skelion_agent.core.radix_router import RadixRouter
 
@@ -68,9 +66,7 @@ def test_radix_router_concurrent_stress():
             errors.append(e)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        futures = [
-            executor.submit(writer_worker, i) for i in range(4)
-        ] + [
+        futures = [executor.submit(writer_worker, i) for i in range(4)] + [
             executor.submit(reader_worker) for _ in range(4)
         ]
         concurrent.futures.wait(futures)

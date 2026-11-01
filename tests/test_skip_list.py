@@ -1,23 +1,22 @@
 import threading
-import pytest
 from skelion_agent.skip_list import ConcurrentSkipList
 
 
 def test_skip_list_basic_operations():
     sl = ConcurrentSkipList()
-    assert sl.search('key1') is None
-    
-    assert sl.insert('key1', 'value1') is True
-    assert sl.search('key1') == 'value1'
-    
+    assert sl.search("key1") is None
+
+    assert sl.insert("key1", "value1") is True
+    assert sl.search("key1") == "value1"
+
     # Duplicate insert updates value and returns False
-    assert sl.insert('key1', 'value2') is False
-    assert sl.search('key1') == 'value2'
-    
+    assert sl.insert("key1", "value2") is False
+    assert sl.search("key1") == "value2"
+
     # Deletion
-    assert sl.delete('key1') == 'value2'
-    assert sl.search('key1') is None
-    assert sl.delete('key1') is None
+    assert sl.delete("key1") == "value2"
+    assert sl.search("key1") is None
+    assert sl.delete("key1") is None
 
 
 def test_skip_list_concurrent_stress():

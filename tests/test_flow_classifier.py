@@ -1,7 +1,5 @@
-import pytest
 import threading
 import time
-import socket
 
 from skelion_agent.flow_classifier import ConcurrentRadixFlowClassifier, RadixLeafNode
 
@@ -32,9 +30,7 @@ def test_flow_classifier_path_compression_and_splitting():
     classifier = ConcurrentRadixFlowClassifier()
     classifier.insert_flow("api.v1.users", "USERS_V1")
     classifier.insert_flow("api.v1.users.profile", "USER_PROFILE_V1")
-    classifier.insert_flow(
-        "api.v1.organizations", "ORGS_V1"
-    )  # Should split 'users'
+    classifier.insert_flow("api.v1.organizations", "ORGS_V1")  # Should split 'users'
 
     assert classifier.classify("api.v1.users") == "USERS_V1"
     assert classifier.classify("api.v1.users.profile") == "USER_PROFILE_V1"

@@ -3,8 +3,7 @@ import mmap
 import os
 import select
 import threading
-import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 
 class CuckooBucket(ctypes.Structure):
@@ -34,16 +33,20 @@ class EpollCuckooHashTable:
     Features two independent hash functions, atomic pointer swaps, and an overflow stash area.
     """
 
-    def __init__(self, capacity: int = 1024, max_evictions: int = 500, stash_limit: int = 128):
+    def __init__(
+        self, capacity: int = 1024, max_evictions: int = 500, stash_limit: int = 128
+    ):
         self.capacity = self._next_power_of_2(capacity)
         self.max_evictions = max_evictions
         self.stash_limit = stash_limit
         self.mask = self.capacity - 1
-        
+
         # Allocate mmap-backed memory region for zero-copy and shared architecture alignment
         self._mmap_size = self.capacity * ctypes.sizeof(CuckooBucket)
-        self._mmap_buf = mmap.mmap(-1, self._mmap_size, flags=mmap.MAP_SHARED | mmap.MAP_ANONYMOUS)
-        
+        self._mmap_buf = mmap.mmap(
+            -1, self._mmap_size, flags=mmap.MAP_SHARED | mmap.MAP_ANONYMOUS
+        )
+
         # Initialize bucket views
         self.buckets = (CuckooBucket * self.capacity).from_buffer(self._mmap_buf)
         for i in range(self.capacity):
@@ -56,16 +59,16 @@ class EpollCuckooHashTable:
         self._storage: Dict[str, Any] = {}
         self._stash_head: Optional[CuckooStashNode] = None
         self._stash_size = 0
-        
+
         # Synchronization & Event Notification primitives
         self._lock = threading.Lock()
         self._rw_lock = threading.RLock()
-        
+
         # Epoll notification pipe / event loop descriptors
         self._read_pipe, self._write_pipe = os.pipe()
         os.set_nonblocking(self._read_pipe)
         os.set_nonblocking(self._write_pipe)
-        
+
         self._epoll = select.epoll()
         self._epoll.register(self._read_pipe, select.EPOLLIN | select.EPOLLET)
 
@@ -146,13 +149,21 @@ class EpollCuckooHashTable:
             idx2 = h2 & self.mask
 
             b1 = self.buckets[idx1]
-            if b1.active and b1.hash1 == h1 and self._storage.get(f"b1_{idx1}_key") == key:
+            if (
+                b1.active
+                and b1.hash1 == h1
+                and self._storage.get(f"b1_{idx1}_key") == key
+            ):
                 self._storage[f"b1_{idx1}"] = value
                 self._notify_epoll()
                 return True
 
             b2 = self.buckets[idx2]
-            if b2.active and b2.hash2 == h2 and self._storage.get(f"b2_{idx2}_key") == key:
+            if (
+                b2.active
+                and b2.hash2 == h2
+                and self._storage.get(f"b2_{idx2}_key") == key
+            ):
                 self._storage[f"b2_{idx2}"] = value
                 self._notify_epoll()
                 return True
@@ -234,7 +245,11 @@ class EpollCuckooHashTable:
             idx2 = h2 & self.mask
 
             b1 = self.buckets[idx1]
-            if b1.active and b1.hash1 == h1 and self._storage.get(f"b1_{idx1}_key") == key:
+            if (
+                b1.active
+                and b1.hash1 == h1
+                and self._storage.get(f"b1_{idx1}_key") == key
+            ):
                 b1.active = 0
                 b1.generation += 1
                 self._storage.pop(f"b1_{idx1}", None)
@@ -243,7 +258,11 @@ class EpollCuckooHashTable:
                 return True
 
             b2 = self.buckets[idx2]
-            if b2.active and b2.hash2 == h2 and self._storage.get(f"b2_{idx2}_key") == key:
+            if (
+                b2.active
+                and b2.hash2 == h2
+                and self._storage.get(f"b2_{idx2}_key") == key
+            ):
                 b2.active = 0
                 b2.generation += 1
                 self._storage.pop(f"b2_{idx2}", None)

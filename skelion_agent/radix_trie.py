@@ -7,13 +7,16 @@ class RadixNode:
     Cache-conscious node for the Concurrent Radix Trie.
     Stores prefix segment, value, and thread-safe child dictionary using atomic locking primitives.
     """
-    __slots__ = ('prefix', 'value', 'is_terminal', 'children', '_lock')
 
-    def __init__(self, prefix: str = '', value: Optional[Any] = None, is_terminal: bool = False):
+    __slots__ = ("prefix", "value", "is_terminal", "children", "_lock")
+
+    def __init__(
+        self, prefix: str = "", value: Optional[Any] = None, is_terminal: bool = False
+    ):
         self.prefix = prefix
         self.value = value
         self.is_terminal = is_terminal
-        self.children: Dict[str, 'RadixNode'] = {}
+        self.children: Dict[str, "RadixNode"] = {}
         self._lock = threading.Lock()
 
 
@@ -56,7 +59,7 @@ class ConcurrentRadixTrie:
             with curr._lock:
                 matched_child = None
                 first_char = remaining[0]
-                
+
                 # Find a child starting with the same character
                 for char, child in curr.children.items():
                     if char == first_char:
@@ -65,7 +68,9 @@ class ConcurrentRadixTrie:
 
                 if not matched_child:
                     # No child matches, create new node
-                    new_node = RadixNode(prefix=remaining, value=value, is_terminal=True)
+                    new_node = RadixNode(
+                        prefix=remaining, value=value, is_terminal=True
+                    )
                     curr.children[first_char] = new_node
                     with self._global_lock:
                         self._size += 1
@@ -74,7 +79,7 @@ class ConcurrentRadixTrie:
             # Found a matching child, evaluate prefix overlap outside or inside child lock
             with matched_child._lock:
                 c_len = self._common_prefix_len(matched_child.prefix, remaining)
-                
+
                 if c_len == len(matched_child.prefix):
                     # Remaining key extends beyond or matches child prefix exactly
                     remaining = remaining[c_len:]
@@ -92,18 +97,16 @@ class ConcurrentRadixTrie:
                     # Split the matched child node
                     split_point = c_len
                     old_prefix = matched_child.prefix
-                    
+
                     # Create new intermediate split node
                     split_node = RadixNode(
-                        prefix=old_prefix[:split_point],
-                        value=None,
-                        is_terminal=False
+                        prefix=old_prefix[:split_point], value=None, is_terminal=False
                     )
-                    
+
                     # Adjust existing child
                     matched_child.prefix = old_prefix[split_point:]
                     split_node.children[matched_child.prefix[0]] = matched_child
-                    
+
                     # Determine remainder for new insertion
                     remaining = remaining[split_point:]
                     if not remaining:
@@ -112,7 +115,9 @@ class ConcurrentRadixTrie:
                         with self._global_lock:
                             self._size += 1
                     else:
-                        new_node = RadixNode(prefix=remaining, value=value, is_terminal=True)
+                        new_node = RadixNode(
+                            prefix=remaining, value=value, is_terminal=True
+                        )
                         split_node.children[remaining[0]] = new_node
                         with self._global_lock:
                             self._size += 1
@@ -139,7 +144,7 @@ class ConcurrentRadixTrie:
             with child._lock:
                 if not remaining.startswith(child.prefix):
                     return None
-                remaining = remaining[len(child.prefix):]
+                remaining = remaining[len(child.prefix) :]
                 if not remaining:
                     if child.is_terminal:
                         return child.value
