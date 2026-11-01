@@ -4,8 +4,6 @@ Comprehensive Unit Tests for Epoll-Based Adaptive Rate-Limiting Mesh.
 
 import socket
 import time
-import threading
-import pytest
 
 from skelion_agent.sre.ratelimit import (
     AdaptiveRateLimitConfig,
@@ -34,7 +32,7 @@ def test_adaptive_rate_limiter_lifecycle():
         min_rate=5.0,
         burst_capacity=20.0,
         backpressure_trigger_ratio=0.7,
-        shedding_trigger_ratio=0.9
+        shedding_trigger_ratio=0.9,
     )
     limiter = EpollAdaptiveMeshRateLimiter(config)
     limiter.start()
@@ -54,7 +52,7 @@ def test_adaptive_rate_limiter_telemetry_and_shedding():
         min_rate=5.0,
         burst_capacity=10.0,
         backpressure_trigger_ratio=0.7,
-        shedding_trigger_ratio=0.9
+        shedding_trigger_ratio=0.9,
     )
     limiter = EpollAdaptiveMeshRateLimiter(config)
     limiter.start()
@@ -83,7 +81,7 @@ def test_backpressure_propagation_sockets():
         limiter.register_peer_socket(server_sock)
         # Trigger high load to cause backpressure signal send
         limiter.ingest_telemetry(0.90)
-        
+
         client_sock.settimeout(0.5)
         data = client_sock.recv(1024)
         assert len(data) > 0
