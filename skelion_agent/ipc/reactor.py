@@ -1,8 +1,7 @@
 import select
-import os
 import socket
 import logging
-from typing import Callable, Dict, Optional, Any
+from typing import Callable, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,9 @@ class EpollReactor:
         self._handlers: Dict[int, Callable[[int, int], None]] = {}
         self._read_fds: Dict[int, socket.socket] = {}
 
-    def register(self, fd_obj: Any, events: int, handler: Callable[[int, int], None]) -> None:
+    def register(
+        self, fd_obj: Any, events: int, handler: Callable[[int, int], None]
+    ) -> None:
         """Register a file descriptor or socket with the epoll reactor."""
         fd = fd_obj.fileno() if hasattr(fd_obj, "fileno") else int(fd_obj)
         self._handlers[fd] = handler
@@ -29,7 +30,9 @@ class EpollReactor:
         if self._has_epoll:
             self._epoll.register(fd, events)
         else:
-            logger.debug("epoll not available, falling back to select simulation for fd %d", fd)
+            logger.debug(
+                "epoll not available, falling back to select simulation for fd %d", fd
+            )
 
     def unregister(self, fd_obj: Any) -> None:
         """Unregister a file descriptor from the reactor."""

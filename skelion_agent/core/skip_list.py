@@ -11,7 +11,14 @@ P = 0.5
 
 
 class SkipListNode:
-    __slots__ = ('key', 'value', 'forward', 'fully_linked', 'marked_for_removal', 'top_level')
+    __slots__ = (
+        "key",
+        "value",
+        "forward",
+        "fully_linked",
+        "marked_for_removal",
+        "top_level",
+    )
 
     def __init__(self, key: Any, value: Any, height: int):
         self.key = key
@@ -27,6 +34,7 @@ class ConcurrentSkipList:
     Lock-free concurrent skip-list using atomic compare-and-swap (CAS) primitives
     and epoch-based reclamation for high-throughput agent state indexing.
     """
+
     def __init__(self, epoch_manager: Optional[EpochManager] = None):
         self.head = SkipListNode(None, None, MAX_LEVEL)
         self.tail = SkipListNode(None, None, MAX_LEVEL)
@@ -37,7 +45,7 @@ class ConcurrentSkipList:
         self._thread_local = threading.local()
 
     def _get_thread_id(self) -> int:
-        if not hasattr(self._thread_local, 'id'):
+        if not hasattr(self._thread_local, "id"):
             self._thread_local.id = hash(threading.current_thread())
         return abs(self._thread_local.id)
 
@@ -75,7 +83,11 @@ class ConcurrentSkipList:
         try:
             curr = self.head
             for level in range(MAX_LEVEL - 1, -1, -1):
-                while curr.forward[level] and curr.forward[level].key is not None and curr.forward[level].key < key:
+                while (
+                    curr.forward[level]
+                    and curr.forward[level].key is not None
+                    and curr.forward[level].key < key
+                ):
                     curr = curr.forward[level]
             curr = curr.forward[0]
             if curr and curr.key == key and not curr.marked_for_removal:
@@ -140,14 +152,20 @@ class ConcurrentSkipList:
             self.epoch_manager.leave(tid)
             self.epoch_manager.advance()
 
-    def range_scan(self, start_key: Any, end_key: Any) -> Generator[Tuple[Any, Any], None, None]:
+    def range_scan(
+        self, start_key: Any, end_key: Any
+    ) -> Generator[Tuple[Any, Any], None, None]:
         """Zero-allocation range scan yielding (key, value) pairs between start_key and end_key."""
         tid = self._get_thread_id()
         epoch = self.epoch_manager.enter(tid)
         try:
             curr = self.head
             for level in range(MAX_LEVEL - 1, -1, -1):
-                while curr.forward[level] and curr.forward[level].key is not None and curr.forward[level].key < start_key:
+                while (
+                    curr.forward[level]
+                    and curr.forward[level].key is not None
+                    and curr.forward[level].key < start_key
+                ):
                     curr = curr.forward[level]
             curr = curr.forward[0]
             while curr and curr.key is not None and curr.key <= end_key:
