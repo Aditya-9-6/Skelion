@@ -1,6 +1,6 @@
 import hashlib
 import threading
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 
 def calculate_xor_distance(id1: str, id2: str) -> int:
@@ -66,7 +66,7 @@ class KademliaDHT:
             all_nodes: List[Tuple[str, str]] = []
             for bucket in self.buckets:
                 all_nodes.extend(bucket.get_nodes())
-            
+
             # Sort by XOR distance to target_id
             all_nodes.sort(key=lambda item: calculate_xor_distance(item[0], target_id))
             return all_nodes[:count]

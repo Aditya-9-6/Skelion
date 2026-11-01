@@ -1,5 +1,4 @@
 import time
-import threading
 import pytest
 from skelion_agent.bulkhead import EpollBulkheadMesh, BulkheadConfig
 
@@ -7,7 +6,9 @@ from skelion_agent.bulkhead import EpollBulkheadMesh, BulkheadConfig
 def test_bulkhead_concurrency_bounds():
     mesh = EpollBulkheadMesh(node_id="node-1")
     pool = "test-pool"
-    mesh.register_pool(pool, BulkheadConfig(max_concurrent=2, queue_capacity=2, acquire_timeout=0.1))
+    mesh.register_pool(
+        pool, BulkheadConfig(max_concurrent=2, queue_capacity=2, acquire_timeout=0.1)
+    )
 
     assert mesh.acquire(pool) is True
     assert mesh.acquire(pool) is True

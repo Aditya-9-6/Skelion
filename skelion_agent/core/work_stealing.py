@@ -21,7 +21,7 @@ class WorkStealingQueue:
         self.capacity = capacity
         self.mask = capacity - 1
         self._buffer: List[Optional[Any]] = [None] * capacity
-        
+
         # Head and tail indices stored with atomic updates via threading.Lock or atomics
         # In pure Python without ctypes/cffi extensions, threading.Lock ensures thread-safe atomic guards
         # while maintaining precise lock-free algorithm semantics for concurrent stealers.

@@ -1,6 +1,5 @@
 import asyncio
 import time
-import uuid
 from typing import Dict, Optional, Tuple
 import logging
 
@@ -8,9 +7,16 @@ logger = logging.getLogger(__name__)
 
 
 class LockEntry:
-    __slots__ = ('resource_id', 'owner_id', 'fencing_token', 'expires_at', 'term')
+    __slots__ = ("resource_id", "owner_id", "fencing_token", "expires_at", "term")
 
-    def __init__(self, resource_id: str, owner_id: str, fencing_token: int, expires_at: float, term: int):
+    def __init__(
+        self,
+        resource_id: str,
+        owner_id: str,
+        fencing_token: int,
+        expires_at: float,
+        term: int,
+    ):
         self.resource_id = resource_id
         self.owner_id = owner_id
         self.fencing_token = fencing_token
@@ -42,7 +48,9 @@ class DistributedLockManager:
             if self._running:
                 return
             self._running = True
-            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop(heartbeat_interval))
+            self._heartbeat_task = asyncio.create_task(
+                self._heartbeat_loop(heartbeat_interval)
+            )
 
     async def stop(self) -> None:
         """Stop the background Raft-Lite heartbeat task."""
@@ -56,7 +64,9 @@ class DistributedLockManager:
                     pass
                 self._heartbeat_task = None
 
-    async def acquire_lock(self, resource_id: str, ttl: Optional[float] = None, term: Optional[int] = None) -> Tuple[bool, int, str]:
+    async def acquire_lock(
+        self, resource_id: str, ttl: Optional[float] = None, term: Optional[int] = None
+    ) -> Tuple[bool, int, str]:
         """
         Attempt to acquire or renew an ephemeral lease on a resource using atomic CAS.
         Returns a tuple of (success, fencing_token, owner_id).
@@ -68,7 +78,11 @@ class DistributedLockManager:
             existing = self._locks.get(resource_id)
             target_term = term if term is not None else self._current_term
 
-            if existing and existing.expires_at > now and existing.owner_id != self.node_id:
+            if (
+                existing
+                and existing.expires_at > now
+                and existing.owner_id != self.node_id
+            ):
                 # Lock held by another valid node
                 return False, 0, existing.owner_id
 
@@ -82,7 +96,7 @@ class DistributedLockManager:
                 owner_id=self.node_id,
                 fencing_token=new_token,
                 expires_at=expires_at,
-                term=target_term
+                term=target_term,
             )
             self._locks[resource_id] = entry
             return True, new_token, self.node_id
@@ -95,13 +109,18 @@ class DistributedLockManager:
             existing = self._locks.get(resource_id)
             if not existing:
                 return False
-            if existing.owner_id != self.node_id or existing.fencing_token != fencing_token:
+            if (
+                existing.owner_id != self.node_id
+                or existing.fencing_token != fencing_token
+            ):
                 return False
-            
+
             del self._locks[resource_id]
             return True
 
-    async def renew_lease(self, resource_id: str, fencing_token: int, ttl: Optional[float] = None) -> bool:
+    async def renew_lease(
+        self, resource_id: str, fencing_token: int, ttl: Optional[float] = None
+    ) -> bool:
         """
         Heartbeat renewal mechanism for active leases.
         """
@@ -112,7 +131,10 @@ class DistributedLockManager:
             existing = self._locks.get(resource_id)
             if not existing:
                 return False
-            if existing.owner_id != self.node_id or existing.fencing_token != fencing_token:
+            if (
+                existing.owner_id != self.node_id
+                or existing.fencing_token != fencing_token
+            ):
                 return False
             if existing.expires_at <= now:
                 # Lease already expired
@@ -153,5 +175,5 @@ class DistributedLockManager:
             "fencing_token": existing.fencing_token,
             "expires_at": existing.expires_at,
             "term": existing.term,
-            "is_expired": existing.expires_at <= time.time()
+            "is_expired": existing.expires_at <= time.time(),
         }

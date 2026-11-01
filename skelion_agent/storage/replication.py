@@ -2,7 +2,7 @@ import socket
 import os
 import struct
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from skelion_agent.storage.mmap_log import MMapAppendOnlyLog
 from gossipmesh_engine.core.clocks import VectorClock
 
@@ -17,7 +17,13 @@ class LogReplicator:
 
     REPLICATION_PORT_OFFSET = 1000
 
-    def __init__(self, node_id: str, log: MMapAppendOnlyLog, bind_addr: str = "0.0.0.0", port: int = 9000):
+    def __init__(
+        self,
+        node_id: str,
+        log: MMapAppendOnlyLog,
+        bind_addr: str = "0.0.0.0",
+        port: int = 9000,
+    ):
         self.node_id = node_id
         self.log = log
         self.bind_addr = bind_addr
@@ -40,7 +46,7 @@ class LogReplicator:
             if not header_data or len(header_data) < 16:
                 return
             start_offset, length = struct.unpack("=QQ", header_data)
-            
+
             # Zero-copy file transmission via socket sendfile if supported
             self.log.fsync()
             with open(self.log.filepath, "rb") as f:
@@ -62,7 +68,9 @@ class LogReplicator:
         finally:
             conn.close()
 
-    def replicate_segment(self, peer_host: str, peer_port: int, start_offset: int, length: int) -> bool:
+    def replicate_segment(
+        self, peer_host: str, peer_port: int, start_offset: int, length: int
+    ) -> bool:
         """
         Replicate log segment data to a peer node using zero-copy socket connection.
         """
@@ -71,7 +79,7 @@ class LogReplicator:
                 s.connect((peer_host, peer_port))
                 request_header = struct.pack("=QQ", start_offset, length)
                 s.sendall(request_header)
-                
+
                 # Receive synchronized segment data
                 while True:
                     data = s.recv(65536)
@@ -83,13 +91,15 @@ class LogReplicator:
             logger.error(f"Failed to replicate segment to {peer_host}:{peer_port}: {e}")
             return False
 
-    def sync_with_peer(self, peer_host: str, peer_port: int, remote_clock: Dict[str, int]) -> bool:
+    def sync_with_peer(
+        self, peer_host: str, peer_port: int, remote_clock: Dict[str, int]
+    ) -> bool:
         """
         Perform anti-entropy synchronization with vector clock delta exchange.
         """
         self.vector_clock.update(remote_clock)
         delta = self.vector_clock.delta(remote_clock)
-        
+
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((peer_host, peer_port))
