@@ -1,6 +1,4 @@
 import threading
-import time
-import weakref
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import logging
 
@@ -8,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class ThreadHazardState:
-    __slots__ = ('thread_id', 'epoch', 'hazard_pointers', 'retired_list')
+    __slots__ = ("thread_id", "epoch", "hazard_pointers", "retired_list")
 
     def __init__(self, thread_id: int, max_hazards: int = 4):
         self.thread_id = thread_id
@@ -29,7 +27,9 @@ class HazardPointerManager:
         self.scan_threshold = scan_threshold
         self._global_epoch = 0
         self._threads: Dict[int, ThreadHazardState] = {}
-        self._lock = threading.Lock()  # Used strictly for registration/cleanup bookkeeping
+        self._lock = (
+            threading.Lock()
+        )  # Used strictly for registration/cleanup bookkeeping
 
     def _get_thread_state(self) -> ThreadHazardState:
         tid = threading.get_ident()
@@ -50,7 +50,9 @@ class HazardPointerManager:
         """
         state = self._get_thread_state()
         if index < 0 or index >= self.max_hazards:
-            raise IndexError(f"Hazard pointer index {index} out of bounds (max: {self.max_hazards})")
+            raise IndexError(
+                f"Hazard pointer index {index} out of bounds (max: {self.max_hazards})"
+            )
         state.hazard_pointers[index] = obj
         return obj
 
@@ -60,7 +62,9 @@ class HazardPointerManager:
         """
         state = self._get_thread_state()
         if index < 0 or index >= self.max_hazards:
-            raise IndexError(f"Hazard pointer index {index} out of bounds (max: {self.max_hazards})")
+            raise IndexError(
+                f"Hazard pointer index {index} out of bounds (max: {self.max_hazards})"
+            )
         state.hazard_pointers[index] = None
 
     def retire(self, obj: Any, deleter: Callable[[Any], None]) -> None:
@@ -81,7 +85,7 @@ class HazardPointerManager:
         with self._lock:
             self._global_epoch += 1
             new_epoch = self._global_epoch
-        
+
         state = self._get_thread_state()
         state.epoch = new_epoch
         return new_epoch

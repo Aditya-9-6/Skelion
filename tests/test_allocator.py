@@ -1,6 +1,5 @@
 import concurrent.futures
-import pytest
-from skelion_agent.allocator import EpollSlabAllocator, SlabBlock
+from skelion_agent.allocator import EpollSlabAllocator
 
 
 def test_allocator_basic_allocation():
@@ -48,7 +47,7 @@ def test_zero_copy_memoryview_slice():
 
     # Write data into memoryview and verify buffer update
     mv[:5] = b"HELLO"
-    assert block.buffer[block.offset:block.offset+5] == b"HELLO"
+    assert block.buffer[block.offset : block.offset + 5] == b"HELLO"
     allocator.release(block)
 
 

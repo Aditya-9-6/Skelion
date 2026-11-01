@@ -1,5 +1,4 @@
 import concurrent.futures
-import pytest
 from skelion_agent.radix_trie import ConcurrentRadixTrie
 
 

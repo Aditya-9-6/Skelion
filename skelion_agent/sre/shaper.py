@@ -5,27 +5,24 @@ from typing import Dict, Optional, List
 
 class TokenBucket:
     __slots__ = (
-        'capacity',
-        'fill_rate',
-        'tokens',
-        'last_refill',
-        'parent',
-        'children',
-        '_lock'
+        "capacity",
+        "fill_rate",
+        "tokens",
+        "last_refill",
+        "parent",
+        "children",
+        "_lock",
     )
 
     def __init__(
-        self, 
-        capacity: float, 
-        fill_rate: float, 
-        parent: Optional['TokenBucket'] = None
+        self, capacity: float, fill_rate: float, parent: Optional["TokenBucket"] = None
     ):
         self.capacity = float(capacity)
         self.fill_rate = float(fill_rate)  # tokens per second
         self.tokens = float(capacity)
         self.last_refill = time.monotonic()
-        self.parent: Optional['TokenBucket'] = parent
-        self.children: List['TokenBucket'] = []
+        self.parent: Optional["TokenBucket"] = parent
+        self.children: List["TokenBucket"] = []
         self._lock = threading.Lock()
 
         if parent:
@@ -91,11 +88,11 @@ class HierarchicalTokenBucketShaper:
         self._global_lock = threading.Lock()
 
     def register_bucket(
-        self, 
-        name: str, 
-        capacity: float, 
-        fill_rate: float, 
-        parent_name: Optional[str] = None
+        self,
+        name: str,
+        capacity: float,
+        fill_rate: float,
+        parent_name: Optional[str] = None,
     ) -> TokenBucket:
         with self._global_lock:
             parent = self._buckets.get(parent_name) if parent_name else None
