@@ -1,7 +1,5 @@
-import ctypes
 import threading
-import time
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Any, List, Optional
 
 
 class CachePaddedSlot:
@@ -9,9 +7,17 @@ class CachePaddedSlot:
     Cache-aligned slot for Robin Hood hashing to eliminate false sharing
     under high multi-threaded contention.
     """
-    __slots__ = ('key', 'value', 'hash', 'psl', 'tombstone', '_padding')
 
-    def __init__(self, key: Optional[Any] = None, value: Optional[Any] = None, h: int = 0, psl: int = 0, tombstone: bool = False):
+    __slots__ = ("key", "value", "hash", "psl", "tombstone", "_padding")
+
+    def __init__(
+        self,
+        key: Optional[Any] = None,
+        value: Optional[Any] = None,
+        h: int = 0,
+        psl: int = 0,
+        tombstone: bool = False,
+    ):
         self.key = key
         self.value = value
         self.hash = h
@@ -33,7 +39,9 @@ class ConcurrentHashMap:
         self.capacity = self._next_power_of_2(capacity)
         self.threshold = load_factor_threshold
         self.mask = self.capacity - 1
-        self.slots: List[CachePaddedSlot] = [CachePaddedSlot() for _ in range(self.capacity)]
+        self.slots: List[CachePaddedSlot] = [
+            CachePaddedSlot() for _ in range(self.capacity)
+        ]
         self.size = 0
         self._lock = threading.Lock()
         self._epoch = 0

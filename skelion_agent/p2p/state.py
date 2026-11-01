@@ -2,6 +2,7 @@ import time
 from enum import Enum
 from typing import Dict, Optional, Any, Set
 
+
 class NodeState(str, Enum):
     ALIVE = "alive"
     SUSPECT = "suspect"
@@ -10,9 +11,24 @@ class NodeState(str, Enum):
 
 
 class MemberNode:
-    __slots__ = ('node_id', 'host', 'port', 'state', 'incarnation', 'last_updated', 'suspicion_start')
+    __slots__ = (
+        "node_id",
+        "host",
+        "port",
+        "state",
+        "incarnation",
+        "last_updated",
+        "suspicion_start",
+    )
 
-    def __init__(self, node_id: str, host: str, port: int, state: NodeState = NodeState.ALIVE, incarnation: int = 0):
+    def __init__(
+        self,
+        node_id: str,
+        host: str,
+        port: int,
+        state: NodeState = NodeState.ALIVE,
+        incarnation: int = 0,
+    ):
         self.node_id = node_id
         self.host = host
         self.port = port
@@ -53,7 +69,7 @@ class MemberNode:
             "state": self.state.value,
             "incarnation": self.incarnation,
             "last_updated": self.last_updated,
-            "suspicion_start": self.suspicion_start
+            "suspicion_start": self.suspicion_start,
         }
 
 
@@ -62,7 +78,14 @@ class ClusterState:
         self.local_node_id = local_node_id
         self.members: Dict[str, MemberNode] = {}
 
-    def upsert(self, node_id: str, host: str, port: int, state: NodeState = NodeState.ALIVE, incarnation: int = 0) -> MemberNode:
+    def upsert(
+        self,
+        node_id: str,
+        host: str,
+        port: int,
+        state: NodeState = NodeState.ALIVE,
+        incarnation: int = 0,
+    ) -> MemberNode:
         if node_id not in self.members:
             self.members[node_id] = MemberNode(node_id, host, port, state, incarnation)
         else:
@@ -78,10 +101,17 @@ class ClusterState:
     def get_alive_members(self) -> Set[str]:
         return {nid for nid, m in self.members.items() if m.state == NodeState.ALIVE}
 
-    def get_random_members(self, k: int, exclude: Optional[Set[str]] = None) -> List[MemberNode]:
+    def get_random_members(
+        self, k: int, exclude: Optional[Set[str]] = None
+    ) -> List[MemberNode]:
         import random
+
         exclude = exclude or set()
-        candidates = [m for nid, m in self.members.items() if nid not in exclude and m.state != NodeState.DEAD]
+        candidates = [
+            m
+            for nid, m in self.members.items()
+            if nid not in exclude and m.state != NodeState.DEAD
+        ]
         if not candidates:
             return []
         return random.sample(candidates, min(k, len(candidates)))
