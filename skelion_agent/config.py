@@ -81,7 +81,9 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def create_database_engine(url: Optional[str] = None, settings_obj: Optional[Settings] = None) -> Engine:
+def create_database_engine(
+    url: Optional[str] = None, settings_obj: Optional[Settings] = None
+) -> Engine:
     """Create a configured SQLAlchemy engine with production connection pooling."""
     s = settings_obj or settings
     db_url = url or s.DATABASE_URL
@@ -159,7 +161,10 @@ def validate_secrets(
     is_prod = (
         strict
         if strict is not None
-        else (env == "production" or os.getenv("STRICT_SECRETS_CHECK", "false").lower() in ("1", "true"))
+        else (
+            env == "production"
+            or os.getenv("STRICT_SECRETS_CHECK", "false").lower() in ("1", "true")
+        )
     )
 
     if is_prod:
