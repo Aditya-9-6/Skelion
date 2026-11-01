@@ -1416,7 +1416,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
                 </div>
 
-                <div style="font-size:10.5px; color:#7c5cff; margin-bottom:4px;">Estimated Cost: ~${s.estimated_tokens || 250} Autofix Tokens</div>
+                <div style="font-size:10.5px; color:#b8860b; margin-bottom:4px;">Estimated Cost: ~${s.estimated_tokens || 250} Autofix Tokens</div>
 
                 <pre style="background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; font-size:11px; overflow-x:auto;"><code>${escapeHtml(s.diff_patch)}</code></pre>
 
@@ -1424,7 +1424,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
                   <button class="action-btn" data-action="applyAutofix" data-id="${escapeHtml(s.incident_id)}" style="flex:1;">⚡ Apply Verified Fix</button>
 
-                  <button class="action-btn" data-action="createGitHubPR" data-id="${escapeHtml(s.incident_id)}" style="flex:1; background:rgba(124, 92, 255, 0.2); border:1px solid #7c5cff; color:#a371f7;">🤖 Create GitHub PR</button>
+                  <button class="action-btn" data-action="createGitHubPR" data-id="${escapeHtml(s.incident_id)}" style="flex:1; background:rgba(212, 175, 55, 0.2); border:1px solid rgba(212, 175, 55, 0.45); color:#996515;">🤖 Create GitHub PR</button>
 
                 </div>
 
@@ -1566,552 +1566,338 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data: http:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}' 'unsafe-inline'; connect-src http://127.0.0.1:8002 http://127.0.0.1:8003 https:;">
 
-  <style>
-
+    <style>
     :root {
-
-      --bg: var(--vscode-sideBar-background);
-
-      --fg: var(--vscode-foreground);
-
-      --card-bg: var(--vscode-editorWidget-background);
-
-      --border: var(--vscode-widget-border, rgba(124, 92, 255, 0.2));
-
-      --accent: var(--vscode-button-background);
-
-      --accent-fg: var(--vscode-button-foreground);
-
-      --brand-grad: linear-gradient(135deg, #7c5cff 0%, #3b82f6 100%);
-
-      --brand-glow: 0 4px 20px rgba(124, 92, 255, 0.25);
-
+      --bg: #f8f9fa;
+      --fg: #1e293b;
+      --card-bg: rgba(255, 255, 255, 0.75);
+      --border: rgba(212, 175, 55, 0.35);
+      --accent: linear-gradient(135deg, #d4af37 0%, #f6e27a 50%, #b8860b 100%);
+      --accent-fg: #ffffff;
+      --brand-grad: linear-gradient(135deg, #d4af37 0%, #f6e27a 50%, #b8860b 100%);
+      --brand-glow: 0 4px 20px rgba(212, 175, 55, 0.3);
+      --glass-bg: rgba(255, 255, 255, 0.72);
+      --glass-border: rgba(212, 175, 55, 0.35);
+      --glass-shadow: 0 8px 32px 0 rgba(197, 160, 89, 0.12);
+      --gold-dark: #8c6708;
+      --gold-mid: #b8860b;
+      --gold-bright: #d4af37;
+      --text-muted: #64748b;
     }
-
     * { box-sizing: border-box; }
-
     html, body {
-
       height: 100vh;
-
       margin: 0;
-
       padding: 0;
-
-      background: var(--bg);
-
+      background: linear-gradient(145deg, #faf8f2 0%, #ffffff 40%, #f7f3e8 100%);
       color: var(--fg);
-
-      font-family: var(--vscode-font-family);
-
+      font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
       font-size: 13px;
-
       overflow: hidden;
-
     }
-
     #screen-signin {
-
       padding: 24px;
-
       height: 100vh;
-
       overflow-y: auto;
-
       box-sizing: border-box;
-
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(254, 250, 240, 0.85) 100%);
+      backdrop-filter: blur(12px);
     }
-
     #screen-app {
-
       display: flex !important;
-
       flex-direction: column;
-
       height: 100vh;
-
       max-height: 100vh;
-
       padding: 8px 10px;
-
       box-sizing: border-box;
-
       overflow: hidden;
-
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(253, 249, 238, 0.88) 100%);
+      backdrop-filter: blur(16px);
     }
-
     .header {
-
       flex: 0 0 auto;
-
       position: sticky;
-
       top: 0;
-
       z-index: 100;
-
-      background: var(--bg);
-
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       display: flex;
-
       justify-content: space-between;
-
       align-items: center;
-
-      padding-bottom: 6px;
-
-      border-bottom: 1px solid var(--border);
-
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      box-shadow: 0 2px 10px rgba(184, 134, 11, 0.08);
       margin-bottom: 6px;
-
     }
-
     .badge {
-
       background: var(--brand-grad);
-
-      color: white;
-
+      color: #ffffff;
       padding: 2px 8px;
-
       border-radius: 10px;
-
       font-size: 10px;
-
       font-weight: 700;
-
+      box-shadow: 0 2px 6px rgba(184, 134, 11, 0.25);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
-
     .tabs {
-
       flex: 0 0 auto;
-
       position: sticky;
-
       top: 32px;
-
       z-index: 100;
-
-      background: rgba(0, 0, 0, 0.4);
-
-      backdrop-filter: blur(8px);
-
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       display: grid;
-
       grid-template-columns: repeat(6, 1fr);
-
-      gap: 2px;
-
-      margin-bottom: 6px;
-
-      padding: 3px;
-
-      border-radius: 6px;
-
-    }
-
-    .tab-btn {
-
-      padding: 5px 1px;
-
-      background: transparent;
-
-      border: none;
-
-      color: var(--fg);
-
-      cursor: pointer;
-
-      border-radius: 4px;
-
-      font-weight: 600;
-
-      font-size: 9.5px;
-
-      text-align: center;
-
-      white-space: nowrap;
-
-      overflow: hidden;
-
-      text-overflow: ellipsis;
-
-    }
-
-    .tab-btn.active {
-
-      background: var(--brand-grad);
-
-      color: white;
-
-    }
-
-    .screen { display: none; }
-
-    .screen.active { display: flex; }
-
-    #screen-signin.active { display: block; }
-
-    #screen-app.active { display: flex !important; }
-
-    .tab-content {
-
-      display: none;
-
-      flex: 1 1 0;
-
-      min-height: 0;
-
-      overflow-y: auto;
-
-    }
-
-    .tab-content.active {
-
-      display: block;
-
-    }
-
-    #tab-chat {
-
-      display: none;
-
-      flex-direction: column;
-
-      flex: 1 1 0;
-
-      min-height: 0;
-
-      overflow: hidden;
-
-    }
-
-    #tab-chat.active {
-
-      display: flex !important;
-
-    }
-
-    .chat-box {
-
-      flex: 1 1 0;
-
-      min-height: 0;
-
-      overflow-y: auto;
-
-      border: 1px solid var(--border);
-
-      padding: 10px;
-
-      border-radius: 6px;
-
-      background: var(--card-bg);
-
-      margin-bottom: 6px;
-
-    }
-
-    .chat-msg {
-
-      margin-bottom: 10px;
-
-      line-height: 1.45;
-
-      word-break: break-word;
-
-    }
-
-    .msg-header {
-
-      display: flex;
-
-      justify-content: space-between;
-
-      align-items: center;
-
-      margin-bottom: 4px;
-
-      font-size: 10px;
-
-      opacity: 0.85;
-
-    }
-
-    .working-details {
-
-      background: rgba(124, 92, 255, 0.08);
-
-      border: 1px solid rgba(124, 92, 255, 0.25);
-
-      border-radius: 6px;
-
-      padding: 6px 8px;
-
-      margin-bottom: 6px;
-
-      font-size: 11px;
-
-    }
-
-    .working-header {
-
-      display: flex;
-
-      justify-content: space-between;
-
-      align-items: center;
-
-      cursor: pointer;
-
-      user-select: none;
-
-      color: #a78bfa;
-
-      font-weight: 600;
-
-    }
-
-    .working-steps {
-
-      margin-top: 5px;
-
-      padding-top: 5px;
-
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-
-      display: flex;
-
-      flex-direction: column;
-
       gap: 3px;
-
+      margin-bottom: 6px;
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      box-shadow: 0 4px 15px rgba(184, 134, 11, 0.08);
     }
-
-    .working-step {
-
-      display: flex;
-
-      align-items: center;
-
-      gap: 5px;
-
-      font-size: 10.5px;
-
-      color: #ccc;
-
-    }
-
-    .working-step.done { color: #3fb950; }
-
-    .working-step.running { color: #58a6ff; font-weight: 600; }
-
-    .chat-msg.user {
-
-      color: #58a6ff;
-
-      background: rgba(88, 166, 255, 0.08);
-
-      padding: 6px 8px;
-
-      border-radius: 4px;
-
-      border-left: 2px solid #58a6ff;
-
-    }
-
-    .chat-msg.assistant {
-
-      color: var(--fg);
-
-      background: rgba(255, 255, 255, 0.03);
-
-      padding: 6px 8px;
-
-      border-radius: 4px;
-
-      border-left: 2px solid #7c5cff;
-
-    }
-
-    .diff-card {
-
-      background: rgba(0,0,0,0.25);
-
-      border: 1px solid rgba(124, 92, 255, 0.3);
-
-      border-radius: 4px;
-
-      padding: 8px;
-
-      margin-top: 6px;
-
-      font-size: 11px;
-
-    }
-
-    .card {
-
-      background: var(--card-bg);
-
-      border: 1px solid var(--border);
-
-      border-radius: 6px;
-
-      padding: 8px 10px;
-
-      margin-bottom: 8px;
-
-    }
-
-    .action-btn {
-
-      background: var(--accent);
-
-      color: var(--accent-fg);
-
+    .tab-btn {
+      padding: 6px 2px;
+      background: transparent;
       border: none;
-
-      padding: 6px 12px;
-
-      border-radius: 4px;
-
+      color: #475569;
       cursor: pointer;
-
+      border-radius: 6px;
       font-weight: 600;
-
-      width: 100%;
-
-    }
-
-    .progress-bar-container {
-
-      background: rgba(255, 255, 255, 0.1);
-
-      height: 6px;
-
-      border-radius: 3px;
-
-      overflow: hidden;
-
-      margin-top: 6px;
-
-    }
-
-    .progress-bar-fill {
-
-      background: var(--brand-grad);
-
-      height: 100%;
-
-      width: 0%;
-
-      transition: width 0.3s ease;
-
-    }
-
-    .compact-limit-bar {
-
-      flex-shrink: 0;
-
-      display: flex;
-
-      align-items: center;
-
-      gap: 6px;
-
-      padding: 2px 6px;
-
-      background: rgba(0, 0, 0, 0.2);
-
-      border-radius: 4px;
-
-      border: 1px solid rgba(255, 255, 255, 0.06);
-
       font-size: 10px;
-
-      margin-top: 2px;
-
-      margin-bottom: 0px;
-
-    }
-
-    .micro-bar-track {
-
-      flex: 1;
-
-      height: 4px;
-
-      background: rgba(255, 255, 255, 0.1);
-
-      border-radius: 2px;
-
+      text-align: center;
+      white-space: nowrap;
       overflow: hidden;
-
-      margin: 0 4px;
-
+      text-overflow: ellipsis;
+      transition: all 0.2s ease;
     }
-
-    .micro-bar-fill {
-
-      height: 100%;
-
+    .tab-btn:hover {
+      background: rgba(212, 175, 55, 0.15);
+      color: var(--gold-dark);
+    }
+    .tab-btn.active {
       background: var(--brand-grad);
-
-      width: 0%;
-
-      transition: width 0.3s ease;
-
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(184, 134, 11, 0.35);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      font-weight: 700;
     }
-
-    input, select {
-
-      background: var(--vscode-input-background);
-
-      color: var(--vscode-input-foreground);
-
-      border: 1px solid var(--vscode-input-border, rgba(255, 255, 255, 0.1));
-
-      padding: 6px;
-
-      border-radius: 4px;
-
-      width: 100%;
-
-      margin-bottom: 6px;
-
+    .screen { display: none; }
+    .screen.active { display: flex; }
+    #screen-signin.active { display: block; }
+    #screen-app.active { display: flex !important; }
+    .tab-content {
+      display: none;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
     }
-
-    .history-item {
-
-      padding: 8px;
-
-      border: 1px solid var(--border);
-
-      border-radius: 4px;
-
+    .tab-content.active {
+      display: block;
+    }
+    #tab-chat {
+      display: none;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    #tab-chat.active {
+      display: flex !important;
+    }
+    .chat-box {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(10px);
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.03), 0 4px 16px rgba(184, 134, 11, 0.05);
       margin-bottom: 6px;
-
-      cursor: pointer;
-
+    }
+    .chat-msg {
+      margin-bottom: 10px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .msg-header {
       display: flex;
-
       justify-content: space-between;
-
       align-items: center;
-
-      background: var(--card-bg);
-
-      transition: border-color 0.2s;
-
+      margin-bottom: 4px;
+      font-size: 10.5px;
+      opacity: 0.85;
     }
-
+    .working-details {
+      background: rgba(254, 250, 240, 0.85);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+    .working-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      color: var(--gold-dark);
+      font-weight: 600;
+    }
+    .working-steps {
+      margin-top: 5px;
+      padding-top: 5px;
+      border-top: 1px solid rgba(212, 175, 55, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .working-step {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10.5px;
+      color: #64748b;
+    }
+    .working-step.done { color: #16a34a; }
+    .working-step.running { color: var(--gold-dark); font-weight: 600; }
+    .chat-msg.user {
+      color: #713f12;
+      background: linear-gradient(135deg, rgba(254, 249, 231, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%);
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(212, 175, 55, 0.4);
+      border-left: 3px solid #b8860b;
+      box-shadow: 0 2px 6px rgba(184, 134, 11, 0.08);
+    }
+    .chat-msg.assistant {
+      color: #1e293b;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(8px);
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-left: 3px solid #d4af37;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    .diff-card {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 6px;
+      font-size: 11px;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      box-shadow: 0 4px 16px rgba(184, 134, 11, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+    }
+    .action-btn {
+      background: var(--brand-grad);
+      color: #ffffff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      width: 100%;
+      box-shadow: 0 4px 12px rgba(184, 134, 11, 0.25);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+    }
+    .action-btn:hover {
+      filter: brightness(1.08);
+      box-shadow: 0 6px 16px rgba(184, 134, 11, 0.35);
+    }
+    .progress-bar-container {
+      background: rgba(212, 175, 55, 0.15);
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .progress-bar-fill {
+      background: var(--brand-grad);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .compact-limit-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(8px);
+      border-radius: 6px;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      font-size: 10.5px;
+      color: #475569;
+      margin-top: 2px;
+      margin-bottom: 0px;
+    }
+    .micro-bar-track {
+      flex: 1;
+      height: 5px;
+      background: rgba(212, 175, 55, 0.15);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 0 4px;
+    }
+    .micro-bar-fill {
+      height: 100%;
+      background: var(--brand-grad);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    input, select {
+      background: rgba(255, 255, 255, 0.92) !important;
+      color: #1e293b !important;
+      border: 1px solid rgba(212, 175, 55, 0.45) !important;
+      padding: 6px 8px;
+      border-radius: 6px;
+      width: 100%;
+      margin-bottom: 6px;
+      font-size: 12px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, select:focus {
+      border-color: #d4af37 !important;
+      box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.25), inset 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .history-item {
+      padding: 8px 10px;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(8px);
+      color: #1e293b;
+      transition: all 0.2s;
+    }
     .history-item:hover {
-
-      border-color: #7c5cff;
-
+      border-color: #d4af37;
+      background: rgba(254, 250, 240, 0.95);
+      box-shadow: 0 2px 8px rgba(184, 134, 11, 0.15);
     }
-
   </style>
 
 </head>
@@ -2174,7 +1960,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
       <div style="display:flex; align-items:center; gap:8px;">
 
-        <button data-action="openAdmin" style="background:transparent; border:none; color:#7c5cff; cursor:pointer; font-size:11px; font-weight:600;" title="Open Master Admin Control Plane">🎛️ Admin</button>
+        <button data-action="openAdmin" style="background:transparent; border:none; color:#b8860b; cursor:pointer; font-size:11px; font-weight:600;" title="Open Master Admin Control Plane">🎛️ Admin</button>
 
         <button id="signout-btn" data-action="signOut" style="background:transparent; border:none; color:#888; cursor:pointer; font-size:11px;">Sign Out</button>
 
@@ -2230,9 +2016,9 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         </select>
 
-        <button data-action="newChat" style="padding:4px 8px; font-size:11px; background:rgba(255,255,255,0.08); border:1px solid var(--border); color:var(--fg); border-radius:4px; cursor:pointer;" title="Start New Conversation">+ New</button>
+        <button data-action="newChat" style="padding:4px 10px; font-size:11px; background:rgba(255,255,255,0.85); border:1px solid rgba(212,175,55,0.4); color:#713f12; border-radius:6px; cursor:pointer; font-weight:600; box-shadow:0 1px 4px rgba(184,134,11,0.1);" title="Start New Conversation">+ New</button>
 
-        <button data-action="goToHistoryTab" style="padding:4px 8px; font-size:11px; background:rgba(255,255,255,0.08); border:1px solid var(--border); color:var(--fg); border-radius:4px; cursor:pointer;" title="View Past Conversations">📜 History</button>
+        <button data-action="goToHistoryTab" style="padding:4px 10px; font-size:11px; background:rgba(255,255,255,0.85); border:1px solid rgba(212,175,55,0.4); color:#713f12; border-radius:6px; cursor:pointer; font-weight:600; box-shadow:0 1px 4px rgba(184,134,11,0.1);" title="View Past Conversations">📜 History</button>
 
       </div>
 
@@ -2244,7 +2030,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--border);">
 
-          <b style="font-size:11px; color:#a78bfa;">📜 Past Conversations</b>
+          <b style="font-size:11px; color:#996515;">📜 Past Conversations</b>
 
           <button data-action="toggleDrawer" style="background:transparent; border:none; color:#888; cursor:pointer; font-size:12px;">✕</button>
 
@@ -2260,7 +2046,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         <div class="chat-msg assistant">
 
-          <div class="msg-header"><b style="color:#a78bfa;">🤖 Skelion Agent</b><span id="init-time">Ready</span></div>
+          <div class="msg-header"><b style="color:#996515;">🤖 Skelion Agent</b><span id="init-time">Ready</span></div>
 
           <div><b>👋 Skelion AI Lite active!</b> Connected via pooled free keys (Gemini, Groq, OmniRoute) with auto-failover. Ask me anything, request code reviews, or implement fixes!</div>
 
@@ -2274,7 +2060,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         <input type="text" id="prompt-input" placeholder="Type prompt (e.g. 'review my project' or 'patch checkout bug')..." style="margin-bottom:0;" />
 
-        <button id="btn-send-prompt" data-action="sendPrompt" style="width: 55px; background:var(--brand-grad); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Send</button>
+        <button id="btn-send-prompt" data-action="sendPrompt" style="width: 60px; background:var(--brand-grad); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; box-shadow:0 2px 8px rgba(184,134,11,0.25);">Send</button>
 
       </div>
 
@@ -2292,7 +2078,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         </div>
 
-        <b id="status-5h-text" style="font-size:10px; color:#7c5cff;">0 / 500</b>
+        <b id="status-5h-text" style="font-size:10px; color:#b8860b;">0 / 500</b>
 
       </div>
 
@@ -2308,7 +2094,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         <b>🚨 Real-time Production Incidents</b>
 
-        <button data-action="refreshIncidents" style="padding:3px 6px; font-size:10px; background:transparent; border:1px solid #7c5cff; color:white; border-radius:4px; cursor:pointer;">Refresh</button>
+        <button data-action="refreshIncidents" style="padding:3px 6px; font-size:10px; background:transparent; border:1px solid rgba(212, 175, 55, 0.45); color:white; border-radius:4px; cursor:pointer;">Refresh</button>
 
       </div>
 
@@ -2324,7 +2110,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
     <div id="tab-autofix" class="tab-content" style="display:none;">
 
-      <div class="card" style="border-left: 3px solid #7c5cff; background: rgba(124, 92, 255, 0.08);">
+      <div class="card" style="border-left: 3px solid #d4af37; background: rgba(212, 175, 55, 0.08);">
 
         <div style="display:flex; justify-content:space-between; align-items:center;">
 
@@ -2342,7 +2128,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
           <div>
 
-            <b id="autofix-balance" style="color:#7c5cff; font-size:13px;">60,000</b>
+            <b id="autofix-balance" style="color:#b8860b; font-size:13px;">60,000</b>
 
             <span id="autofix-fixes-count" style="color:#3fb950; font-size:10px; margin-left:4px;">(~240 Fixes)</span>
 
@@ -2366,7 +2152,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         <b>Active Incidents & Proposed Patches:</b>
 
-        <button data-action="refreshSuggestions" style="padding:3px 6px; font-size:10px; background:transparent; border:1px solid #7c5cff; color:white; border-radius:4px; cursor:pointer;">Refresh</button>
+        <button data-action="refreshSuggestions" style="padding:3px 6px; font-size:10px; background:transparent; border:1px solid rgba(212, 175, 55, 0.45); color:white; border-radius:4px; cursor:pointer;">Refresh</button>
 
       </div>
 
@@ -2468,7 +2254,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         <b>📜 Saved Local & Server Chats</b>
 
-        <button data-action="refreshHistory" style="padding:3px 6px; font-size:10px; background:transparent; border:1px solid #7c5cff; color:white; border-radius:4px; cursor:pointer;">Refresh</button>
+        <button data-action="refreshHistory" style="padding:3px 6px; font-size:10px; background:transparent; border:1px solid rgba(212, 175, 55, 0.45); color:white; border-radius:4px; cursor:pointer;">Refresh</button>
 
       </div>
 
@@ -2488,7 +2274,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         <div style="display:flex; justify-content:space-between; align-items:center;">
 
-          <b style="font-size:12px; color:#a78bfa;">⚡ Skelion Autofix Power Pack</b>
+          <b style="font-size:12px; color:#996515;">⚡ Skelion Autofix Power Pack</b>
 
           <span class="badge" style="background:#7c5cff;">Zero Time Limits</span>
 
@@ -2526,7 +2312,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
           <div id="autofix-calc-preview" style="font-size:11px; color:#3fb950; font-weight:600;">₹100 = 10,000 Autofix Tokens (40 Fixes)</div>
 
-          <button data-action="instantTopUpDemo" data-type="autofix" style="background:transparent; border:none; color:#7c5cff; font-size:10px; cursor:pointer; text-decoration:underline;">⚡ Instant Credit (Test)</button>
+          <button data-action="instantTopUpDemo" data-type="autofix" style="background:transparent; border:none; color:#b8860b; font-size:10px; cursor:pointer; text-decoration:underline;">⚡ Instant Credit (Test)</button>
 
         </div>
 
@@ -2576,7 +2362,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
       <div style="background:rgba(124, 92, 255, 0.12); border:1px solid rgba(124, 92, 255, 0.35); border-radius:6px; padding:8px; margin: 10px 0;">
 
-        <div style="font-weight:bold; color:#a78bfa; font-size:11.5px;">🎁 Founding 50 Offer Active</div>
+        <div style="font-weight:bold; color:#996515; font-size:11.5px;">🎁 Founding 50 Offer Active</div>
 
         <div style="font-size:10.5px; color:#ccc; margin-top:2px;">Use coupon <code>FOUNDING50</code> for 30% off any plan for 12 months.</div>
 
@@ -2638,13 +2424,13 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
 
 
-      <div class="card" style="border-left: 3px solid #7c5cff;">
+      <div class="card" style="border-left: 3px solid #d4af37;">
 
         <div style="display:flex; justify-content:space-between;">
 
           <b>Hosted Team</b>
 
-          <span style="color:#7c5cff; font-weight:bold;">₹3,999 / mo</span>
+          <span style="color:#b8860b; font-weight:bold;">₹3,999 / mo</span>
 
         </div>
 
@@ -3314,7 +3100,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
             prBadge.style.fontSize = '11px';
 
-            prBadge.innerHTML = '🤖 <b>PR #' + msg.pr_number + ' Created!</b> <a href="' + msg.pr_url + '" style="color:#7c5cff; text-decoration:underline;">View Pull Request &rarr;</a>';
+            prBadge.innerHTML = '🤖 <b>PR #' + msg.pr_number + ' Created!</b> <a href="' + msg.pr_url + '" style="color:#b8860b; text-decoration:underline;">View Pull Request &rarr;</a>';
 
             card.appendChild(prBadge);
 
@@ -3674,7 +3460,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
         let detectedPath = '';
         const lines = code.split(String.fromCharCode(10));
         const firstLine = lines[0] ? lines[0].trim() : '';
-        const m = firstLine.match(/^(?:(?:\/\/|#|\/\*)\s*(?:File:\s*)?([a-zA-Z0-9_\-\.\/\\]+\.[a-zA-Z0-9]+))/i);
+        const m = firstLine.match(new RegExp('^(?:(?://|#|/\*)\s*(?:File:\s*)?([a-zA-Z0-9_\-\.\/\\]+\.[a-zA-Z0-9]+))', 'i'));
         if (m && m[1]) {
           detectedPath = m[1].trim();
         }
@@ -3682,7 +3468,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
         if (detectedPath) {
           headerHtml = 
             '<div style="display:flex; justify-content:space-between; align-items:center; background:#181825; padding:5px 8px; border-top-left-radius:4px; border-top-right-radius:4px; border:1px solid rgba(255,255,255,0.08); border-bottom:none; font-size:11px;">' +
-              '<span style="color:#a78bfa; font-weight:bold;">📄 ' + escapeHtml(detectedPath) + '</span>' +
+              '<span style="color:#996515; font-weight:bold;">📄 ' + escapeHtml(detectedPath) + '</span>' +
               '<div>' +
                 '<button class="action-btn" data-action="applyDiffFromCode" data-path="' + escapeHtml(detectedPath) + '" style="padding:2px 8px; font-size:10px; background:#22c55e; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold; margin-right:4px;">⚡ Apply to File</button>' +
                 '<button class="action-btn" data-action="copyCode" style="padding:2px 6px; font-size:10px; background:rgba(255,255,255,0.1); color:#ccc; border:none; border-radius:3px; cursor:pointer;">📋 Copy</button>' +
@@ -3701,7 +3487,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
       });
       const inlineCodeRe = new RegExp(b1 + '([^' + b1 + '\\r\\n]+)' + b1, 'g');
       s = s.replace(inlineCodeRe, '<code style="background:rgba(255,255,255,0.1); padding:1px 4px; border-radius:3px; font-size:11px; font-family:monospace;">$1</code>');
-      s = s.replace(/^### (.*$)/gim, '<div style="font-weight:bold; font-size:12px; color:#a78bfa; margin:6px 0 2px;">$1</div>');
+      s = s.replace(/^### (.*$)/gim, '<div style="font-weight:bold; font-size:12px; color:#996515; margin:6px 0 2px;">$1</div>');
       s = s.replace(/^## (.*$)/gim, '<div style="font-weight:bold; font-size:12.5px; color:#fff; margin:8px 0 3px;">$1</div>');
       s = s.replace(/^# (.*$)/gim, '<div style="font-weight:bold; font-size:13px; color:#fff; margin:10px 0 4px;">$1</div>');
       s = s.replace(/\\*\\*([^\\*]+)\\*\\*/g, '<b>$1</b>');
@@ -3727,7 +3513,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         '<div class="chat-msg assistant">' +
 
-          '<div class="msg-header"><b style="color:#a78bfa;">🤖 Skelion Agent</b><span>' + timeStr + '</span></div>' +
+          '<div class="msg-header"><b style="color:#996515;">🤖 Skelion Agent</b><span>' + timeStr + '</span></div>' +
 
           '<div><b>✨ New Conversation Started!</b> Skelion AI Lite is ready. Ask me anything!</div>' +
 
@@ -3833,7 +3619,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
         } else {
 
-          el.innerHTML = '<div class="msg-header"><b style="color:#a78bfa;">🤖 Skelion Agent</b><span style="font-size:10px; color:#888;">' + mTime + '</span></div><div>' + formatMarkdown(m.content) + '</div>';
+          el.innerHTML = '<div class="msg-header"><b style="color:#996515;">🤖 Skelion Agent</b><span style="font-size:10px; color:#888;">' + mTime + '</span></div><div>' + formatMarkdown(m.content) + '</div>';
 
         }
 
@@ -4045,7 +3831,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
           '</div>' +
 
-          '<div style="font-size:10.5px; color:#7c5cff; margin-bottom:4px;">Estimated Cost: ~' + (s.estimated_tokens || 250) + ' Autofix Tokens</div>' +
+          '<div style="font-size:10.5px; color:#b8860b; margin-bottom:4px;">Estimated Cost: ~' + (s.estimated_tokens || 250) + ' Autofix Tokens</div>' +
 
           '<pre style="background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; font-size:11px; overflow-x:auto;"><code>' + escapeHtml(s.diff_patch) + '</code></pre>' +
 
@@ -4053,7 +3839,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
             '<button class="action-btn" data-action="applyAutofix" data-id="' + escapeHtml(s.incident_id) + '" style="flex:1;">⚡ Apply Verified Fix</button>' +
 
-            '<button class="action-btn" data-action="createGitHubPR" data-id="' + escapeHtml(s.incident_id) + '" style="flex:1; background:rgba(124, 92, 255, 0.2); border:1px solid #7c5cff; color:#a371f7;">🤖 Create GitHub PR</button>' +
+            '<button class="action-btn" data-action="createGitHubPR" data-id="' + escapeHtml(s.incident_id) + '" style="flex:1; background:rgba(212, 175, 55, 0.2); border:1px solid rgba(212, 175, 55, 0.45); color:#996515;">🤖 Create GitHub PR</button>' +
 
           '</div>' +
 
@@ -4215,13 +4001,13 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
       assistantMsg.innerHTML = 
 
-        '<div class="msg-header"><b style="color:#a78bfa;">🤖 Skelion Agent</b><span>' + timeStr + '</span></div>' +
+        '<div class="msg-header"><b style="color:#996515;">🤖 Skelion Agent</b><span>' + timeStr + '</span></div>' +
 
         '<div class="working-details" id="wd-' + msgId + '">' +
 
           '<div class="working-header" data-action="toggleDetails">' +
 
-            '<span style="color:#a78bfa;">⚡ <b id="wd-title-' + msgId + '">Thinking & Running Tasks...</b></span>' +
+            '<span style="color:#996515;">⚡ <b id="wd-title-' + msgId + '">Thinking & Running Tasks...</b></span>' +
 
             '<span style="font-size:9.5px; color:#888;">[Logs ▲]</span>' +
 

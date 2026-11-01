@@ -4,11 +4,39 @@
   <meta charset="UTF-8" />
   <title>Skelion Dashboard</title>
   <style>
-    body { font-family: var(--vscode-font-family, Arial), sans-serif; padding: 1rem; }
-    input, button { margin: 0.5rem 0; width: 100%; padding: 0.5rem; }
-    .section { margin-bottom: 1.5rem; border: 1px solid var(--vscode-editorWidget-border, #ddd); padding: 1rem; border-radius: 4px; }
-    .error { color: var(--vscode-errorForeground, red); }
-    .success { color: var(--vscode-charts-green, green); }
+    /* Glassmorphism */
+    body {
+      font-family: var(--vscode-font-family, Arial), sans-serif;
+      background: rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 1rem;
+      color: #333;
+    }
+    .section {
+      background: rgba(255, 255, 255, 0.25);
+      border: 1px solid rgba(255, 215, 0, 0.6);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    }
+    button {
+      background: rgba(255, 215, 0, 0.9);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    button:hover { background: rgba(255, 215, 0, 1); }
+    .error { color: #e53935; }
+    .success { color: #43a047; }
   </style>
 </head>
 <body>
