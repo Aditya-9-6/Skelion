@@ -1,6 +1,5 @@
 import threading
-import time
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional, Any
 
 
 class VectorClockFlowController:
@@ -10,7 +9,9 @@ class VectorClockFlowController:
     Enforces strict memory bounds using lock-free atomic registers and lock primitives.
     """
 
-    def __init__(self, node_id: str, high_watermark: int = 1000, low_watermark: int = 400):
+    def __init__(
+        self, node_id: str, high_watermark: int = 1000, low_watermark: int = 400
+    ):
         self.node_id = node_id
         self.high_watermark = high_watermark
         self.low_watermark = low_watermark
@@ -48,7 +49,12 @@ class VectorClockFlowController:
             return 1.0
         return float(queue_depth - self.low_watermark) / float(span)
 
-    def evaluate_payload(self, priority: str, queue_depth: int, vector_clock: Optional[Dict[str, int]] = None) -> str:
+    def evaluate_payload(
+        self,
+        priority: str,
+        queue_depth: int,
+        vector_clock: Optional[Dict[str, int]] = None,
+    ) -> str:
         """
         Evaluates whether a payload should be PASSED, THROTTLED, or DROPPED.
         - High-severity incident logs (priority == 'CRITICAL' or 'HIGH') are never dropped.

@@ -3,7 +3,7 @@ import os
 import struct
 import threading
 import time
-from typing import Optional, Tuple, Generator, Dict, Any
+from typing import Optional, Tuple, Generator
 
 
 class MMapAppendOnlyLog:
@@ -25,7 +25,7 @@ class MMapAppendOnlyLog:
       - Payload: variable bytes
     """
 
-    MAGIC = b'SKEL'
+    MAGIC = b"SKEL"
     VERSION = 1
     HEADER_FORMAT = "=4sIQQQ32s"
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
@@ -40,16 +40,16 @@ class MMapAppendOnlyLog:
         self._mmap: Optional[mmap.mmap] = None
         self._write_offset = self.HEADER_SIZE
         self._entry_count = 0
-        
+
         self._init_storage()
 
     def _init_storage(self) -> None:
         file_exists = os.path.exists(self.filepath)
         mode = "r+b" if file_exists else "w+b"
-        
+
         os.makedirs(os.path.dirname(os.path.abspath(self.filepath)), exist_ok=True)
         self._file = open(self.filepath, mode)
-        
+
         if not file_exists:
             self._file.write(b"\x00" * self.segment_size)
             self._file.flush()
@@ -72,15 +72,17 @@ class MMapAppendOnlyLog:
             self.segment_size,
             write_offset,
             entry_count,
-            b"\x00" * 32
+            b"\x00" * 32,
         )
-        self._mmap[0:self.HEADER_SIZE] = header_data
+        self._mmap[0 : self.HEADER_SIZE] = header_data
         self._write_offset = write_offset
         self._entry_count = entry_count
 
     def _read_header(self) -> None:
-        data = self._mmap[0:self.HEADER_SIZE]
-        magic, version, seg_size, write_offset, entry_count, _ = struct.unpack(self.HEADER_FORMAT, data)
+        data = self._mmap[0 : self.HEADER_SIZE]
+        magic, version, seg_size, write_offset, entry_count, _ = struct.unpack(
+            self.HEADER_FORMAT, data
+        )
         if magic != self.MAGIC:
             raise ValueError("Invalid log file format or magic number mismatch")
         self._write_offset = write_offset
@@ -100,12 +102,12 @@ class MMapAppendOnlyLog:
 
             timestamp = int(time.time() * 1_000_000)
             entry_header = struct.pack(self.ENTRY_HEADER_FORMAT, payload_len, timestamp)
-            
+
             # Zero-copy write directly into mmap view
             offset = self._write_offset
-            self._mmap[offset:offset + self.ENTRY_HEADER_SIZE] = entry_header
-            self._mmap[offset + self.ENTRY_HEADER_SIZE:offset + entry_size] = payload
-            
+            self._mmap[offset : offset + self.ENTRY_HEADER_SIZE] = entry_header
+            self._mmap[offset + self.ENTRY_HEADER_SIZE : offset + entry_size] = payload
+
             new_offset = offset + entry_size
             new_count = self._entry_count + 1
             self._write_header(new_offset, new_count)
@@ -128,14 +130,21 @@ class MMapAppendOnlyLog:
             for i in range(self._entry_count):
                 if current_offset + self.ENTRY_HEADER_SIZE > self._write_offset:
                     break
-                header_data = self._mmap[current_offset:current_offset + self.ENTRY_HEADER_SIZE]
+                header_data = self._mmap[
+                    current_offset : current_offset + self.ENTRY_HEADER_SIZE
+                ]
                 p_len, ts = struct.unpack(self.ENTRY_HEADER_FORMAT, header_data)
                 entry_total_size = self.ENTRY_HEADER_SIZE + p_len
-                
+
                 if i == index:
-                    payload = bytes(self._mmap[current_offset + self.ENTRY_HEADER_SIZE:current_offset + entry_total_size])
+                    payload = bytes(
+                        self._mmap[
+                            current_offset + self.ENTRY_HEADER_SIZE : current_offset
+                            + entry_total_size
+                        ]
+                    )
                     return ts, p_len, payload
-                
+
                 current_offset += entry_total_size
         return None
 
@@ -146,10 +155,17 @@ class MMapAppendOnlyLog:
         with self._lock:
             current_offset = self.HEADER_SIZE
             while current_offset < self._write_offset:
-                header_data = self._mmap[current_offset:current_offset + self.ENTRY_HEADER_SIZE]
+                header_data = self._mmap[
+                    current_offset : current_offset + self.ENTRY_HEADER_SIZE
+                ]
                 p_len, ts = struct.unpack(self.ENTRY_HEADER_FORMAT, header_data)
                 entry_total_size = self.ENTRY_HEADER_SIZE + p_len
-                payload = bytes(self._mmap[current_offset + self.ENTRY_HEADER_SIZE:current_offset + entry_total_size])
+                payload = bytes(
+                    self._mmap[
+                        current_offset + self.ENTRY_HEADER_SIZE : current_offset
+                        + entry_total_size
+                    ]
+                )
                 yield ts, p_len, payload
                 current_offset += entry_total_size
 
