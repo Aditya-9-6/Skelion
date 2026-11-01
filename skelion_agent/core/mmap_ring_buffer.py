@@ -3,8 +3,7 @@ import os
 import struct
 import select
 import threading
-import ctypes
-from typing import Optional, Tuple, Generator, Dict, Any
+from typing import Optional, Tuple
 from multiprocessing import shared_memory
 
 
@@ -55,7 +54,9 @@ class MMapRingBuffer:
                 existing.unlink()
             except Exception:
                 pass
-            self._shm = shared_memory.SharedMemory(name=shm_name, create=True, size=self.total_size)
+            self._shm = shared_memory.SharedMemory(
+                name=shm_name, create=True, size=self.total_size
+            )
             self._mmap = self._shm.buf
             self._write_header(0, 0, self.capacity, self.slot_size)
         else:
@@ -69,8 +70,12 @@ class MMapRingBuffer:
             # Fallback for environments lacking epoll (e.g. macOS)
             self._epoll = None
 
-    def _write_header(self, write_seq: int, read_seq: int, capacity: int, slot_size: int) -> None:
-        struct.pack_into(self.HEADER_FORMAT, self._mmap, 0, write_seq, read_seq, capacity, slot_size)
+    def _write_header(
+        self, write_seq: int, read_seq: int, capacity: int, slot_size: int
+    ) -> None:
+        struct.pack_into(
+            self.HEADER_FORMAT, self._mmap, 0, write_seq, read_seq, capacity, slot_size
+        )
 
     def _read_header(self) -> Tuple[int, int, int, int]:
         return struct.unpack_from(self.HEADER_FORMAT, self._mmap, 0)
@@ -81,7 +86,9 @@ class MMapRingBuffer:
         Notifies consumers via epoll pipe.
         """
         if len(data) > self.slot_size:
-            raise ValueError(f"Payload size {len(data)} exceeds slot size {self.slot_size}")
+            raise ValueError(
+                f"Payload size {len(data)} exceeds slot size {self.slot_size}"
+            )
 
         with self._lock:
             write_seq, read_seq, capacity, slot_size = self._read_header()
@@ -93,9 +100,9 @@ class MMapRingBuffer:
             offset = self.HEADER_SIZE + (slot_idx * slot_size)
 
             view = self._mmap[offset : offset + slot_size]
-            view[:len(data)] = data
+            view[: len(data)] = data
             if len(data) < slot_size:
-                view[len(data):] = b"\x00" * (slot_size - len(data))
+                view[len(data) :] = b"\x00" * (slot_size - len(data))
 
             self._write_header(write_seq + 1, read_seq, capacity, slot_size)
 

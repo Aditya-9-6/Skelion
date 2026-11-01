@@ -1,6 +1,6 @@
 import threading
 import atomic
-from typing import List, Callable, Any, Optional
+from typing import List, Callable, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +12,7 @@ class EpochManager:
     for lock-free data structures in Skelion Core. Prevents use-after-free conditions
     during concurrent traversals without global stop-the-world pauses.
     """
+
     def __init__(self, num_threads: int = 64):
         self.global_epoch = atomic.AtomicLong(0)
         # Thread local or array of thread epoch reservations

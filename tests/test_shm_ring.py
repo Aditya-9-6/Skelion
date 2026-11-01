@@ -1,9 +1,10 @@
-import pytest
 from skelion_agent.ipc.shm_ring import SharedMemoryRingBuffer
 
 
 def test_shm_ring_push_pop():
-    ring = SharedMemoryRingBuffer(name="test_telemetry", capacity=16, slot_size=128, create=True)
+    ring = SharedMemoryRingBuffer(
+        name="test_telemetry", capacity=16, slot_size=128, create=True
+    )
     try:
         assert ring.push(b"metric_cpu_99") is True
         assert ring.push(b"metric_mem_42") is True
@@ -21,7 +22,9 @@ def test_shm_ring_push_pop():
 
 
 def test_shm_ring_overflow():
-    ring = SharedMemoryRingBuffer(name="test_overflow", capacity=2, slot_size=64, create=True)
+    ring = SharedMemoryRingBuffer(
+        name="test_overflow", capacity=2, slot_size=64, create=True
+    )
     try:
         assert ring.push(b"data_1") is True
         assert ring.push(b"data_2") is True
