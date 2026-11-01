@@ -1,12 +1,13 @@
 import asyncio
 import time
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
 
 class BackpressureState(str, enum.Enum):
     """Operating states for adaptive backpressure based on event loop latency and queue depth."""
+
     NORMAL = "normal"
     ELEVATED = "elevated"
     CRITICAL = "critical"
@@ -16,6 +17,7 @@ class BackpressureState(str, enum.Enum):
 @dataclass(frozen=True)
 class BackpressureConfig:
     """Configuration for leaky-bucket rates, sliding windows, and saturation thresholds."""
+
     capacity: float = 100.0
     leak_rate_per_sec: float = 20.0
     elevated_threshold: float = 0.60
