@@ -1,76 +1,109 @@
 import hashlib
 import threading
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
-def calculate_xor_distance(id1: str, id2: str) -> int:
-    val1 = (
-        int(id1, 16)
-        if len(id1) == 64
-        else int(hashlib.sha256(id1.encode()).hexdigest(), 16)
-    )
-    val2 = (
-        int(id2, 16)
-        if len(id2) == 64
-        else int(hashlib.sha256(id2.encode()).hexdigest(), 16)
-    )
-    return val1 ^ val2
+class KademliaNode:
+    def __init__(self, node_id: str, address: str, port: int) -> None:
+        self.node_id = node_id
+        self.address = address
+        self.port = port
 
 
-class KademliaBucket:
-    def __init__(self, k: int = 20):
+def id_to_int(node_id: str) -> int:
+    if len(node_id) == 40 and all(c in "0123456789abcdefABCDEF" for c in node_id):
+        return int(node_id, 16)
+    digest = hashlib.sha1(node_id.encode("utf-8")).hexdigest()
+    return int(digest, 16)
+
+
+def xor_distance(id1: str, id2: str) -> int:
+    return id_to_int(id1) ^ id_to_int(id2)
+
+
+class KBucket:
+    def __init__(self, k: int = 20) -> None:
         self.k = k
-        self.nodes: List[Tuple[str, str]] = []  # List of (node_id, address)
+        self.contacts: List[Tuple[str, str]] = []
+        self._lock = threading.Lock()
 
-    def add_node(self, node_id: str, address: str) -> bool:
-        for i, (nid, addr) in enumerate(self.nodes):
-            if nid == node_id:
-                self.nodes[i] = (node_id, address)
+    def update(self, node_id: str, address: str) -> bool:
+        with self._lock:
+            for i, (nid, _) in enumerate(self.contacts):
+                if nid == node_id:
+                    self.contacts.pop(i)
+                    self.contacts.append((node_id, address))
+                    return True
+            if len(self.contacts) < self.k:
+                self.contacts.append((node_id, address))
                 return True
-        if len(self.nodes) < self.k:
-            self.nodes.append((node_id, address))
-            return True
-        else:
-            # Bucket is full; implement LRU eviction check
             return False
 
-    def remove_node(self, node_id: str) -> None:
-        self.nodes = [n for n in self.nodes if n[0] != node_id]
+    def remove(self, node_id: str) -> None:
+        with self._lock:
+            self.contacts = [(nid, addr) for nid, addr in self.contacts if nid != node_id]
 
-    def get_nodes(self) -> List[Tuple[str, str]]:
-        return list(self.nodes)
+    def get_contacts(self) -> List[Tuple[str, str]]:
+        with self._lock:
+            return list(self.contacts)
 
 
 class KademliaDHT:
-    def __init__(self, node_id: Optional[str] = None, k: int = 20):
-        self.node_id = (
-            node_id
-            or hashlib.sha256(threading.current_thread().name.encode()).hexdigest()
-        )
+    def __init__(self, local_node_id: str, k: int = 20, bit_length: int = 160) -> None:
+        self.local_node_id = local_node_id
         self.k = k
-        self.buckets: List[KademliaBucket] = [KademliaBucket(k=k)]
+        self.bit_length = bit_length
+        self.buckets: List[KBucket] = [KBucket(k) for _ in range(bit_length)]
+        self.storage: Dict[str, str] = {}
         self._lock = threading.Lock()
 
-    def _get_bucket(self, peer_id: str) -> KademliaBucket:
-        return self.buckets[0]
+    def _bucket_index(self, node_id: str) -> int:
+        dist = xor_distance(self.local_node_id, node_id)
+        if dist == 0:
+            return 0
+        index = self.bit_length - dist.bit_length()
+        return max(0, min(index, self.bit_length - 1))
 
-    def add_peer(self, peer_id: str, address: str) -> bool:
+    def add_node(self, node: KademliaNode | Tuple[str, str]) -> bool:
+        if isinstance(node, KademliaNode):
+            node_id = node.node_id
+            address = f"{node.address}:{node.port}"
+        else:
+            node_id, address = node
+        if node_id == self.local_node_id:
+            return False
+        index = self._bucket_index(node_id)
         with self._lock:
-            bucket = self._get_bucket(peer_id)
-            return bucket.add_node(peer_id, address)
+            return self.buckets[index].update(node_id, address)
 
-    def remove_peer(self, peer_id: str) -> None:
+    def remove_node(self, node_id: str) -> None:
+        index = self._bucket_index(node_id)
         with self._lock:
-            bucket = self._get_bucket(peer_id)
-            bucket.remove_node(peer_id)
+            self.buckets[index].remove(node_id)
 
-    def find_close_nodes(
-        self, target_id: str, count: int = 20
-    ) -> List[Tuple[str, str]]:
+    def find_close_nodes(self, target_id: str, count: int = 20) -> List[KademliaNode]:
+        all_contacts: List[Tuple[str, str]] = []
         with self._lock:
-            all_nodes: List[Tuple[str, str]] = []
             for bucket in self.buckets:
-                all_nodes.extend(bucket.get_nodes())
+                all_contacts.extend(bucket.get_contacts())
 
-            all_nodes.sort(key=lambda item: calculate_xor_distance(item[0], target_id))
-            return all_nodes[:count]
+        seen = set()
+        unique_contacts = []
+        for nid, addr in all_contacts:
+            if nid not in seen and nid != self.local_node_id:
+                seen.add(nid)
+                parts = addr.split(":")
+                host = parts[0]
+                port = int(parts[1]) if len(parts) > 1 else 9000
+                unique_contacts.append(KademliaNode(node_id=nid, address=host, port=port))
+
+        unique_contacts.sort(key=lambda node: xor_distance(node.node_id, target_id))
+        return unique_contacts[:count]
+
+    def store(self, key: str, value: str) -> None:
+        with self._lock:
+            self.storage[key] = value
+
+    def get(self, key: str) -> Optional[str]:
+        with self._lock:
+            return self.storage.get(key)

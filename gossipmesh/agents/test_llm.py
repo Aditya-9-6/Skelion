@@ -2,48 +2,58 @@ import unittest
 from unittest.mock import MagicMock, patch
 import asyncio
 
-from gossipmesh.agents.llm import LocalLlamaFallbackProvider
-from gossipmesh_engine.providers.models import GenerationRequest, Message
+from gossipmesh.agents.llm import LocalLlamaFallback, LLAMA_CPP_AVAILABLE
 
 
-class TestLocalLlamaFallbackProvider(unittest.TestCase):
+class TestLocalLlamaFallback(unittest.TestCase):
     def setUp(self):
-        self.provider = LocalLlamaFallbackProvider(model_path="dummy_path.gguf")
+        self.fallback = LocalLlamaFallback(model_path="dummy.gguf")
 
-    def test_provider_name(self):
-        self.assertEqual(self.provider.provider_name, "llama_cpp_local")
-
-    @patch("gossipmesh.agents.llm.os.path.exists", return_value=True)
     @patch("gossipmesh.agents.llm.Llama")
-    def test_generate_success(self, mock_llama_cls, mock_exists):
-        mock_model = MagicMock()
-        mock_model.create_chat_completion.return_value = {
-            "choices": [
-                {"message": {"role": "assistant", "content": "Hello from local llama!"}}
-            ],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-        }
-        mock_llama_cls.return_value = mock_model
+    @patch("gossipmesh.agents.llm.LLAMA_CPP_AVAILABLE", True)
+    def test_generate_completion_success(self, mock_llama_class):
+        mock_instance = MagicMock()
+        mock_instance.return_value = {"choices": [{"text": "Hello from local fallback!"}]}
+        mock_llama_class.return_value = mock_instance
+        self.fallback._model = mock_instance
 
-        request = GenerationRequest(
-            model="llama-3-8b", messages=[Message(role="user", content="Hi")]
-        )
+        res = self.fallback.generate_completion("test prompt")
+        self.assertEqual(res, "Hello from local fallback!")
 
-        loop = asyncio.get_event_loop()
-        response = loop.run_until_complete(self.provider.generate(request))
+    @patch("gossipmesh.agents.llm.Llama")
+    @patch("gossipmesh.agents.llm.LLAMA_CPP_AVAILABLE", True)
+    def test_gemini_success_no_fallback(self, mock_llama_class):
+        async def mock_gemini():
+            return "Gemini success response"
 
-        self.assertEqual(response.content, "Hello from local llama!")
-        self.assertEqual(response.usage.prompt_tokens, 10)
-        self.assertEqual(response.usage.completion_tokens, 5)
-        self.assertEqual(response.usage.total_tokens, 15)
+        async def run_test():
+            return await self.fallback.generate_with_gemini_fallback(
+                mock_gemini, prompt_fallback_text="fallback prompt"
+            )
 
-    @patch("gossipmesh.agents.llm.os.path.exists", return_value=False)
-    def test_health_check_missing_model(self, mock_exists):
-        loop = asyncio.get_event_loop()
-        health = loop.run_until_complete(self.provider.check_health())
-        self.assertFalse(health.is_healthy)
-        self.assertIn("Model path not found", health.error)
+        res = asyncio.run(run_test())
+        self.assertEqual(res, "Gemini success response")
+        mock_llama_class.assert_not_called()
+
+    @patch("gossipmesh.agents.llm.Llama")
+    @patch("gossipmesh.agents.llm.LLAMA_CPP_AVAILABLE", True)
+    def test_gemini_failure_triggers_fallback(self, mock_llama_class):
+        async def mock_gemini_fail():
+            raise RuntimeError("Rate limit exceeded (429)")
+
+        mock_instance = MagicMock()
+        mock_instance.return_value = {"choices": [{"text": "Local LLM fallback response"}]}
+        mock_llama_class.return_value = mock_instance
+        self.fallback._model = mock_instance
+
+        async def run_test():
+            return await self.fallback.generate_with_gemini_fallback(
+                mock_gemini_fail, prompt_fallback_text="fallback prompt"
+            )
+
+        res = asyncio.run(run_test())
+        self.assertEqual(res, "Local LLM fallback response")
 
 
-if __name__ == "__main__":
+if __name__ == "__main":
     unittest.main()
