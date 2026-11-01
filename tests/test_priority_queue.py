@@ -1,6 +1,7 @@
 import unittest
 from skelion_agent.priority_queue import PriorityQueue
 
+
 class TestPriorityQueue(unittest.TestCase):
     def test_priority_order(self):
         pq = PriorityQueue()
@@ -14,5 +15,6 @@ class TestPriorityQueue(unittest.TestCase):
         res = pq.clean_text("Hello World!..")
         self.assertEqual(res, "hello world")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

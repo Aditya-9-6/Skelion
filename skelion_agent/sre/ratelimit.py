@@ -12,13 +12,14 @@ import struct
 import threading
 import time
 import errno
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any
+from dataclasses import dataclass
+from typing import Dict, Optional, Any
 
 
 @dataclass(frozen=True)
 class AdaptiveRateLimitConfig:
     """Configuration parameters for adaptive rate-limiting and backpressure mesh."""
+
     base_rate: float = 100.0
     max_rate: float = 1000.0
     min_rate: float = 10.0
@@ -32,7 +33,12 @@ class AdaptiveRateLimitConfig:
 class TokenBucketMesh:
     """High-performance Token Bucket implementation with continuous O(1) time refill."""
 
-    def __init__(self, capacity: float, refill_rate: float, initial_tokens: Optional[float] = None):
+    def __init__(
+        self,
+        capacity: float,
+        refill_rate: float,
+        initial_tokens: Optional[float] = None,
+    ):
         self.capacity = float(capacity)
         self.refill_rate = float(refill_rate)
         self.tokens = float(initial_tokens if initial_tokens is not None else capacity)
@@ -70,8 +76,7 @@ class EpollAdaptiveMeshRateLimiter:
     def __init__(self, config: Optional[AdaptiveRateLimitConfig] = None):
         self.config = config or AdaptiveRateLimitConfig()
         self.bucket = TokenBucketMesh(
-            capacity=self.config.burst_capacity,
-            refill_rate=self.config.base_rate
+            capacity=self.config.burst_capacity, refill_rate=self.config.base_rate
         )
         self._running = False
         self._lock = threading.Lock()
@@ -79,7 +84,7 @@ class EpollAdaptiveMeshRateLimiter:
         self._backpressure_active = False
         self._shedding_active = False
         self._peer_sockets: Dict[int, socket.socket] = {}
-        
+
         # Initialize epoll and non-blocking notification pipe if supported
         try:
             self._epoll = select.epoll()
@@ -140,7 +145,7 @@ class EpollAdaptiveMeshRateLimiter:
                         except OSError:
                             pass
             except (OSError, IOError) as e:
-                if getattr(e, 'errno', None) != errno.EINTR:
+                if getattr(e, "errno", None) != errno.EINTR:
                     break
             except Exception:
                 break
@@ -153,7 +158,7 @@ class EpollAdaptiveMeshRateLimiter:
         ratio = max(0.0, min(1.0, float(system_load_ratio)))
         with self._lock:
             self._current_telemetry_load = ratio
-            
+
             # Dynamic adaptive rate adjustment: higher load -> lower refill rate
             if ratio >= self.config.shedding_trigger_ratio:
                 new_rate = self.config.min_rate
@@ -161,15 +166,29 @@ class EpollAdaptiveMeshRateLimiter:
                 self._backpressure_active = True
             elif ratio >= self.config.backpressure_trigger_ratio:
                 # Linear interpolation between min_rate and base_rate
-                span = self.config.backpressure_trigger_ratio - self.config.shedding_trigger_ratio
-                factor = max(0.0, 1.0 - ((ratio - self.config.backpressure_trigger_ratio) / (1.0 - self.config.backpressure_trigger_ratio + 1e-6)))
-                new_rate = self.config.min_rate + factor * (self.config.base_rate - self.config.min_rate)
+                span = (
+                    self.config.backpressure_trigger_ratio
+                    - self.config.shedding_trigger_ratio
+                )
+                factor = max(
+                    0.0,
+                    1.0
+                    - (
+                        (ratio - self.config.backpressure_trigger_ratio)
+                        / (1.0 - self.config.backpressure_trigger_ratio + 1e-6)
+                    ),
+                )
+                new_rate = self.config.min_rate + factor * (
+                    self.config.base_rate - self.config.min_rate
+                )
                 self._shedding_active = False
                 self._backpressure_active = True
             else:
                 # Scale up towards max_rate under low load
                 factor = 1.0 - (ratio / (self.config.backpressure_trigger_ratio + 1e-6))
-                new_rate = self.config.base_rate + factor * (self.config.max_rate - self.config.base_rate)
+                new_rate = self.config.base_rate + factor * (
+                    self.config.max_rate - self.config.base_rate
+                )
                 self._shedding_active = False
                 self._backpressure_active = False
 
@@ -229,5 +248,5 @@ class EpollAdaptiveMeshRateLimiter:
                 "tokens_available": self.bucket.tokens,
                 "backpressure_active": self._backpressure_active,
                 "shedding_active": self._shedding_active,
-                "registered_peers": len(self._peer_sockets)
+                "registered_peers": len(self._peer_sockets),
             }

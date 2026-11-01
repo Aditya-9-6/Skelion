@@ -1,21 +1,27 @@
-import pytest
-from skelion_agent.consensus.vector_sync import VectorClock, VectorClockSynchronizer, BoundedRingHistory
+from skelion_agent.consensus.vector_sync import (
+    VectorClock,
+    VectorClockSynchronizer,
+    BoundedRingHistory,
+)
+
 
 def test_vector_clock_basic():
     vc1 = VectorClock("node-A")
     assert vc1.to_dict() == {"node-A": 0}
-    
+
     vc1.increment()
     assert vc1.to_dict() == {"node-A": 1}
+
 
 def test_vector_clock_comparison():
     vc1 = VectorClock("node-A", {"node-A": 1, "node-B": 0})
     vc2 = {"node-A": 2, "node-B": 0}
-    
+
     assert vc1.compare(vc2) == "BEFORE"
     assert vc1.compare({"node-A": 0, "node-B": 1}) == "CONCURRENT"
     assert vc1.compare({"node-A": 1, "node-B": 0}) == "EQUAL"
     assert vc1.compare({"node-A": 0, "node-B": 0}) == "CONCURRENT_OR_AFTER"
+
 
 def test_synchronizer_consensus_merge():
     sync_a = VectorClockSynchronizer("node-A")
@@ -33,11 +39,10 @@ def test_synchronizer_consensus_merge():
     stale_merged = sync_b.merge_state(entry_a)
     assert stale_merged is False
 
+
 def test_concurrent_conflict_resolution():
     sync_a = VectorClockSynchronizer("node-A")
-    sync_b = VectorClockSynchronizer(
-        "node-B"
-    )
+    sync_b = VectorClockSynchronizer("node-B")
 
     # Both set state concurrently without seeing each other's updates
     entry_a = sync_a.set_state("config", "v1-A")
@@ -48,6 +53,7 @@ def test_concurrent_conflict_resolution():
     assert merged_b_into_a is True
     snapshot = sync_a.get_consensus_snapshot()
     assert "config" in snapshot["state"]
+
 
 def test_bounded_ring_history():
     ring = BoundedRingHistory(capacity=3)

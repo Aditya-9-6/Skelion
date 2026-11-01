@@ -1,17 +1,17 @@
 import threading
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 
 class RadixNode:
-    __slots__ = ('prefix', 'children', 'value', 'is_terminal')
+    __slots__ = ("prefix", "children", "value", "is_terminal")
 
     def __init__(self, prefix: str = "", value: Any = None, is_terminal: bool = False):
         self.prefix = prefix
-        self.children: Dict[str, 'RadixNode'] = {}
+        self.children: Dict[str, "RadixNode"] = {}
         self.value = value
         self.is_terminal = is_terminal
 
-    def clone(self) -> 'RadixNode':
+    def clone(self) -> "RadixNode":
         """Create a shallow clone of the node for copy-on-write immutability."""
         new_node = RadixNode(self.prefix, self.value, self.is_terminal)
         new_node.children = dict(self.children)
@@ -91,7 +91,9 @@ class RadixRouter:
                 remaining_input = remaining[common_len:]
 
                 # Create new split intermediate/branch node
-                split_node = RadixNode(prefix=split_prefix, value=None, is_terminal=False)
+                split_node = RadixNode(
+                    prefix=split_prefix, value=None, is_terminal=False
+                )
                 split_node.children[remaining_child_prefix[0]] = child
 
                 # Mutate original child prefix
@@ -101,7 +103,9 @@ class RadixRouter:
                     split_node.is_terminal = True
                     split_node.value = value
                 else:
-                    leaf_node = RadixNode(prefix=remaining_input, value=value, is_terminal=True)
+                    leaf_node = RadixNode(
+                        prefix=remaining_input, value=value, is_terminal=True
+                    )
                     split_node.children[remaining_input[0]] = leaf_node
 
                 current.children[matched_key] = split_node
@@ -128,7 +132,7 @@ class RadixRouter:
             if not remaining.startswith(matched_child.prefix):
                 return None
 
-            remaining = remaining[len(matched_child.prefix):]
+            remaining = remaining[len(matched_child.prefix) :]
             current = matched_child
 
         if current.is_terminal:
@@ -171,7 +175,7 @@ class RadixRouter:
         new_child = child.clone()
         node.children[matched_key] = new_child
 
-        next_remaining = remaining[len(child.prefix):]
+        next_remaining = remaining[len(child.prefix) :]
         if not next_remaining:
             if not new_child.is_terminal:
                 return False

@@ -1,4 +1,3 @@
-import pytest
 import time
 import threading
 from skelion_agent.core.mmap_ring_buffer import MMapRingBuffer
@@ -50,7 +49,7 @@ def test_mmap_ring_buffer_capacity_bounds():
 def test_mmap_ring_buffer_concurrency():
     buffer_name = f"test_concurrency_{int(time.time() * 1000)}"
     ring = MMapRingBuffer(name=buffer_name, capacity=256, slot_size=64, create=True)
-    
+
     iterations = 500
     produced = []
     consumed = []
@@ -60,7 +59,7 @@ def test_mmap_ring_buffer_concurrency():
             data = f"telemetry-{i}".encode()
             while not ring.push(data):
                 time.sleep(0.0001)
-                
+
     def consumer():
         count = 0
         while count < iterations:

@@ -1,4 +1,3 @@
-import time
 import threading
 from typing import Dict, Any, Optional, Callable, List
 import logging
@@ -10,6 +9,7 @@ class RCUEpochTracker:
     """
     Tracks active reader epochs for deferred memory reclamation in RCU updates.
     """
+
     def __init__(self):
         self._current_epoch = 0
         self._reader_counts: Dict[int, int] = {}
@@ -44,8 +44,11 @@ class RCURegistry:
     maps. Provides zero-mutex-contention reads with atomic pointer swaps for updates
     and deferred reclamation of stale route state using epoch counters.
     """
+
     def __init__(self, initial_map: Optional[Dict[str, Any]] = None):
-        self._current_map: Dict[str, Any] = dict(initial_map) if initial_map is not None else {}
+        self._current_map: Dict[str, Any] = (
+            dict(initial_map) if initial_map is not None else {}
+        )
         self._epoch_tracker = RCUEpochTracker()
         self._update_lock = threading.Lock()
         self._reclamation_queue: List[Tuple[int, Dict[str, Any]]] = []
@@ -71,7 +74,9 @@ class RCURegistry:
         finally:
             self._epoch_tracker.exit(epoch)
 
-    def update(self, mutator: Callable[[Dict[str, Any]], Dict[str, Any]]) -> Dict[str, Any]:
+    def update(
+        self, mutator: Callable[[Dict[str, Any]], Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
         Executes a copy-update cycle:
         1. Acquires exclusive writer lock.
@@ -97,12 +102,14 @@ class RCURegistry:
         def _mutate(m: Dict[str, Any]) -> Dict[str, Any]:
             m[key] = value
             return m
+
         self.update(_mutate)
 
     def remove_route(self, key: str) -> None:
         def _mutate(m: Dict[str, Any]) -> Dict[str, Any]:
             m.pop(key, None)
             return m
+
         self.update(_mutate)
 
     def _sweep_reclamation(self) -> None:

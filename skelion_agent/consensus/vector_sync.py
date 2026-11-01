@@ -1,10 +1,11 @@
 import time
 import threading
 from collections import deque
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
+
 
 class VectorClock:
-    __slots__ = ('node_id', '_clocks', '_lock')
+    __slots__ = ("node_id", "_clocks", "_lock")
 
     def __init__(self, node_id: str, initial_clocks: Optional[Dict[str, int]] = None):
         self.node_id = node_id
@@ -25,10 +26,10 @@ class VectorClock:
         with self._lock:
             local = self._clocks
             all_keys = set(local.keys()) | set(remote_clock.keys())
-            
+
             greater_or_equal = True
             less_or_equal = True
-            
+
             for k in all_keys:
                 l_val = local.get(k, 0)
                 r_val = remote_clock.get(k, 0)
@@ -36,7 +37,7 @@ class VectorClock:
                     greater_or_equal = False
                 if l_val > r_val:
                     less_or_equal = False
-            
+
             if greater_or_equal and less_or_equal:
                 return "EQUAL"
             elif greater_or_equal:
@@ -56,7 +57,7 @@ class VectorClock:
 
 
 class BoundedRingHistory:
-    __slots__ = ('capacity', '_buffer')
+    __slots__ = ("capacity", "_buffer")
 
     def __init__(self, capacity: int = 1024):
         self.capacity = capacity
@@ -73,7 +74,7 @@ class BoundedRingHistory:
 
 
 class VectorClockSynchronizer:
-    __slots__ = ('node_id', 'clock', 'state_store', 'history', '_lock')
+    __slots__ = ("node_id", "clock", "state_store", "history", "_lock")
 
     def __init__(self, node_id: str, history_capacity: int = 1024):
         self.node_id = node_id
@@ -91,7 +92,7 @@ class VectorClockSynchronizer:
                 "value": value,
                 "clock": self.clock.to_dict(),
                 "node_id": self.node_id,
-                "timestamp": timestamp
+                "timestamp": timestamp,
             }
             self.state_store[key] = entry
             self.history.append(entry)
@@ -101,37 +102,37 @@ class VectorClockSynchronizer:
         key = remote_entry.get("key")
         remote_clock = remote_entry.get("clock", {})
         remote_node = remote_entry.get("node_id")
-        
+
         if not key:
             return False
 
         with self._lock:
             local_entry = self.state_store.get(key)
-            
+
             if not local_entry:
                 self.clock.update(remote_clock)
                 self.state_store[key] = remote_entry
                 self.history.append(remote_entry)
                 return True
-            
+
             local_clock = local_entry.get("clock", {})
-            
+
             # Compare remote vs local vector clocks
             temp_vc = VectorClock(self.node_id, local_clock)
             relation = temp_vc.compare(remote_clock)
-            
+
             if relation in ("BEFORE", "CONCURRENT"):
                 # Remote is strictly newer or concurrent (resolved via tie-break: node_id lexigraphical order)
                 if relation == "CONCURRENT":
                     if remote_node and remote_node <= self.node_id:
                         # Keep local or override? Let's override if remote_node > local_node_id or vice versa
                         pass
-                
+
                 self.clock.update(remote_clock)
                 self.state_store[key] = remote_entry
                 self.history.append(remote_entry)
                 return True
-            
+
             # Stale update dropped
             return False
 
@@ -146,5 +147,5 @@ class VectorClockSynchronizer:
                 "node_id": self.node_id,
                 "clock": self.clock.to_dict(),
                 "state": dict(self.state_store),
-                "history_count": len(self.history._buffer)
+                "history_count": len(self.history._buffer),
             }
