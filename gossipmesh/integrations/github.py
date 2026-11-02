@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Set, Tuple
 from gossipmesh.models.pr_review import SecurityFinding, TestResult
 from gossipmesh.integrations.github_pr import GitHubPRService
 
@@ -8,7 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class GitHubIntegration:
-    def __init__(self, owner: str, repo: str, pr_number: int, github_pr_service: GitHubPRService):
+    def __init__(
+        self, owner: str, repo: str, pr_number: int, github_pr_service: GitHubPRService
+    ):
         self.owner = owner
         self.repo = repo
         self.pr_number = pr_number
@@ -21,7 +23,11 @@ class GitHubIntegration:
         current_left_line = 0
 
         for line in diff.split("\n"):
-            if line.startswith("--- a/") or line.startswith("+++ b/") or line.startswith("+++ /dev/null"):
+            if (
+                line.startswith("--- a/")
+                or line.startswith("+++ b/")
+                or line.startswith("+++ /dev/null")
+            ):
                 current_file = line[6:]
                 valid_lines["RIGHT"][current_file] = set()
                 valid_lines["LEFT"][current_file] = set()
@@ -47,31 +53,43 @@ class GitHubIntegration:
     async def generate_inline_comments(self, findings: List[SecurityFinding]):
         logger.info(f"Generating inline comments for {len(findings)} findings.")
 
-        diff = await self.github_pr_service.get_pr_diff(self.owner, self.repo, self.pr_number)
+        diff = await self.github_pr_service.get_pr_diff(
+            self.owner, self.repo, self.pr_number
+        )
         valid_lines = self._parse_unified_diff(diff)
 
         seen_fingerprints = set()
 
         # Fetch existing comments to support cross-run retry safety
         try:
-            get_comments_fn = getattr(self.github_pr_service, "get_pr_review_comments", None)
+            get_comments_fn = getattr(
+                self.github_pr_service, "get_pr_review_comments", None
+            )
             if get_comments_fn:
-                existing_comments = await get_comments_fn(self.owner, self.repo, self.pr_number)
+                existing_comments = await get_comments_fn(
+                    self.owner, self.repo, self.pr_number
+                )
                 for comment in existing_comments:
                     body = comment.get("body", "")
                     for fp in re.findall(r"<!-- fingerprint: (.*?) -->", body):
                         seen_fingerprints.add(fp)
 
-            existing_reviews = await self.github_pr_service.get_pr_reviews(self.owner, self.repo, self.pr_number)
+            existing_reviews = await self.github_pr_service.get_pr_reviews(
+                self.owner, self.repo, self.pr_number
+            )
             for review in existing_reviews:
                 body = review.get("body", "")
                 if body:
                     for fp in re.findall(r"<!-- fingerprint: (.*?) -->", body):
                         seen_fingerprints.add(fp)
         except Exception as e:
-            logger.warning(f"Failed to fetch existing PR comments for deduplication: {e}")
+            logger.warning(
+                f"Failed to fetch existing PR comments for deduplication: {e}"
+            )
 
-        grouped_findings: Dict[Tuple[str, int, Optional[int], str], List[SecurityFinding]] = {}
+        grouped_findings: Dict[
+            Tuple[str, int, Optional[int], str], List[SecurityFinding]
+        ] = {}
         fallback_findings = []
 
         for finding in findings:
@@ -95,7 +113,12 @@ class GitHubIntegration:
                 fallback_findings.append(finding)
                 continue
 
-            group_key = (finding.file_path, finding.line, finding.end_line, finding.side)
+            group_key = (
+                finding.file_path,
+                finding.line,
+                finding.end_line,
+                finding.side,
+            )
             if group_key not in grouped_findings:
                 grouped_findings[group_key] = []
             grouped_findings[group_key].append(finding)
@@ -124,7 +147,12 @@ class GitHubIntegration:
                     body += f"\n<!-- fingerprint: {f.fingerprint} -->\n"
                 body += "\n---\n"
 
-            comment_payload = {"body": body, "path": file_path, "side": side, "line": line}
+            comment_payload = {
+                "body": body,
+                "path": file_path,
+                "side": side,
+                "line": line,
+            }
             if end_line and end_line != line:
                 comment_payload["start_line"] = line
                 comment_payload["line"] = end_line
@@ -162,7 +190,9 @@ class GitHubIntegration:
         if fallback_findings:
             fallback_body = "### Review Findings (Fallback)\n\nThe following findings could not be placed inline:\n\n"
             for f in fallback_findings:
-                fallback_body += f"- **{f.file_path}:{f.line}** ({f.severity}): {f.message}\n"
+                fallback_body += (
+                    f"- **{f.file_path}:{f.line}** ({f.severity}): {f.message}\n"
+                )
                 if f.evidence:
                     fallback_body += f"  - **Evidence**: {f.evidence}\n"
 
@@ -180,12 +210,17 @@ class GitHubIntegration:
 
             try:
                 await self.github_pr_service.post_pr_review(
-                    self.owner, self.repo, self.pr_number, {"body": fallback_body, "event": "COMMENT"}
+                    self.owner,
+                    self.repo,
+                    self.pr_number,
+                    {"body": fallback_body, "event": "COMMENT"},
                 )
             except Exception as e:
                 logger.error(f"Failed to post fallback review summary: {e}")
 
-    async def post_review_report(self, findings: List[SecurityFinding], test_results: TestResult):
+    async def post_review_report(
+        self, findings: List[SecurityFinding], test_results: TestResult
+    ):
         logger.info("Posting review report.")
 
     async def handle_human_approval(self):

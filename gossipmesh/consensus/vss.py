@@ -7,8 +7,7 @@ without exposing the underlying secret.
 from __future__ import annotations
 
 import secrets
-import hashlib
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 
 class CurvePoint:
@@ -81,7 +80,9 @@ class VSSScheme:
 
         return left_side == right_side
 
-    def lagrange_interpolate(self, shares: List[Tuple[int, int]], evaluate_at: int = 0) -> int:
+    def lagrange_interpolate(
+        self, shares: List[Tuple[int, int]], evaluate_at: int = 0
+    ) -> int:
         """
         Lagrange interpolation to reconstruct the secret (at x=0) or evaluate at any point.
         """

@@ -8,10 +8,9 @@ backup integrity validation, and purge automation.
 from __future__ import annotations
 
 import hashlib
-import json
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
-from sqlalchemy import select, and_
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from gossipmesh.core.exceptions import ValidationError
@@ -37,42 +36,81 @@ class DisasterRecoveryService:
 
         # 1. Members
         members = (
-            session.execute(select(UserOrganization).where(UserOrganization.organization_id == organization_id))
+            session.execute(
+                select(UserOrganization).where(
+                    UserOrganization.organization_id == organization_id
+                )
+            )
             .scalars()
             .all()
         )
 
         # 2. Projects
-        projects = session.execute(select(Project).where(Project.organization_id == organization_id)).scalars().all()
+        projects = (
+            session.execute(
+                select(Project).where(Project.organization_id == organization_id)
+            )
+            .scalars()
+            .all()
+        )
 
         # 3. Repositories
-        repos = session.execute(select(Repository).where(Repository.organization_id == organization_id)).scalars().all()
+        repos = (
+            session.execute(
+                select(Repository).where(Repository.organization_id == organization_id)
+            )
+            .scalars()
+            .all()
+        )
 
         # 4. Workflows
-        workflows = session.execute(select(Workflow).where(Workflow.organization_id == organization_id)).scalars().all()
+        workflows = (
+            session.execute(
+                select(Workflow).where(Workflow.organization_id == organization_id)
+            )
+            .scalars()
+            .all()
+        )
 
         # 5. Audit Events
         audit_events = (
-            session.execute(select(AuditEvent).where(AuditEvent.organization_id == organization_id)).scalars().all()
+            session.execute(
+                select(AuditEvent).where(AuditEvent.organization_id == organization_id)
+            )
+            .scalars()
+            .all()
         )
 
         # 6. Usage Records
         usage_records = (
-            session.execute(select(UsageRecord).where(UsageRecord.organization_id == organization_id)).scalars().all()
+            session.execute(
+                select(UsageRecord).where(
+                    UsageRecord.organization_id == organization_id
+                )
+            )
+            .scalars()
+            .all()
         )
 
         return {
             "organization": {
                 "id": org.id,
                 "name": org.name,
-                "created_at": org.created_at.isoformat() if hasattr(org, "created_at") and org.created_at else None,
+                "created_at": org.created_at.isoformat()
+                if hasattr(org, "created_at") and org.created_at
+                else None,
             },
             "members": [
-                {"user_id": m.user_id, "role": m.role.value if hasattr(m.role, "value") else str(m.role)}
+                {
+                    "user_id": m.user_id,
+                    "role": m.role.value if hasattr(m.role, "value") else str(m.role),
+                }
                 for m in members
             ],
             "projects": [{"id": p.id, "name": p.name} for p in projects],
-            "repositories": [{"id": r.id, "name": r.name, "github_id": r.github_id} for r in repos],
+            "repositories": [
+                {"id": r.id, "name": r.name, "github_id": r.github_id} for r in repos
+            ],
             "workflows_count": len(workflows),
             "audit_events_count": len(audit_events),
             "usage_records_count": len(usage_records),
@@ -123,16 +161,30 @@ class DisasterRecoveryService:
             raise ValidationError(f"Organization ID {organization_id} not found")
 
         # 1. Purge usage records
-        usage_deleted = session.query(UsageRecord).filter_by(organization_id=organization_id).delete()
+        usage_deleted = (
+            session.query(UsageRecord)
+            .filter_by(organization_id=organization_id)
+            .delete()
+        )
 
         # 2. Purge workflows
-        wf_deleted = session.query(Workflow).filter_by(organization_id=organization_id).delete()
+        wf_deleted = (
+            session.query(Workflow).filter_by(organization_id=organization_id).delete()
+        )
 
         # 3. Purge repositories
-        repo_deleted = session.query(Repository).filter_by(organization_id=organization_id).delete()
+        repo_deleted = (
+            session.query(Repository)
+            .filter_by(organization_id=organization_id)
+            .delete()
+        )
 
         # 4. Remove user memberships
-        members_deleted = session.query(UserOrganization).filter_by(organization_id=organization_id).delete()
+        members_deleted = (
+            session.query(UserOrganization)
+            .filter_by(organization_id=organization_id)
+            .delete()
+        )
 
         # 5. Mark organization hard-deleted
         org.deleted_at = datetime.now(timezone.utc)

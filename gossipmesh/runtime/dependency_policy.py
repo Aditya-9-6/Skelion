@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
-import os
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -71,8 +70,20 @@ DEFAULT_ALLOWED_REGISTRIES: Dict[str, AllowedRegistry] = {
 
 MANIFEST_LOCKFILE_PAIRS: Dict[str, List[str]] = {
     "package.json": ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"],
-    "pyproject.toml": ["poetry.lock", "Pipfile.lock", "requirements.lock", "requirements.txt.lock", "pdm.lock"],
-    "setup.py": ["poetry.lock", "Pipfile.lock", "requirements.lock", "requirements.txt.lock", "pdm.lock"],
+    "pyproject.toml": [
+        "poetry.lock",
+        "Pipfile.lock",
+        "requirements.lock",
+        "requirements.txt.lock",
+        "pdm.lock",
+    ],
+    "setup.py": [
+        "poetry.lock",
+        "Pipfile.lock",
+        "requirements.lock",
+        "requirements.txt.lock",
+        "pdm.lock",
+    ],
     "Cargo.toml": ["Cargo.lock"],
     "go.mod": ["go.sum"],
 }
@@ -88,13 +99,19 @@ class DependencyCacheManager:
     def get_tenant_cache_dir(self, tenant_id: str, ecosystem: str = "pip") -> Path:
         """Returns the isolated cache directory for a tenant and ecosystem."""
         if not tenant_id or ".." in tenant_id or "/" in tenant_id or "\\" in tenant_id:
-            raise SandboxSecurityError(f"Invalid tenant_id for cache allocation: {tenant_id}")
+            raise SandboxSecurityError(
+                f"Invalid tenant_id for cache allocation: {tenant_id}"
+            )
         if not ecosystem or ".." in ecosystem or "/" in ecosystem or "\\" in ecosystem:
-            raise SandboxSecurityError(f"Invalid ecosystem for cache allocation: {ecosystem}")
+            raise SandboxSecurityError(
+                f"Invalid ecosystem for cache allocation: {ecosystem}"
+            )
 
         tenant_dir = (self.base_cache_dir / tenant_id / ecosystem).resolve()
         if not tenant_dir.is_relative_to(self.base_cache_dir):
-            raise SandboxSecurityError(f"Cache path escapes base directory: {tenant_dir}")
+            raise SandboxSecurityError(
+                f"Cache path escapes base directory: {tenant_dir}"
+            )
 
         tenant_dir.mkdir(parents=True, exist_ok=True)
         return tenant_dir
@@ -160,7 +177,9 @@ class DependencyPolicyEngine:
 
         # Protect against metadata hostname aliases
         if host_clean in {"instance-data", "metadata.google.internal", "metadata"}:
-            raise NetworkEgressForbiddenError(f"Egress request to cloud metadata hostname {host_clean} blocked")
+            raise NetworkEgressForbiddenError(
+                f"Egress request to cloud metadata hostname {host_clean} blocked"
+            )
 
         # RESTRICTED mode requires matching whitelisted package registry and allowed port
         if self.mode == EgressMode.RESTRICTED:
@@ -185,7 +204,9 @@ class DependencyPolicyEngine:
         for manifest_name, allowed_lockfiles in MANIFEST_LOCKFILE_PAIRS.items():
             manifest_file = workspace / manifest_name
             if manifest_file.is_file():
-                has_valid_lock = any((workspace / lf).is_file() for lf in allowed_lockfiles)
+                has_valid_lock = any(
+                    (workspace / lf).is_file() for lf in allowed_lockfiles
+                )
                 if not has_valid_lock:
                     raise LockfileRequiredError(
                         f"Manifest '{manifest_name}' detected in {workspace}, but no valid lockfile "
@@ -207,7 +228,9 @@ class DependencyPolicyEngine:
 
         cache_dir: Optional[Path] = None
         if self.cache_manager:
-            cache_dir = self.cache_manager.get_tenant_cache_dir(tenant_id, ecosystem=ecosystem)
+            cache_dir = self.cache_manager.get_tenant_cache_dir(
+                tenant_id, ecosystem=ecosystem
+            )
 
         args: List[str] = []
 

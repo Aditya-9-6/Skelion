@@ -21,7 +21,9 @@ class PeerNode:
         self.connected_at = time.time()
         self._lock = threading.Lock()
 
-    def record_interaction(self, latency_ms: float, dropped: bool = False, violated: bool = False) -> float:
+    def record_interaction(
+        self, latency_ms: float, dropped: bool = False, violated: bool = False
+    ) -> float:
         return self.scorecard.record_sample(latency_ms, dropped, violated)
 
     def is_healthy(self) -> bool:
@@ -40,7 +42,9 @@ class PeerNode:
 
 class PeerManager:
     def __init__(
-        self, health_config: Optional[PeerHealthConfig] = None, churn_config: Optional[ChurnDefenseConfig] = None
+        self,
+        health_config: Optional[PeerHealthConfig] = None,
+        churn_config: Optional[ChurnDefenseConfig] = None,
     ) -> None:
         self._peers: Dict[str, PeerNode] = {}
         self.health_config = health_config
@@ -51,7 +55,9 @@ class PeerManager:
     def add_peer(self, peer_id: str, address: str) -> PeerNode:
         with self._lock:
             if peer_id not in self._peers:
-                self._peers[peer_id] = PeerNode(peer_id, address, self.health_config, self.churn_config)
+                self._peers[peer_id] = PeerNode(
+                    peer_id, address, self.health_config, self.churn_config
+                )
             return self._peers[peer_id]
 
     def remove_peer(self, peer_id: str) -> None:
@@ -66,7 +72,9 @@ class PeerManager:
         self, peer_id: str, metadata_vector: Dict[str, int]
     ) -> Tuple[bool, float] if False else Any:
         """Ingests a heartbeat vector and evaluates entropy-based churn defense."""
-        is_sybil, variance = self.churn_manager.process_heartbeat(peer_id, metadata_vector)
+        is_sybil, variance = self.churn_manager.process_heartbeat(
+            peer_id, metadata_vector
+        )
         if is_sybil:
             peer = self.get_peer(peer_id)
             if peer:
@@ -86,6 +94,8 @@ class PeerManager:
             statuses = {}
             for pid, p in self._peers.items():
                 status = p.get_status()
-                status["sybil_quarantined"] = self.churn_manager.is_peer_quarantined(pid)
+                status["sybil_quarantined"] = self.churn_manager.is_peer_quarantined(
+                    pid
+                )
                 statuses[pid] = status
             return statuses

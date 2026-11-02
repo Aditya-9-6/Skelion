@@ -24,12 +24,19 @@ class EpochP2PSigner:
 class EpochP2PVerifier:
     """Verifies epoch-bound Ed25519 signatures against known peer public keys."""
 
-    def __init__(self, epoch_duration_seconds: int = 300, drift_past: int = 1, drift_future: int = 1):
+    def __init__(
+        self,
+        epoch_duration_seconds: int = 300,
+        drift_past: int = 1,
+        drift_future: int = 1,
+    ):
         self.epoch_duration_seconds = epoch_duration_seconds
         self.drift_past = drift_past
         self.drift_future = drift_future
 
-    def verify_payload(self, public_bytes: bytes, payload: bytes, signature: bytes, epoch: int) -> bool:
+    def verify_payload(
+        self, public_bytes: bytes, payload: bytes, signature: bytes, epoch: int
+    ) -> bool:
         """Cryptographically verifies a signed payload and checks its temporal epoch validity."""
         current_epoch = get_current_epoch(self.epoch_duration_seconds)
         if not is_epoch_valid(epoch, current_epoch, self.drift_past, self.drift_future):

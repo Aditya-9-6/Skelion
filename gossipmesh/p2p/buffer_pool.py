@@ -1,5 +1,5 @@
 import threading
-from typing import Optional, List, Dict, Any
+from typing import List
 
 
 class ZeroCopyBufferPool:
@@ -8,10 +8,17 @@ class ZeroCopyBufferPool:
     P2P gossip transport frames to eliminate GC pressure on hot paths.
     """
 
-    def __init__(self, slice_size: int = 4096, initial_pool_size: int = 256, max_pool_size: int = 4096):
+    def __init__(
+        self,
+        slice_size: int = 4096,
+        initial_pool_size: int = 256,
+        max_pool_size: int = 4096,
+    ):
         self.slice_size = slice_size
         self.max_pool_size = max_pool_size
-        self._pool: List[bytearray] = [bytearray(slice_size) for _ in range(initial_pool_size)]
+        self._pool: List[bytearray] = [
+            bytearray(slice_size) for _ in range(initial_pool_size)
+        ]
         self._lock = threading.Lock()
         self._allocated_count = initial_pool_size
 

@@ -1,5 +1,5 @@
 import hashlib
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from gossipmesh.models.user import User
@@ -24,7 +24,9 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def validate_password_strength(password: str, user_email: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+def validate_password_strength(
+    password: str, user_email: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
     """Validate that a password meets minimum complexity requirements."""
     if len(password) < 12:
         return False, "Password must be at least 12 characters long."
@@ -50,7 +52,11 @@ def invalidate_user_sessions(db: Session, user_id: int) -> None:
     for s in sessions:
         s.is_active = False
     if session_ids:
-        tokens = db.query(RefreshToken).filter(RefreshToken.session_id.in_(session_ids)).all()
+        tokens = (
+            db.query(RefreshToken)
+            .filter(RefreshToken.session_id.in_(session_ids))
+            .all()
+        )
         for t in tokens:
             t.is_revoked = True
     db.commit()
