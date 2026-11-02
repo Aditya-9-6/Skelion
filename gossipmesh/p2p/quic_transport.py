@@ -5,15 +5,16 @@ Provides unreliable and reliable datagram multiplexing over async UDP sockets
 coupled with AIMD sliding-window congestion control and packet fragmentation/reassembly.
 """
 
-import asyncio
 import logging
 import struct
-import time
 import uuid
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple
 
-from gossipmesh.p2p.congestion import SlidingWindowCongestionController, CongestionConfig
-from gossipmesh.p2p.fragmentation import PacketFragmenter, PacketReassembler, PacketFragment
+from gossipmesh.p2p.congestion import (
+    SlidingWindowCongestionController,
+    CongestionConfig,
+)
+from gossipmesh.p2p.fragmentation import PacketFragmenter, PacketReassembler
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,9 @@ class QUICDatagram:
 
     __slots__ = ("datagram_id", "is_reliable", "sequence_number", "payload")
 
-    def __init__(self, datagram_id: str, is_reliable: bool, sequence_number: int, payload: bytes) -> None:
+    def __init__(
+        self, datagram_id: str, is_reliable: bool, sequence_number: int, payload: bytes
+    ) -> None:
         self.datagram_id = datagram_id
         self.is_reliable = is_reliable
         self.sequence_number = sequence_number
@@ -47,7 +50,12 @@ class QUICDatagram:
         sequence_number = struct.unpack(">Q", data[37:45])[0]
         payload_len = struct.unpack(">I", data[45:49])[0]
         payload = data[49 : 49 + payload_len]
-        return cls(datagram_id=datagram_id, is_reliable=is_reliable, sequence_number=sequence_number, payload=payload)
+        return cls(
+            datagram_id=datagram_id,
+            is_reliable=is_reliable,
+            sequence_number=sequence_number,
+            payload=payload,
+        )
 
 
 class QUICDatagramTransport:
@@ -66,7 +74,9 @@ class QUICDatagramTransport:
         self.bind_address = bind_address
         self.port = port
         self.mtu = mtu
-        self.congestion_controller = SlidingWindowCongestionController(congestion_config)
+        self.congestion_controller = SlidingWindowCongestionController(
+            congestion_config
+        )
         self.fragmenter = PacketFragmenter(mtu=mtu)
         self.reassembler = PacketReassembler()
         self._running = False
@@ -75,7 +85,9 @@ class QUICDatagramTransport:
 
     async def start(self) -> None:
         self._running = True
-        logger.info(f"QUICDatagramTransport started on {self.bind_address}:{self.port} with congestion control.")
+        logger.info(
+            f"QUICDatagramTransport started on {self.bind_address}:{self.port} with congestion control."
+        )
 
     async def stop(self) -> None:
         self._running = False
@@ -84,19 +96,28 @@ class QUICDatagramTransport:
     def register_peer(self, peer_id: str, host: str, port: int) -> None:
         self._peer_connections[peer_id] = (host, port)
 
-    async def send_datagram(self, peer_id: str, payload: bytes, is_reliable: bool = False) -> bool:
+    async def send_datagram(
+        self, peer_id: str, payload: bytes, is_reliable: bool = False
+    ) -> bool:
         """
         Sends a datagram (reliable or unreliable) to a peer governed by congestion control.
         """
         if not self.congestion_controller.can_send():
-            logger.warning(f"Congestion window full. Dropping outbound datagram for peer {peer_id}.")
+            logger.warning(
+                f"Congestion window full. Dropping outbound datagram for peer {peer_id}."
+            )
             return False
 
         self._sequence_counter += 1
         seq = self._sequence_counter
         datagram_id = str(uuid.uuid4())
 
-        datagram = QUICDatagram(datagram_id=datagram_id, is_reliable=is_reliable, sequence_number=seq, payload=payload)
+        datagram = QUICDatagram(
+            datagram_id=datagram_id,
+            is_reliable=is_reliable,
+            sequence_number=seq,
+            payload=payload,
+        )
 
         raw_data = datagram.serialize()
         self.congestion_controller.on_packet_sent(datagram_id, len(raw_data))

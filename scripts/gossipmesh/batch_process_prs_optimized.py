@@ -27,7 +27,17 @@ if not REVIEWER.is_file():
 
 
 def get_open_pr_numbers(repo: str = None) -> list[str]:
-    cmd = ["gh", "pr", "list", "--state", "open", "--json", "number", "--jq", ".[].number"]
+    cmd = [
+        "gh",
+        "pr",
+        "list",
+        "--state",
+        "open",
+        "--json",
+        "number",
+        "--jq",
+        ".[].number",
+    ]
     if repo:
         cmd.extend(["--repo", repo])
     try:
@@ -87,13 +97,19 @@ def run_reviewer(pr_number: str, repo: str = None, workspace: str = None):
         )
         if res.returncode == 0:
             return (pr_number, "OK", "")
-        return (pr_number, f"FAIL (exit {res.returncode})", res.stderr[-300:] if res.stderr else "")
+        return (
+            pr_number,
+            f"FAIL (exit {res.returncode})",
+            res.stderr[-300:] if res.stderr else "",
+        )
     except Exception as e:
         return (pr_number, f"EXCEPTION: {e}", str(e))
 
 
 def main():
-    parser = argparse.ArgumentParser(description="GossipMesh Multi-Worker 24/7 PR Batch Processor")
+    parser = argparse.ArgumentParser(
+        description="GossipMesh Multi-Worker 24/7 PR Batch Processor"
+    )
     parser.add_argument(
         "--repo",
         default=os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY"),
@@ -128,11 +144,16 @@ def main():
         safe_workers = max(1, min(8, len(pr_numbers), max(1, remaining // 40)))
 
     print(f"[*] GitHub API core quota remaining: {remaining}")
-    print(f"[*] Launching {safe_workers} parallel AI review worker(s) across {len(pr_numbers)} open PR(s)...")
+    print(
+        f"[*] Launching {safe_workers} parallel AI review worker(s) across {len(pr_numbers)} open PR(s)..."
+    )
 
     results = []
     with ThreadPoolExecutor(max_workers=safe_workers) as executor:
-        future_to_pr = {executor.submit(run_reviewer, pr, target_repo, args.workspace): pr for pr in pr_numbers}
+        future_to_pr = {
+            executor.submit(run_reviewer, pr, target_repo, args.workspace): pr
+            for pr in pr_numbers
+        }
         for future in as_completed(future_to_pr):
             pr = future_to_pr[future]
             try:
@@ -147,7 +168,9 @@ def main():
 
     ok = sum(1 for _, s in results if s == "OK")
     fail = len(results) - ok
-    print(f"\n[✓] Batch complete: {ok} succeeded, {fail} failed out of {len(results)} PR(s).")
+    print(
+        f"\n[✓] Batch complete: {ok} succeeded, {fail} failed out of {len(results)} PR(s)."
+    )
 
 
 if __name__ == "__main__":

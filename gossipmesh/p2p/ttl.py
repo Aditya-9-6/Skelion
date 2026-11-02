@@ -48,7 +48,10 @@ class AdaptiveTTLManager:
             return self._peer_latencies.get(peer_id)
 
     def calculate_decayed_ttl(
-        self, current_ttl: int, queue_depth: int, downstream_peer_id: Optional[str] = None
+        self,
+        current_ttl: int,
+        queue_depth: int,
+        downstream_peer_id: Optional[str] = None,
     ) -> int:
         """Calculates the adaptive TTL for forwarding a message based on local congestion"""
         if current_ttl <= 0:
@@ -60,15 +63,26 @@ class AdaptiveTTLManager:
 
         if downstream_peer_id:
             latency = self.get_peer_latency(downstream_peer_id)
-            if latency is not None and latency >= self.config.latency_congestion_threshold_sec:
+            if (
+                latency is not None
+                and latency >= self.config.latency_congestion_threshold_sec
+            ):
                 penalty += self.config.poison_reverse_penalty
 
         new_ttl = current_ttl - penalty
         return max(self.config.min_ttl, new_ttl) if new_ttl > 0 else 0
 
-    def should_drop(self, current_ttl: int, queue_depth: int, downstream_peer_id: Optional[str] = None) -> bool:
+    def should_drop(
+        self,
+        current_ttl: int,
+        queue_depth: int,
+        downstream_peer_id: Optional[str] = None,
+    ) -> bool:
         """Determines if a message should be dropped due to TTL exhaustion."""
-        return self.calculate_decayed_ttl(current_ttl, queue_depth, downstream_peer_id) <= 0
+        return (
+            self.calculate_decayed_ttl(current_ttl, queue_depth, downstream_peer_id)
+            <= 0
+        )
 
     def reset(self) -> None:
         """Resets all internal peer latency states."""

@@ -4,7 +4,12 @@ import httpx
 import json
 
 from gossipmesh.providers.base import BaseProvider
-from gossipmesh.providers.models import GenerationRequest, GenerationResponse, ProviderHealth, Usage
+from gossipmesh.providers.models import (
+    GenerationRequest,
+    GenerationResponse,
+    ProviderHealth,
+    Usage,
+)
 
 
 class OllamaProvider(BaseProvider):
@@ -19,7 +24,9 @@ class OllamaProvider(BaseProvider):
     async def generate(self, request: GenerationRequest) -> GenerationResponse:
         time.time()
 
-        messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        messages = [
+            {"role": msg.role, "content": msg.content} for msg in request.messages
+        ]
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -55,8 +62,12 @@ class OllamaProvider(BaseProvider):
             raw_response=data,
         )
 
-    async def generate_stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:  # type: ignore
-        messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+    async def generate_stream(
+        self, request: GenerationRequest
+    ) -> AsyncGenerator[str, None]:  # type: ignore
+        messages = [
+            {"role": msg.role, "content": msg.content} for msg in request.messages
+        ]
 
         async with httpx.AsyncClient() as client:
             async with client.stream(

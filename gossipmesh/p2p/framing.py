@@ -1,7 +1,7 @@
 import struct
 import zlib
 import asyncio
-from typing import AsyncIterator, Optional, Tuple, List
+from typing import AsyncIterator, Tuple, List
 
 
 class FrameError(Exception):
@@ -44,16 +44,22 @@ class PacketFramer:
         Serializes a payload into a framed packet byte string with header, checksum, and magic.
         """
         if len(payload) > self.max_payload_size:
-            raise ValueError(f"Payload size {len(payload)} exceeds max_payload_size {self.max_payload_size}")
+            raise ValueError(
+                f"Payload size {len(payload)} exceeds max_payload_size {self.max_payload_size}"
+            )
 
         payload_len = len(payload)
         # Compute CRC32 over payload for data integrity
         checksum = zlib.crc32(payload) & 0xFFFFFFFF
 
-        header = struct.pack(self.HEADER_FORMAT, self.MAGIC, flags, payload_len, checksum)
+        header = struct.pack(
+            self.HEADER_FORMAT, self.MAGIC, flags, payload_len, checksum
+        )
         return header + payload
 
-    async def deframe_stream(self, reader: asyncio.StreamReader) -> AsyncIterator[Tuple[int, bytes]]:
+    async def deframe_stream(
+        self, reader: asyncio.StreamReader
+    ) -> AsyncIterator[Tuple[int, bytes]]:
         """
         Asynchronously reads from an asyncio.StreamReader, deframing packets zero-copy style
         where possible, validating checksums and handling stream re-synchronization.
@@ -64,13 +70,19 @@ class PacketFramer:
             if not header_buf or len(header_buf) < self.HEADER_SIZE:
                 break
 
-            magic, flags, payload_len, expected_checksum = struct.unpack(self.HEADER_FORMAT, header_buf)
+            magic, flags, payload_len, expected_checksum = struct.unpack(
+                self.HEADER_FORMAT, header_buf
+            )
 
             if magic != self.MAGIC:
-                raise ProtocolError(f"Invalid framing magic bytes: {magic!r}. Expected {self.MAGIC!r}")
+                raise ProtocolError(
+                    f"Invalid framing magic bytes: {magic!r}. Expected {self.MAGIC!r}"
+                )
 
             if payload_len > self.max_payload_size:
-                raise ProtocolError(f"Payload length {payload_len} exceeds maximum allowed {self.max_payload_size}")
+                raise ProtocolError(
+                    f"Payload length {payload_len} exceeds maximum allowed {self.max_payload_size}"
+                )
 
             # Read exact payload
             payload = await reader.readexactly(payload_len)
@@ -97,7 +109,9 @@ class PacketFramer:
         buf_len = len(buffer)
 
         while offset + self.HEADER_SIZE <= buf_len:
-            magic, flags, payload_len, expected_checksum = struct.unpack_from(self.HEADER_FORMAT, buffer, offset)
+            magic, flags, payload_len, expected_checksum = struct.unpack_from(
+                self.HEADER_FORMAT, buffer, offset
+            )
 
             if magic != self.MAGIC:
                 raise ProtocolError(f"Invalid framing magic bytes: {magic!r}")
@@ -107,7 +121,9 @@ class PacketFramer:
                 # Incomplete frame, wait for more data
                 break
 
-            payload_view = memoryview(buffer)[offset + self.HEADER_SIZE : offset + total_frame_size]
+            payload_view = memoryview(buffer)[
+                offset + self.HEADER_SIZE : offset + total_frame_size
+            ]
             # Compute CRC32 over memoryview zero-copy
             actual_checksum = zlib.crc32(payload_view) & 0xFFFFFFFF
             if actual_checksum != expected_checksum:

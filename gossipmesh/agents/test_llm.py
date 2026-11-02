@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import asyncio
 
-from gossipmesh.agents.llm import LocalLlamaFallback, LLAMA_CPP_AVAILABLE
+from gossipmesh.agents.llm import LocalLlamaFallback
 
 
 class TestLocalLlamaFallback(unittest.TestCase):
@@ -13,7 +13,9 @@ class TestLocalLlamaFallback(unittest.TestCase):
     @patch("gossipmesh.agents.llm.LLAMA_CPP_AVAILABLE", True)
     def test_generate_completion_success(self, mock_llama_class):
         mock_instance = MagicMock()
-        mock_instance.return_value = {"choices": [{"text": "Hello from local fallback!"}]}
+        mock_instance.return_value = {
+            "choices": [{"text": "Hello from local fallback!"}]
+        }
         mock_llama_class.return_value = mock_instance
         self.fallback._model = mock_instance
 
@@ -42,7 +44,9 @@ class TestLocalLlamaFallback(unittest.TestCase):
             raise RuntimeError("Rate limit exceeded (429)")
 
         mock_instance = MagicMock()
-        mock_instance.return_value = {"choices": [{"text": "Local LLM fallback response"}]}
+        mock_instance.return_value = {
+            "choices": [{"text": "Local LLM fallback response"}]
+        }
         mock_llama_class.return_value = mock_instance
         self.fallback._model = mock_instance
 

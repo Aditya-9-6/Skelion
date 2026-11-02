@@ -7,9 +7,8 @@ using X25519 (ECDH), ChaCha20Poly1305 (AEAD), and BLAKE2s (Hashing/KDF) per the 
 
 from __future__ import annotations
 
-import os
 import logging
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional
 
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
@@ -31,7 +30,11 @@ class NoiseXXState:
       - Message 3: s, se -> Initiator static and auth
     """
 
-    def __init__(self, is_initiator: bool, static_private_key: Optional[x25519.X25519PrivateKey] = None):
+    def __init__(
+        self,
+        is_initiator: bool,
+        static_private_key: Optional[x25519.X25519PrivateKey] = None,
+    ):
         self.is_initiator = is_initiator
         self.protocol_name = b"Noise_XX_25519_ChaChaPoly_BLAKE2s"
 

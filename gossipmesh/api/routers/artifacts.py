@@ -6,19 +6,22 @@ from gossipmesh.models.user import User
 from gossipmesh.models.organization import UserOrganization
 from gossipmesh.models.runtime import Artifact, Job, Workflow
 from gossipmesh.core.exceptions import AuthorizationError
-from gossipmesh.services.quarantine import ArtifactQuarantineManager as BaseArtifactQuarantineManager
 
 router = APIRouter()
 
 
 class ExtendedArtifactQuarantineManager:
-    def authorize_and_download(self, artifact_id: int, current_user: User, db: Session) -> Tuple[Any, bytes]:
+    def authorize_and_download(
+        self, artifact_id: int, current_user: User, db: Session
+    ) -> Tuple[Any, bytes]:
         return (Artifact(name="dummy", content_type="text/plain"), b"dummy content")
 
 
 @router.get("/{artifact_id}")
 def get_artifact(
-    artifact_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    artifact_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     artifact = (
         db.query(Artifact)
@@ -60,7 +63,9 @@ def download_artifact(
     db: Session = Depends(deps.get_db),
 ) -> Response:
     manager = ExtendedArtifactQuarantineManager()
-    download_func = getattr(manager, "authorize_and_download", getattr(manager, "download", None))
+    download_func = getattr(
+        manager, "authorize_and_download", getattr(manager, "download", None)
+    )
     if download_func:
         artifact, content = download_func(artifact_id, current_user, db)
     else:
@@ -77,5 +82,7 @@ def download_artifact(
     return Response(
         content=content,
         media_type=getattr(artifact, "content_type", "application/octet-stream"),
-        headers={"Content-Disposition": f'attachment; filename="{getattr(artifact, "name", "artifact")}"0'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{getattr(artifact, "name", "artifact")}"0'
+        },
     )

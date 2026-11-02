@@ -5,7 +5,12 @@ from openai import AsyncOpenAI
 import tiktoken
 
 from gossipmesh.providers.base import BaseProvider
-from gossipmesh.providers.models import GenerationRequest, GenerationResponse, ProviderHealth, Usage
+from gossipmesh.providers.models import (
+    GenerationRequest,
+    GenerationResponse,
+    ProviderHealth,
+    Usage,
+)
 
 
 class OpenAIProvider(BaseProvider):
@@ -20,7 +25,9 @@ class OpenAIProvider(BaseProvider):
     async def generate(self, request: GenerationRequest) -> GenerationResponse:
         time.time()
 
-        formatted_messages: list[Any] = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        formatted_messages: list[Any] = [
+            {"role": msg.role, "content": msg.content} for msg in request.messages
+        ]
 
         response = await self.client.chat.completions.create(
             model=request.model,
@@ -47,8 +54,12 @@ class OpenAIProvider(BaseProvider):
             raw_response=response.model_dump(),
         )
 
-    async def generate_stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:  # type: ignore
-        formatted_messages: list[Any] = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+    async def generate_stream(
+        self, request: GenerationRequest
+    ) -> AsyncGenerator[str, None]:  # type: ignore
+        formatted_messages: list[Any] = [
+            {"role": msg.role, "content": msg.content} for msg in request.messages
+        ]
         stream: Any = await self.client.chat.completions.create(
             model=request.model,
             messages=formatted_messages,

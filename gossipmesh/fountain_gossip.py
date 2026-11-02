@@ -7,14 +7,11 @@ using Luby Transform (LT) rateless fountain codes, dynamic routing trees, and re
 
 from __future__ import annotations
 
-import math
-import os
 import random
 import struct
 import threading
-import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -44,7 +41,7 @@ class Droplet:
         indices_format = f"{idx_count}I"
         indices_bytes = struct.pack(indices_format, *self.indices)
         data_len = len(self.data)
-        header_format = f"H Q H H H"
+        header_format = "H Q H H H"
         header_size = struct.calcsize(header_format)
 
         fmt = f"{header_size}s {sid_len}s {idx_count}I I {data_len}s"
@@ -69,7 +66,9 @@ class Droplet:
     def deserialize(cls, raw: bytes) -> Droplet:
         header_format = "H Q H H H"
         header_size = struct.calcsize(header_format)
-        sid_len, droplet_id, degree, total_chunks, idx_count = struct.unpack_from(header_format, raw, 0)
+        sid_len, droplet_id, degree, total_chunks, idx_count = struct.unpack_from(
+            header_format, raw, 0
+        )
         offset = header_size
 
         sid_bytes = raw[offset : offset + sid_len]
@@ -129,7 +128,9 @@ class LubyTransformEncoder:
             droplet_id = self._next_id
             self._next_id += 1
 
-        rng = random.Random(seed if seed is not None else (droplet_id ^ hash(session_id)))
+        rng = random.Random(
+            seed if seed is not None else (droplet_id ^ hash(session_id))
+        )
         degree = self._sample_degree(rng)
         indices = rng.sample(range(self.k), min(self.k, degree))
         indices.sort()
@@ -270,7 +271,9 @@ class HierarchicalAggregationTree:
                 child_id = all_nodes[peer_idx]
                 curr_node.children.append(child_id)
                 self.tree[child_id].parent = curr_id
-                self.tree[child_id].is_leaf = False  # temporarily set non-leaf, checked later
+                self.tree[
+                    child_id
+                ].is_leaf = False  # temporarily set non-leaf, checked later
                 queue.append(child_id)
                 peer_idx += 1
                 assigned += 1
@@ -294,16 +297,22 @@ class HierarchicalAggregationTree:
 class TwoPhaseGossipAggregator:
     """Orchestrates Phase 1 (bottom-up aggregation tree collection) and Phase 2 (top-down fountain broadcast)."""
 
-    def __init__(self, node_id: str, peers: List[str], config: Optional[FountainConfig] = None) -> None:
+    def __init__(
+        self, node_id: str, peers: List[str], config: Optional[FountainConfig] = None
+    ) -> None:
         self.node_id = node_id
         self.peers = peers
         self.config = config or FountainConfig()
-        self.tree = HierarchicalAggregationTree(root_id=node_id, peers=peers, fanout=self.config.tree_fanout)
+        self.tree = HierarchicalAggregationTree(
+            root_id=node_id, peers=peers, fanout=self.config.tree_fanout
+        )
         self._state_store: Dict[str, bytes] = {}
         self._decoders: Dict[str, LubyTransformDecoder] = {}
         self._lock = threading.Lock()
 
-    def phase1_aggregate_up(self, session_id: str, local_state: bytes) -> Dict[str, bytes]:
+    def phase1_aggregate_up(
+        self, session_id: str, local_state: bytes
+    ) -> Dict[str, bytes]:
         """Simulates bottom-up aggregation of child states towards parent nodes."""
         with self._lock:
             self._state_store[session_id] = local_state
@@ -321,17 +330,23 @@ class TwoPhaseGossipAggregator:
 
             return {self.node_id: bytes(aggregated)}
 
-    def phase2_disseminate_down(self, session_id: str, state_snapshot: bytes) -> List[Droplet]:
+    def phase2_disseminate_down(
+        self, session_id: str, state_snapshot: bytes
+    ) -> List[Droplet]:
         """Encodes top-down state snapshot into fountain droplets for tree propagation."""
         encoder = LubyTransformEncoder(state_snapshot, self.config)
         num_droplets = int(encoder.k * self.config.overhead_factor) + 2
-        droplets = [encoder.generate_droplet(session_id, seed=i) for i in range(num_droplets)]
+        droplets = [
+            encoder.generate_droplet(session_id, seed=i) for i in range(num_droplets)
+        ]
         return droplets
 
     def receive_droplet(self, droplet: Droplet) -> bool:
         with self._lock:
             if droplet.session_id not in self._decoders:
-                self._decoders[droplet.session_id] = LubyTransformDecoder(droplet.total_chunks, self.config.chunk_size)
+                self._decoders[droplet.session_id] = LubyTransformDecoder(
+                    droplet.total_chunks, self.config.chunk_size
+                )
             decoder = self._decoders[droplet.session_id]
             return decoder.add_droplet(droplet)
 

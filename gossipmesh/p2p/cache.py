@@ -10,7 +10,12 @@ class GossipMessageCache:
     with active time-to-live (TTL) eviction and O(1) amortized lookup/insertion.
     """
 
-    def __init__(self, capacity: int = 10000, default_ttl: float = 300.0, key: Optional[bytes] = None):
+    def __init__(
+        self,
+        capacity: int = 10000,
+        default_ttl: float = 300.0,
+        key: Optional[bytes] = None,
+    ):
         if capacity <= 0:
             raise ValueError("Cache capacity must be greater than 0.")
         if default_ttl <= 0:
@@ -28,7 +33,9 @@ class GossipMessageCache:
             return h.hexdigest()
         else:
             # HMAC-SipHash simulation fallback
-            return hmac.new(self.key, message_id.encode("utf-8"), hashlib.sha256).hexdigest()
+            return hmac.new(
+                self.key, message_id.encode("utf-8"), hashlib.sha256
+            ).hexdigest()
 
     def _evict_expired(self, current_time: float) -> None:
         """Active TTL eviction of expired cache entries."""
@@ -73,7 +80,9 @@ class GossipMessageCache:
                 self._cache.pop(digest, None)
         return None
 
-    def put(self, message_id: str, value: Any = True, ttl: Optional[float] = None) -> None:
+    def put(
+        self, message_id: str, value: Any = True, ttl: Optional[float] = None
+    ) -> None:
         """Insert or update a message in the cache with LRU eviction when capacity is exceeded."""
         digest = self._compute_digest(message_id)
         current_time = time.time()

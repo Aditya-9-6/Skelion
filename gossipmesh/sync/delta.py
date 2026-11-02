@@ -1,6 +1,6 @@
 from __future__ import annotations
 import asyncio
-from typing import Dict, Any, List, Set, Tuple
+from typing import Dict, Any, List, Tuple
 from gossipmesh.sync.vector_clock import VectorClock
 
 
@@ -57,7 +57,11 @@ class DeltaSyncEngine:
             self.local_clock.compact(max_entries=self.max_causal_entries)
         return merged_keys
 
-    async def compute_delta_concurrent(self, remote_clock_dict: Dict[str, int]) -> Dict[str, Any]:
+    async def compute_delta_concurrent(
+        self, remote_clock_dict: Dict[str, int]
+    ) -> Dict[str, Any]:
         """Computes minimal delta payloads concurrently without blocking the primary event loop."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, lambda: asyncio.run(self.get_delta(remote_clock_dict)))
+        return await loop.run_in_executor(
+            None, lambda: asyncio.run(self.get_delta(remote_clock_dict))
+        )

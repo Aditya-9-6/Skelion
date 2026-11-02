@@ -1,6 +1,5 @@
-import time
-from typing import Optional, Callable
-from fastapi import Request, Response, Depends, HTTPException
+from typing import Optional
+from fastapi import Request, Response, HTTPException
 import jwt
 
 from gossipmesh.core.rate_limit import RateLimiter
@@ -14,14 +13,18 @@ def get_org_id_from_request(request: Request) -> Optional[int]:
         try:
             return int(org_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid organization_id format")
+            raise HTTPException(
+                status_code=400, detail="Invalid organization_id format"
+            )
 
     org_id = request.query_params.get("organization_id")
     if org_id:
         try:
             return int(org_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid organization_id format")
+            raise HTTPException(
+                status_code=400, detail="Invalid organization_id format"
+            )
 
     return None
 
@@ -37,7 +40,9 @@ def get_identifier(request: Request) -> str:
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            )
             user_id = payload.get("sub")
             if user_id:
                 return f"user:{user_id}"
