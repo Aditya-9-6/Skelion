@@ -29,7 +29,8 @@ def create_workflow(
     is_member = (
         db.query(UserOrganization)
         .filter(
-            UserOrganization.user_id == current_user.id, UserOrganization.organization_id == request.organization_id
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.organization_id == request.organization_id,
         )
         .first()
     )
@@ -50,7 +51,9 @@ def create_workflow(
 
 @router.post("/workflows/{workflow_id}/cancel")
 def cancel_workflow(
-    workflow_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    workflow_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
     if not workflow:
@@ -60,7 +63,8 @@ def cancel_workflow(
     is_member = (
         db.query(UserOrganization)
         .filter(
-            UserOrganization.user_id == current_user.id, UserOrganization.organization_id == workflow.organization_id
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.organization_id == workflow.organization_id,
         )
         .first()
     )
@@ -74,7 +78,9 @@ def cancel_workflow(
 
 @router.post("/workflows/{workflow_id}/approve")
 def approve_workflow(
-    workflow_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    workflow_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
     if not workflow:
@@ -83,7 +89,8 @@ def approve_workflow(
     is_member = (
         db.query(UserOrganization)
         .filter(
-            UserOrganization.user_id == current_user.id, UserOrganization.organization_id == workflow.organization_id
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.organization_id == workflow.organization_id,
         )
         .first()
     )

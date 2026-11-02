@@ -26,11 +26,23 @@ logger = logging.getLogger(__name__)
 # Secret patterns for PII / Credential redaction
 REDACTION_PATTERNS = [
     (re.compile(r"(?:AKIA|ABIA|ACCA|ASIA)[0-9A-Z]{16}"), "[REDACTED_AWS_KEY]"),
-    (re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,255}"), "[REDACTED_GITHUB_TOKEN]"),
-    (re.compile(r"Bearer\s+[A-Za-z0-9_\-\.]{20,}", re.IGNORECASE), "Bearer [REDACTED_TOKEN]"),
-    (re.compile(r"-----BEGIN (?:[A-Z0-9_\- ]+)?PRIVATE KEY-----"), "[REDACTED_PRIVATE_KEY]"),
     (
-        re.compile(r"""(?:api_key|secret|password|token)\s*=\s*['"][^\n'"]{8,128}['"]""", re.IGNORECASE),
+        re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,255}"),
+        "[REDACTED_GITHUB_TOKEN]",
+    ),
+    (
+        re.compile(r"Bearer\s+[A-Za-z0-9_\-\.]{20,}", re.IGNORECASE),
+        "Bearer [REDACTED_TOKEN]",
+    ),
+    (
+        re.compile(r"-----BEGIN (?:[A-Z0-9_\- ]+)?PRIVATE KEY-----"),
+        "[REDACTED_PRIVATE_KEY]",
+    ),
+    (
+        re.compile(
+            r"""(?:api_key|secret|password|token)\s*=\s*['"][^\n'"]{8,128}['"]""",
+            re.IGNORECASE,
+        ),
         "[REDACTED_SECRET_ASSIGNMENT]",
     ),
     (re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"), "[REDACTED_EMAIL]"),
@@ -42,7 +54,9 @@ class InMemoryCacheStore:
 
     def __init__(self, max_entries: int = 5000):
         self.max_entries = max_entries
-        self.store: Dict[str, Tuple[str, Optional[float]]] = {}  # key -> (payload, expire_timestamp)
+        self.store: Dict[
+            str, Tuple[str, Optional[float]]
+        ] = {}  # key -> (payload, expire_timestamp)
         self.evictions: int = 0
 
     def get(self, key: str) -> Optional[str]:
@@ -100,7 +114,9 @@ class SecureRedisCache:
     ):
         self.default_ttl = default_ttl
         self.prompt_version = prompt_version
-        self.secret_key = secret_key or os.getenv("SECRET_KEY", "gossipmesh_default_cache_secret")
+        self.secret_key = secret_key or os.getenv(
+            "SECRET_KEY", "gossipmesh_default_cache_secret"
+        )
 
         # Metrics
         self.hits = 0
@@ -121,7 +137,9 @@ class SecureRedisCache:
                 self.client = client
                 logger.info("Connected to remote Redis cache.")
             except Exception as e:
-                logger.warning(f"Failed to connect to Redis at {target_url}: {e}. Falling back to in-memory cache.")
+                logger.warning(
+                    f"Failed to connect to Redis at {target_url}: {e}. Falling back to in-memory cache."
+                )
                 self.client = InMemoryCacheStore()
         else:
             self.client = InMemoryCacheStore()
@@ -182,7 +200,9 @@ class SecureRedisCache:
         if key_or_prompt.startswith("gossipmesh:"):
             cache_key = key_or_prompt
         else:
-            cache_key = self.build_key(organization_id, provider, model, key_or_prompt, prompt_version)
+            cache_key = self.build_key(
+                organization_id, provider, model, key_or_prompt, prompt_version
+            )
 
         raw = self.client.get(cache_key)
         if raw is None:
@@ -191,7 +211,11 @@ class SecureRedisCache:
 
         try:
             envelope = json.loads(raw)
-            if not isinstance(envelope, dict) or "data" not in envelope or "hmac" not in envelope:
+            if (
+                not isinstance(envelope, dict)
+                or "data" not in envelope
+                or "hmac" not in envelope
+            ):
                 self.poisoning_attempts += 1
                 self.client.delete(cache_key)
                 logger.warning(f"Malformed cache envelope at {cache_key}. Evicted.")
@@ -204,7 +228,9 @@ class SecureRedisCache:
             if not hmac.compare_digest(expected_hmac, envelope["hmac"]):
                 self.poisoning_attempts += 1
                 self.client.delete(cache_key)
-                logger.error(f"CACHE POISONING DETECTED at {cache_key}! Signature mismatch. Evicted.")
+                logger.error(
+                    f"CACHE POISONING DETECTED at {cache_key}! Signature mismatch. Evicted."
+                )
                 return None
 
             self.hits += 1
@@ -232,14 +258,18 @@ class SecureRedisCache:
         if key_or_prompt.startswith("gossipmesh:"):
             cache_key = key_or_prompt
         else:
-            cache_key = self.build_key(organization_id, provider, model, key_or_prompt, prompt_version)
+            cache_key = self.build_key(
+                organization_id, provider, model, key_or_prompt, prompt_version
+            )
 
         # 1. Quick size check before redaction
         try:
             raw_check = json.dumps(value)
             if len(raw_check.encode("utf-8")) > self.MAX_ENTRY_SIZE_BYTES:
                 self.rejected_size += 1
-                logger.warning(f"Cache entry exceeds {self.MAX_ENTRY_SIZE_BYTES} bytes. Refusing to cache.")
+                logger.warning(
+                    f"Cache entry exceeds {self.MAX_ENTRY_SIZE_BYTES} bytes. Refusing to cache."
+                )
                 return False
         except Exception:
             pass
@@ -260,7 +290,9 @@ class SecureRedisCache:
         # 4. Final size limit check
         if len(serialized.encode("utf-8")) > self.MAX_ENTRY_SIZE_BYTES:
             self.rejected_size += 1
-            logger.warning(f"Cache entry exceeds {self.MAX_ENTRY_SIZE_BYTES} bytes. Refusing to cache.")
+            logger.warning(
+                f"Cache entry exceeds {self.MAX_ENTRY_SIZE_BYTES} bytes. Refusing to cache."
+            )
             return False
 
         effective_ttl = ttl if ttl is not None else self.default_ttl

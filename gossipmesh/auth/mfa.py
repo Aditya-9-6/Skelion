@@ -56,7 +56,9 @@ def get_totp_token(secret: str, time_step: int = 30, t: float | None = None) -> 
     return f"{code:06d}"
 
 
-def verify_totp_code(secret: str, code: str, time_step: int = 30, window: int = 1) -> bool:
+def verify_totp_code(
+    secret: str, code: str, time_step: int = 30, window: int = 1
+) -> bool:
     """
     Verify TOTP code against secret, checking current interval and +/- window steps for clock drift.
     """
@@ -119,7 +121,9 @@ class MFAService:
 
         user = db.query(User).filter(User.id == user_id).first()
         if not user or not user.mfa_secret:
-            raise MFAAuthenticationError("MFA setup has not been initiated for this user")
+            raise MFAAuthenticationError(
+                "MFA setup has not been initiated for this user"
+            )
 
         if not verify_totp_code(user.mfa_secret, code):
             raise MFAAuthenticationError("Invalid MFA TOTP verification code")
@@ -130,7 +134,9 @@ class MFAService:
         return True
 
     @staticmethod
-    def require_step_up_auth(user, mfa_code: str | None, operation_name: str = "destructive_action") -> bool:
+    def require_step_up_auth(
+        user, mfa_code: str | None, operation_name: str = "destructive_action"
+    ) -> bool:
         """
         Enforce step-up authentication for sensitive/destructive operations
         (e.g., organization deletion, audit log export, break-glass invocation).
@@ -148,6 +154,8 @@ class MFAService:
 
         secret = getattr(user, "mfa_secret", None)
         if not secret or not verify_totp_code(secret, mfa_code):
-            raise MFAAuthenticationError(f"Invalid TOTP step-up authentication code for operation '{operation_name}'.")
+            raise MFAAuthenticationError(
+                f"Invalid TOTP step-up authentication code for operation '{operation_name}'."
+            )
 
         return True

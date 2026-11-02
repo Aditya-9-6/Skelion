@@ -1,8 +1,7 @@
 import sys
-import time
 import hashlib
 from collections import OrderedDict
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 
 class RetransmissionCache:
@@ -32,7 +31,8 @@ class RetransmissionCache:
             self._current_memory -= sys.getsizeof(str(old_payload))
 
         while (
-            len(self._cache) >= self.capacity or (self._current_memory + msg_size) > self.max_memory_bytes
+            len(self._cache) >= self.capacity
+            or (self._current_memory + msg_size) > self.max_memory_bytes
         ) and self._cache:
             _, evicted_val = self._cache.popitem(last=False)
             self._current_memory -= sys.getsizeof(str(evicted_val))
@@ -54,7 +54,11 @@ class RetransmissionCache:
         if self.capacity == 0:
             return False
         utilization = len(self._cache) / self.capacity
-        memory_utilization = self._current_memory / self.max_memory_bytes if self.max_memory_bytes > 0 else 0.0
+        memory_utilization = (
+            self._current_memory / self.max_memory_bytes
+            if self.max_memory_bytes > 0
+            else 0.0
+        )
         return utilization >= 0.85 or memory_utilization >= 0.85
 
     def size(self) -> int:

@@ -12,7 +12,6 @@ import sys
 import os
 import json
 import re
-import time
 import subprocess
 import argparse
 import urllib.request
@@ -68,11 +67,21 @@ def load_gemini_keys() -> list[str]:
     for k in pool.split(","):
         if k.strip() and k.strip() not in keys:
             keys.append(k.strip())
-    for var in ("GEMINI_ISSUE_KEY", "GEMINI_REVIEWER_KEY", "GEMINI_SOLVER_KEY", "GEMINI_API_KEY"):
+    for var in (
+        "GEMINI_ISSUE_KEY",
+        "GEMINI_REVIEWER_KEY",
+        "GEMINI_SOLVER_KEY",
+        "GEMINI_API_KEY",
+    ):
         val = os.environ.get(var, "").strip()
         if val and val not in keys:
             keys.append(val)
-    for check_dir in (Path("."), Path(__file__).resolve().parent, Path(__file__).resolve().parent.parent, Path.home()):
+    for check_dir in (
+        Path("."),
+        Path(__file__).resolve().parent,
+        Path(__file__).resolve().parent.parent,
+        Path.home(),
+    ):
         kf = check_dir / ".gemini_keys"
         if kf.exists():
             try:
@@ -104,7 +113,10 @@ def call_gemini(api_key: str, prompt: str, system_prompt: str = SYSTEM_PROMPT) -
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={current_key}"
             payload = {
                 "contents": [{"parts": [{"text": system_prompt}, {"text": prompt}]}],
-                "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
+                "generationConfig": {
+                    "temperature": 0.2,
+                    "responseMimeType": "application/json",
+                },
             }
             req = urllib.request.Request(
                 url,
@@ -128,23 +140,35 @@ def call_gemini(api_key: str, prompt: str, system_prompt: str = SYSTEM_PROMPT) -
     raise RuntimeError(f"Gemini API exhausted. Last error: {last_err}")
 
 
-def call_openrouter(api_key: str = "", prompt: str = "", system_prompt: str = SYSTEM_PROMPT) -> dict:
+def call_openrouter(
+    api_key: str = "", prompt: str = "", system_prompt: str = SYSTEM_PROMPT
+) -> dict:
     key = api_key or os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not key:
         raise ValueError("Missing OPENROUTER_API_KEY")
     url = "https://openrouter.ai/api/v1/chat/completions"
-    models = ["google/gemini-2.0-flash-001", "meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-chat"]
+    models = [
+        "google/gemini-2.0-flash-001",
+        "meta-llama/llama-3.3-70b-instruct",
+        "deepseek/deepseek-chat",
+    ]
     for model in models:
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -157,7 +181,10 @@ def call_openrouter(api_key: str = "", prompt: str = "", system_prompt: str = SY
 
 
 def call_ai_model(prompt: str) -> dict:
-    primary_gemini = os.environ.get("GEMINI_ISSUE_KEY", "").strip() or os.environ.get("GEMINI_API_KEY", "").strip()
+    primary_gemini = (
+        os.environ.get("GEMINI_ISSUE_KEY", "").strip()
+        or os.environ.get("GEMINI_API_KEY", "").strip()
+    )
     try:
         return call_gemini(primary_gemini, prompt)
     except Exception as e:
@@ -180,30 +207,55 @@ def run_cmd(cmd: list[str], cwd: Path = Path(".")) -> tuple[int, str, str]:
         and cmd[1] in ("issue", "pr", "workflow", "api")
     ):
         cmd = [cmd[0], cmd[1], "--repo", repo] + cmd[2:]
-    res = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    res = subprocess.run(
+        cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
     return res.returncode, res.stdout.strip(), res.stderr.strip()
 
 
-def evaluate_issue(issue_number: str, workspace: Path, title: str = "", body: str = "", force: bool = False):
-    print(f"[*] AI Gatekeeper evaluating Issue #{issue_number} in {workspace}...", flush=True)
+def evaluate_issue(
+    issue_number: str,
+    workspace: Path,
+    title: str = "",
+    body: str = "",
+    force: bool = False,
+):
+    print(
+        f"[*] AI Gatekeeper evaluating Issue #{issue_number} in {workspace}...",
+        flush=True,
+    )
 
     # 1. Fetch issue metadata if not provided
     if not title or not body:
         code, stdout, stderr = run_cmd(
-            ["gh", "issue", "view", str(issue_number), "--json", "number,title,body,state,labels,author"], cwd=workspace
+            [
+                "gh",
+                "issue",
+                "view",
+                str(issue_number),
+                "--json",
+                "number,title,body,state,labels,author",
+            ],
+            cwd=workspace,
         )
         if code != 0 or not stdout:
-            print(f"[!] Failed to fetch Issue #{issue_number}: {stderr}", file=sys.stderr)
+            print(
+                f"[!] Failed to fetch Issue #{issue_number}: {stderr}", file=sys.stderr
+            )
             return False
 
         issue = json.loads(stdout)
         if issue.get("state") != "OPEN":
-            print(f"[*] Issue #{issue_number} is already closed ({issue.get('state')}). Skipping.")
+            print(
+                f"[*] Issue #{issue_number} is already closed ({issue.get('state')}). Skipping."
+            )
             return True
 
         labels = [l.get("name", "") for l in issue.get("labels", [])]
         if not force and ("approved" in labels or "rejected" in labels):
-            print(f"[*] Issue #{issue_number} already has terminal label {labels}. Skipping duplicate evaluation.")
+            print(
+                f"[*] Issue #{issue_number} already has terminal label {labels}. Skipping duplicate evaluation."
+            )
             return True
 
         title = issue.get("title", "")
@@ -211,11 +263,26 @@ def evaluate_issue(issue_number: str, workspace: Path, title: str = "", body: st
 
     # 2. Fetch existing issues for context / deduplication
     _, issues_out, _ = run_cmd(
-        ["gh", "issue", "list", "--state", "all", "--limit", "30", "--json", "number,title"], cwd=workspace
+        [
+            "gh",
+            "issue",
+            "list",
+            "--state",
+            "all",
+            "--limit",
+            "30",
+            "--json",
+            "number,title",
+        ],
+        cwd=workspace,
     )
     existing_titles = []
     try:
-        existing_titles = [i["title"] for i in json.loads(issues_out) if str(i["number"]) != str(issue_number)]
+        existing_titles = [
+            i["title"]
+            for i in json.loads(issues_out)
+            if str(i["number"]) != str(issue_number)
+        ]
     except Exception:
         pass
 
@@ -250,12 +317,27 @@ Instructions:
     refined_title = eval_result.get("refined_title", "").strip()
     refined_body = eval_result.get("refined_body", "").strip()
 
-    print(f"[+] Evaluation Result for Issue #{issue_number}: Verdict={verdict}, Score={score}/100", flush=True)
+    print(
+        f"[+] Evaluation Result for Issue #{issue_number}: Verdict={verdict}, Score={score}/100",
+        flush=True,
+    )
 
     # Action 1: APPROVED
-    if verdict == "APPROVE" or (verdict == "NEEDS_CHANGES" and score >= 80 and not refined_body):
+    if verdict == "APPROVE" or (
+        verdict == "NEEDS_CHANGES" and score >= 80 and not refined_body
+    ):
         print(f"[*] Approving Issue #{issue_number}...", flush=True)
-        run_cmd(["gh", "issue", "edit", str(issue_number), "--add-label", "approved,auto-solve"], cwd=workspace)
+        run_cmd(
+            [
+                "gh",
+                "issue",
+                "edit",
+                str(issue_number),
+                "--add-label",
+                "approved,auto-solve",
+            ],
+            cwd=workspace,
+        )
 
         comment = f"""### 🏛️ Architectural Gatekeeper: Issue Approved ✅
 
@@ -268,12 +350,18 @@ Instructions:
 ---
 *Ready for autonomous solution synthesis and pre-flight verification.*
 """
-        run_cmd(["gh", "issue", "comment", str(issue_number), "--body", comment], cwd=workspace)
+        run_cmd(
+            ["gh", "issue", "comment", str(issue_number), "--body", comment],
+            cwd=workspace,
+        )
         return True
 
     # Action 2: NEEDS CHANGES (Autonomous Collaborative Refinement)
     elif verdict == "NEEDS_CHANGES":
-        print(f"[*] Issue #{issue_number} requires refinement. Updating specification...", flush=True)
+        print(
+            f"[*] Issue #{issue_number} requires refinement. Updating specification...",
+            flush=True,
+        )
 
         if refined_body:
             new_title = refined_title if refined_title else title
@@ -292,7 +380,10 @@ Instructions:
                 ],
                 cwd=workspace,
             )
-            print(f"[+] Successfully updated Issue #{issue_number} title and body.", flush=True)
+            print(
+                f"[+] Successfully updated Issue #{issue_number} title and body.",
+                flush=True,
+            )
 
         comment = f"""### 🏛️ Architectural Gatekeeper: Issue Refined & Upgraded 🔄
 
@@ -305,12 +396,18 @@ Instructions:
 #### 🛠️ Autonomous Refinement
 *The specification has been updated with rigorous acceptance criteria and performance invariants.*
 """
-        run_cmd(["gh", "issue", "comment", str(issue_number), "--body", comment], cwd=workspace)
+        run_cmd(
+            ["gh", "issue", "comment", str(issue_number), "--body", comment],
+            cwd=workspace,
+        )
         return False
 
     # Action 3: REJECT / UNNECESSARY (Score < 55)
     else:
-        print(f"[*] Issue #{issue_number} rejected as unnecessary (Score: {score}/100). Closing...", flush=True)
+        print(
+            f"[*] Issue #{issue_number} rejected as unnecessary (Score: {score}/100). Closing...",
+            flush=True,
+        )
         comment = f"""### 🛑 Architectural Gatekeeper: Issue Closed (Unnecessary / Not Planned)
 
 **Necessity Score**: **{score}/100**
@@ -321,9 +418,18 @@ Instructions:
 
 *Closing this issue as not planned to prevent bloat and maintain focus on high-value architecture.*
 """
-        run_cmd(["gh", "issue", "comment", str(issue_number), "--body", comment], cwd=workspace)
-        run_cmd(["gh", "issue", "close", str(issue_number), "--reason", "not_planned"], cwd=workspace)
-        run_cmd(["gh", "issue", "edit", str(issue_number), "--add-label", "rejected"], cwd=workspace)
+        run_cmd(
+            ["gh", "issue", "comment", str(issue_number), "--body", comment],
+            cwd=workspace,
+        )
+        run_cmd(
+            ["gh", "issue", "close", str(issue_number), "--reason", "not_planned"],
+            cwd=workspace,
+        )
+        run_cmd(
+            ["gh", "issue", "edit", str(issue_number), "--add-label", "rejected"],
+            cwd=workspace,
+        )
         return False
 
 
@@ -333,7 +439,11 @@ def main():
     parser.add_argument("--issue-title", default="", help="Issue title (optional)")
     parser.add_argument("--issue-body", default="", help="Issue body (optional)")
     parser.add_argument("--workspace", default=".", help="Workspace directory")
-    parser.add_argument("--force", action="store_true", help="Force re-evaluation even if already labeled")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-evaluation even if already labeled",
+    )
     args = parser.parse_args()
 
     workspace = Path(args.workspace).resolve()

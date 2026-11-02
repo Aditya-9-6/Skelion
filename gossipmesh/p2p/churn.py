@@ -3,11 +3,10 @@ Provides sliding-window entropy calculation over incoming peer message metadata 
 Sybil nodes flooding fake heartbeat or vector clock vectors.
 """
 
-import math
 import time
 import threading
 from collections import deque
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple
 from gossipmesh.p2p.entropy import compute_shannon_entropy
 
 
@@ -32,7 +31,9 @@ class PeerChurnTracker:
     Bounded memory via deque with strict concurrency safety.
     """
 
-    def __init__(self, peer_id: str, config: Optional[ChurnDefenseConfig] = None) -> None:
+    def __init__(
+        self, peer_id: str, config: Optional[ChurnDefenseConfig] = None
+    ) -> None:
         self.peer_id = peer_id
         self.config = config or ChurnDefenseConfig()
         self._entropy_window: deque = deque(maxlen=self.config.window_size)
@@ -61,8 +62,13 @@ class PeerChurnTracker:
 
             if variance < self.config.entropy_variance_threshold:
                 self._ticks_exceeded += 1
-                if self._ticks_exceeded >= self.config.max_allowed_ticks_variance_exceeded:
-                    self._quarantined_until = time.time() + self.config.quarantine_duration_sec
+                if (
+                    self._ticks_exceeded
+                    >= self.config.max_allowed_ticks_variance_exceeded
+                ):
+                    self._quarantined_until = (
+                        time.time() + self.config.quarantine_duration_sec
+                    )
                     return True, float(variance)
             else:
                 # Reset or decay violations if entropy variance is normal
@@ -104,7 +110,9 @@ class MeshChurnManager:
                 self._trackers[peer_id] = PeerChurnTracker(peer_id, self.config)
             return self._trackers[peer_id]
 
-    def process_heartbeat(self, peer_id: str, metadata_vector: Dict[str, int]) -> Tuple[bool, float]:
+    def process_heartbeat(
+        self, peer_id: str, metadata_vector: Dict[str, int]
+    ) -> Tuple[bool, float]:
         """Ingests a peer heartbeat vector, updates sliding window, and evaluates Sybil churn defense."""
         tracker = self._get_or_create_tracker(peer_id)
         tracker.record_heartbeat_metadata(metadata_vector)

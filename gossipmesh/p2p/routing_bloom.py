@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import mmh3
 import threading
-from typing import List, Optional, Tuple, Sequence
+from typing import List
 
 
 class BloomFilterLayer:
@@ -60,11 +60,18 @@ class ScalableBloomRoutingTable:
     counting layers with dynamic resizing and read-copy-update semantics.
     """
 
-    def __init__(self, initial_capacity: int = 10000, error_rate: float = 0.001, scaling_factor: int = 2):
+    def __init__(
+        self,
+        initial_capacity: int = 10000,
+        error_rate: float = 0.001,
+        scaling_factor: int = 2,
+    ):
         self.initial_capacity = initial_capacity
         self.error_rate = error_rate
         self.scaling_factor = scaling_factor
-        self.layers: List[BloomFilterLayer] = [BloomFilterLayer(initial_capacity, error_rate)]
+        self.layers: List[BloomFilterLayer] = [
+            BloomFilterLayer(initial_capacity, error_rate)
+        ]
         self._global_lock = threading.Lock()
 
     def add(self, node_id: str) -> None:

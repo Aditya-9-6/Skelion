@@ -16,14 +16,18 @@ from gossipmesh.workflows.ci_fixer import CIFixerWorkflow
 
 logger = logging.getLogger(__name__)
 
-db_uri = getattr(settings, "DATABASE_URI", getattr(settings, "DATABASE_URL", "sqlite:///./test.db"))
+db_uri = getattr(
+    settings, "DATABASE_URI", getattr(settings, "DATABASE_URL", "sqlite:///./test.db")
+)
 engine = create_engine(str(db_uri))
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 MAX_RETRIES = 5
 
 
-async def async_dispatch(event: str, payload: Dict[str, Any], db: Session | None = None):
+async def async_dispatch(
+    event: str, payload: Dict[str, Any], db: Session | None = None
+):
     if event == "pull_request":
         action = payload.get("action")
         if action in ["opened", "synchronize", "reopened"]:
@@ -57,7 +61,9 @@ async def async_dispatch(event: str, payload: Dict[str, Any], db: Session | None
 def process_webhook_event(self, webhook_event_id: int):
     db: Session = SessionLocal()
     try:
-        webhook_record = db.query(WebhookEvent).filter(WebhookEvent.id == webhook_event_id).first()
+        webhook_record = (
+            db.query(WebhookEvent).filter(WebhookEvent.id == webhook_event_id).first()
+        )
         if not webhook_record:
             logger.error(f"WebhookEvent {webhook_event_id} not found.")
             return
@@ -66,7 +72,9 @@ def process_webhook_event(self, webhook_event_id: int):
         db.commit()
 
         try:
-            asyncio.run(async_dispatch(webhook_record.event, webhook_record.payload, db=db))
+            asyncio.run(
+                async_dispatch(webhook_record.event, webhook_record.payload, db=db)
+            )
 
             webhook_record.status = "processed"
             db.commit()
@@ -80,7 +88,9 @@ def process_webhook_event(self, webhook_event_id: int):
             else:
                 webhook_record.status = "failed"
                 delay = 2**webhook_record.retries
-                webhook_record.next_retry_at = datetime.now(timezone.utc) + timedelta(minutes=delay)
+                webhook_record.next_retry_at = datetime.now(timezone.utc) + timedelta(
+                    minutes=delay
+                )
 
             db.commit()
 

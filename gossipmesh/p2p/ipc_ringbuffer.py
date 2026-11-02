@@ -1,4 +1,3 @@
-import mmap
 import struct
 import threading
 from multiprocessing import shared_memory
@@ -107,7 +106,7 @@ class IPCSharedMemoryRingBuffer:
 
             slot_offset = self.HEADER_SIZE + (head * self.slot_size)
             msg_len = struct.unpack_from("=I", self._shm.buf, slot_offset)[0]
-            
+
             # Zero-copy memory view slicing
             payload_view = memoryview(self._shm.buf)[
                 slot_offset + 4 : slot_offset + 4 + msg_len
