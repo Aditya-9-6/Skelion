@@ -1,7 +1,7 @@
 import math
 import asyncio
 from collections import deque
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Any
 from gossipmesh.p2p.merkle import MerkleDAG, MerkleNode
 
 
@@ -52,7 +52,9 @@ class AntiEntropyEntropy:
         return compute_shannon_entropy(div) >= self.threshold
 
 
-def compute_divergence_vector(local_clock: Dict[str, int], peer_clock: Dict[str, int]) -> Dict[str, int]:
+def compute_divergence_vector(
+    local_clock: Dict[str, int], peer_clock: Dict[str, int]
+) -> Dict[str, int]:
     """Computes absolute element-wise divergence between local and peer vector clocks."""
     all_keys = set(local_clock.keys()).union(set(peer_clock.keys()))
     divergence: Dict[str, int] = {}
@@ -91,14 +93,21 @@ class AntiEntropyScraper:
 
     def _get_or_create_buffer(self, peer_id: str) -> VectorClockRingBuffer:
         if peer_id not in self.peer_buffers:
-            self.peer_buffers[peer_id] = VectorClockRingBuffer(capacity=self.buffer_capacity)
+            self.peer_buffers[peer_id] = VectorClockRingBuffer(
+                capacity=self.buffer_capacity
+            )
         return self.peer_buffers[peer_id]
 
 
 class HierarchicalAntiEntropySyncer:
     """Asynchronous Hierarchical Merkle-DAG Anti-Entropy Syncer for convergent state reconciliation."""
 
-    def __init__(self, node_id: str, state_store: Dict[str, Any], latency_budget_ms: float = 100.0):
+    def __init__(
+        self,
+        node_id: str,
+        state_store: Dict[str, Any],
+        latency_budget_ms: float = 100.0,
+    ):
         self.node_id = node_id
         self.state_store = state_store
         self.latency_budget_ms = latency_budget_ms
@@ -107,7 +116,9 @@ class HierarchicalAntiEntropySyncer:
     def refresh_dag(self) -> None:
         self.dag = MerkleDAG(self.state_store)
 
-    async def reconcile_with_peer(self, peer_id: str, remote_root: MerkleNode) -> List[str]:
+    async def reconcile_with_peer(
+        self, peer_id: str, remote_root: MerkleNode
+    ) -> List[str]:
         """
         Reconciles local state with a peer using O(log N) Merkle-DAG traversal
         under strict asynchronous latency budgets.

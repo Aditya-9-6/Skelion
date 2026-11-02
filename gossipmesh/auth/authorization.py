@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 from pydantic import BaseModel
 
 
@@ -12,7 +12,9 @@ class UserContext(BaseModel):
     user_id: str
     is_active: bool = True
     is_service_account: bool = False
-    roles: Dict[str, List[str]] = {}  # resource_id -> list of roles (e.g. admin, member)
+    roles: Dict[
+        str, List[str]
+    ] = {}  # resource_id -> list of roles (e.g. admin, member)
 
 
 class AuthorizationService:
@@ -32,7 +34,12 @@ class AuthorizationService:
             "organization_member": ["organization:read"],
             "project_admin": ["project:read", "project:write", "project:delete"],
             "project_member": ["project:read"],
-            "repository_admin": ["repository:read", "repository:write", "repository:delete", "approval:write"],
+            "repository_admin": [
+                "repository:read",
+                "repository:write",
+                "repository:delete",
+                "approval:write",
+            ],
             "repository_member": ["repository:read"],
             "service_account": ["*"],  # example for service accounts
         }
@@ -40,7 +47,9 @@ class AuthorizationService:
     def _get_permissions_for_role(self, role: str) -> List[str]:
         return self.role_permissions.get(role, [])
 
-    def check_permission(self, user: UserContext, resource: Resource, permission: str) -> bool:
+    def check_permission(
+        self, user: UserContext, resource: Resource, permission: str
+    ) -> bool:
         """
         Check if the user has the required permission on the resource.
         """

@@ -11,7 +11,6 @@ Enforces environment-controlled safety switches:
 """
 
 import os
-import sys
 from typing import Tuple
 
 
@@ -82,14 +81,20 @@ safety = SafetyConfig()
 def check_automation_kill_switch() -> Tuple[bool, str]:
     """Checks if the master automation kill switch is triggered."""
     if not safety.AUTOMATION_ENABLED:
-        return False, "Automation aborted: GOSSIPMESH_AUTOMATION_ENABLED is False (Kill-switch active)."
+        return (
+            False,
+            "Automation aborted: GOSSIPMESH_AUTOMATION_ENABLED is False (Kill-switch active).",
+        )
     return True, ""
 
 
 def check_pr_creation_allowed() -> Tuple[bool, str]:
     """Checks if PR creation is authorized by safety configuration."""
     if not safety.ALLOW_PR_CREATION:
-        return False, "PR creation blocked: GOSSIPMESH_ALLOW_PR_CREATION is disabled by default."
+        return (
+            False,
+            "PR creation blocked: GOSSIPMESH_ALLOW_PR_CREATION is disabled by default.",
+        )
     return True, ""
 
 
@@ -98,14 +103,20 @@ def check_push_allowed(force: bool = False) -> Tuple[bool, str]:
     if not safety.ALLOW_PUSH:
         return False, "Git push blocked: GOSSIPMESH_ALLOW_PUSH is disabled by default."
     if force and not safety.ALLOW_FORCE_PUSH:
-        return False, "Git force push blocked: GOSSIPMESH_ALLOW_FORCE_PUSH is disabled by default."
+        return (
+            False,
+            "Git force push blocked: GOSSIPMESH_ALLOW_FORCE_PUSH is disabled by default.",
+        )
     return True, ""
 
 
 def check_auto_merge_allowed() -> Tuple[bool, str]:
     """Checks if auto-merging PRs into main is authorized."""
     if not safety.ALLOW_AUTO_MERGE:
-        return False, "Auto-merge blocked: GOSSIPMESH_ALLOW_AUTO_MERGE is disabled by default."
+        return (
+            False,
+            "Auto-merge blocked: GOSSIPMESH_ALLOW_AUTO_MERGE is disabled by default.",
+        )
     return True, ""
 
 

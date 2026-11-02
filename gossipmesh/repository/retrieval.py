@@ -136,7 +136,10 @@ class PermissionAwareRetriever:
                         if dep not in seen_files:
                             safe_results.append(
                                 {
-                                    "metadata": {"filepath": dep, "type": "dependency_expansion"},
+                                    "metadata": {
+                                        "filepath": dep,
+                                        "type": "dependency_expansion",
+                                    },
                                     "filepath": dep,
                                     "content": f"# Expanded dependency {dep}",
                                     "score": round(res.get("score", 0.0) * 0.8, 4),
@@ -159,8 +162,12 @@ class HybridRetriever(PermissionAwareRetriever):
             embedding_model=embedding_model,
         )
 
-    def search_legacy(self, query: str, repo_id: int, top_k: int = 5) -> List[Dict[str, Any]]:
+    def search_legacy(
+        self, query: str, repo_id: int, top_k: int = 5
+    ) -> List[Dict[str, Any]]:
         """Legacy search without user permission context (deprecated)."""
         query_embedding = [0.0] * 1536
-        vector_results = self.vector_store.search(vector=query_embedding, filter={"repo_id": repo_id}, top_k=top_k)
+        vector_results = self.vector_store.search(
+            vector=query_embedding, filter={"repo_id": repo_id}, top_k=top_k
+        )
         return vector_results

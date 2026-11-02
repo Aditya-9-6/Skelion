@@ -13,7 +13,9 @@ def chunk_python_code(code: str, filepath: str) -> List[Dict[str, Any]]:
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 start_line = node.lineno
-                end_line = node.end_lineno if hasattr(node, "end_lineno") else start_line
+                end_line = (
+                    node.end_lineno if hasattr(node, "end_lineno") else start_line
+                )
 
                 # Extract the source code for this node
                 lines = code.splitlines()

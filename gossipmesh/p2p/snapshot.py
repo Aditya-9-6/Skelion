@@ -19,7 +19,14 @@ class SnapshotTransferProtocol:
         total_size = len(compressed)
         for i in range(0, total_size, self.chunk_size):
             chunk_bytes = compressed[i : i + self.chunk_size]
-            chunks.append({"offset": i, "total_size": total_size, "data": chunk_bytes.hex(), "checksum": checksum})
+            chunks.append(
+                {
+                    "offset": i,
+                    "total_size": total_size,
+                    "data": chunk_bytes.hex(),
+                    "checksum": checksum,
+                }
+            )
         return chunks
 
     def reassemble_and_verify(self, chunks: List[Dict[str, Any]]) -> Dict[str, Any]:

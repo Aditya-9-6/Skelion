@@ -1,10 +1,6 @@
-import ctypes
-import mmap
-import os
-import struct
 import threading
 import time
-from typing import Optional, Tuple, Generator, Any
+from typing import Optional, Tuple
 from gossipmesh.p2p.buffer_pool import ZeroCopyBufferPool
 
 
@@ -16,7 +12,10 @@ class AtomicRingBufferMultiplexer:
     """
 
     def __init__(
-        self, capacity: int = 1024, max_payload_size: int = 4096, buffer_pool: Optional[ZeroCopyBufferPool] = None
+        self,
+        capacity: int = 1024,
+        max_payload_size: int = 4096,
+        buffer_pool: Optional[ZeroCopyBufferPool] = None,
     ):
         if capacity & (capacity - 1) != 0:
             # Ensure power of 2 for fast bitmask modulo
@@ -24,15 +23,21 @@ class AtomicRingBufferMultiplexer:
 
         self.capacity = capacity
         self.max_payload_size = max_payload_size
-        self.buffer_pool = buffer_pool or ZeroCopyBufferPool(slice_size=max_payload_size)
+        self.buffer_pool = buffer_pool or ZeroCopyBufferPool(
+            slice_size=max_payload_size
+        )
 
         # Cell layout: priority (1) + timestamp (8) + length (4) + payload
         self.cell_size = 1 + 8 + 4 + max_payload_size
-        self.total_size = 16 + (capacity * self.cell_size)  # head (8) + tail (8) + cells
+        self.total_size = 16 + (
+            capacity * self.cell_size
+        )  # head (8) + tail (8) + cells
 
         # Allocate shared memory buffer
         self._buffer = bytearray(self.total_size)
-        self._lock = threading.Lock()  # Guard for concurrent multithreaded fast-paths if needed
+        self._lock = (
+            threading.Lock()
+        )  # Guard for concurrent multithreaded fast-paths if needed
 
         # Offsets
         self._head_offset = 0
@@ -44,16 +49,28 @@ class AtomicRingBufferMultiplexer:
         self._set_tail(0)
 
     def _get_head(self) -> int:
-        return int.from_bytes(self._buffer[self._head_offset : self._head_offset + 8], byteorder="little", signed=False)
+        return int.from_bytes(
+            self._buffer[self._head_offset : self._head_offset + 8],
+            byteorder="little",
+            signed=False,
+        )
 
     def _set_head(self, val: int) -> None:
-        self._buffer[self._head_offset : self._head_offset + 8] = val.to_bytes(8, byteorder="little", signed=False)
+        self._buffer[self._head_offset : self._head_offset + 8] = val.to_bytes(
+            8, byteorder="little", signed=False
+        )
 
     def _get_tail(self) -> int:
-        return int.from_bytes(self._buffer[self._tail_offset : self._tail_offset + 8], byteorder="little", signed=False)
+        return int.from_bytes(
+            self._buffer[self._tail_offset : self._tail_offset + 8],
+            byteorder="little",
+            signed=False,
+        )
 
     def _set_tail(self, val: int) -> None:
-        self._buffer[self._tail_offset : self._tail_offset + 8] = val.to_bytes(8, byteorder="little", signed=False)
+        self._buffer[self._tail_offset : self._tail_offset + 8] = val.to_bytes(
+            8, byteorder="little", signed=False
+        )
 
     def push(self, payload: bytes, priority: int = 1) -> bool:
         """
@@ -63,7 +80,9 @@ class AtomicRingBufferMultiplexer:
         Returns True if successful, False if dropped due to backpressure.
         """
         if len(payload) > self.max_payload_size:
-            raise ValueError(f"Payload size {len(payload)} exceeds max_payload_size {self.max_payload_size}")
+            raise ValueError(
+                f"Payload size {len(payload)} exceeds max_payload_size {self.max_payload_size}"
+            )
 
         with self._lock:
             head = self._get_head()
@@ -102,8 +121,12 @@ class AtomicRingBufferMultiplexer:
             length = len(payload)
 
             self._buffer[cell_offset] = priority & 0xFF
-            self._buffer[cell_offset + 1 : cell_offset + 9] = ts.to_bytes(8, byteorder="little", signed=False)
-            self._buffer[cell_offset + 9 : cell_offset + 13] = length.to_bytes(4, byteorder="little", signed=False)
+            self._buffer[cell_offset + 1 : cell_offset + 9] = ts.to_bytes(
+                8, byteorder="little", signed=False
+            )
+            self._buffer[cell_offset + 9 : cell_offset + 13] = length.to_bytes(
+                4, byteorder="little", signed=False
+            )
             self._buffer[cell_offset + 13 : cell_offset + 13 + length] = payload
 
             if length < self.max_payload_size:
@@ -130,11 +153,21 @@ class AtomicRingBufferMultiplexer:
             cell_offset = self._data_offset + (cell_idx * self.cell_size)
 
             priority = self._buffer[cell_offset]
-            ts = int.from_bytes(self._buffer[cell_offset + 1 : cell_offset + 9], byteorder="little", signed=False)
-            length = int.from_bytes(self._buffer[cell_offset + 9 : cell_offset + 13], byteorder="little", signed=False)
+            ts = int.from_bytes(
+                self._buffer[cell_offset + 1 : cell_offset + 9],
+                byteorder="little",
+                signed=False,
+            )
+            length = int.from_bytes(
+                self._buffer[cell_offset + 9 : cell_offset + 13],
+                byteorder="little",
+                signed=False,
+            )
 
             # Zero-copy buffer slice acquisition
-            payload_slice = bytes(self._buffer[cell_offset + 13 : cell_offset + 13 + length])
+            payload_slice = bytes(
+                self._buffer[cell_offset + 13 : cell_offset + 13 + length]
+            )
 
             self._set_tail(tail + 1)
             return (priority, ts, payload_slice)

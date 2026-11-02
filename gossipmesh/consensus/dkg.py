@@ -46,7 +46,9 @@ class DKGNode:
         Returns (commitments, secret_coefficients_for_verification).
         """
         self.my_secret_share = secrets.randbelow(self.vss.order - 1) + 1
-        self.secret_polynomial = self.vss.generate_polynomial(self.my_secret_share, self.threshold)
+        self.secret_polynomial = self.vss.generate_polynomial(
+            self.my_secret_share, self.threshold
+        )
         self.commitments = self.vss.create_commitments(self.secret_polynomial)
         return self.commitments, self.secret_polynomial
 
@@ -65,7 +67,9 @@ class DKGNode:
         # Handled in distributed coordinator or peer method below
         pass
 
-    def process_peer_contribution(self, sender_index: int, share_y: int, commitments: List[int]) -> bool:
+    def process_peer_contribution(
+        self, sender_index: int, share_y: int, commitments: List[int]
+    ) -> bool:
         """
         Validates a peer's share against their broadcast commitments using VSS.
         """
@@ -126,10 +130,14 @@ class DistributedKeyGenerationProtocol:
         # Phase 2: Distributed share exchange and VSS verification
         for receiver in self.nodes:
             for sender in self.nodes:
-                share_y = polynomials_map[sender.node_index] and receiver.vss.evaluate_polynomial(
+                share_y = polynomials_map[
+                    sender.node_index
+                ] and receiver.vss.evaluate_polynomial(
                     polynomials_map[sender.node_index], receiver.node_index
                 )
-                receiver.process_peer_contribution(sender.node_index, share_y, commitments_map[sender.node_index])
+                receiver.process_peer_contribution(
+                    sender.node_index, share_y, commitments_map[sender.node_index]
+                )
 
         # Finalize DKG for all nodes
         joint_keys = set()

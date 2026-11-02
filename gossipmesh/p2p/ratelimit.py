@@ -9,7 +9,7 @@ Plus Dynamic Leaky-Bucket Rate Limiter for outbound gossip streams with backpres
 import time
 import asyncio
 from dataclasses import dataclass
-from typing import Dict, Tuple, Optional, Any
+from typing import Dict, Optional, Any
 from collections import OrderedDict
 
 
@@ -109,7 +109,9 @@ class LeakyBucketStreamLimiter:
         if len(self._buckets) >= self.config.max_tracked_peers:
             self._buckets.popitem(last=False)
 
-    async def acquire(self, peer_id: str, tokens: float = 1.0, payload_bytes: int = 0) -> bool:
+    async def acquire(
+        self, peer_id: str, tokens: float = 1.0, payload_bytes: int = 0
+    ) -> bool:
         """
         Attempt to acquire tokens for outbound gossip to a peer.
         Supports dynamic burst absorption up to bucket capacity.

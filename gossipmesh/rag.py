@@ -42,10 +42,16 @@ class VectorDB:
             raise RuntimeError("GEMINI_API_KEY environment variable is missing.")
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={api_key}"
-        payload = {"model": "models/text-embedding-004", "content": {"parts": [{"text": text}]}}
+        payload = {
+            "model": "models/text-embedding-004",
+            "content": {"parts": [{"text": text}]},
+        }
 
         req = urllib.request.Request(
-            url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST"
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
         )
 
         try:
@@ -97,7 +103,9 @@ class VectorDB:
             for file in files:
                 if file.endswith(".py") and not file.startswith("test_"):
                     full_path = Path(root) / file
-                    rel_path = str(full_path.relative_to(workspace_path)).replace("\\", "/")
+                    rel_path = str(full_path.relative_to(workspace_path)).replace(
+                        "\\", "/"
+                    )
 
                     try:
                         content = full_path.read_text(encoding="utf-8")
@@ -105,14 +113,19 @@ class VectorDB:
                         embedding = self.get_embedding(chunk)
 
                         if embedding:
-                            self.embeddings[rel_path] = {"content": chunk, "embedding": embedding}
+                            self.embeddings[rel_path] = {
+                                "content": chunk,
+                                "embedding": embedding,
+                            }
                             print(f"  [+] Indexed: {rel_path}")
                     except Exception as e:
                         print(f"  [!] Failed to index {rel_path}: {e}")
         self.save()
         print(f"[*] Workspace indexing complete. Total files: {len(self.embeddings)}")
 
-    def search(self, query: str, top_k: int = 3, api_key: str = "") -> List[Tuple[str, str, float]]:
+    def search(
+        self, query: str, top_k: int = 3, api_key: str = ""
+    ) -> List[Tuple[str, str, float]]:
         """Searches the VectorDB for the most relevant files based on the query."""
         if not self.embeddings:
             return []

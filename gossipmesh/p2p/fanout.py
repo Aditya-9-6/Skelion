@@ -8,7 +8,13 @@ class DynamicFanoutController:
     dissemination fanout without causing flooding storms using a PID-controlled feedback loop.
     """
 
-    def __init__(self, node_id: str, base_fanout: int = 4, min_fanout: int = 1, max_fanout: int = 12) -> None:
+    def __init__(
+        self,
+        node_id: str,
+        base_fanout: int = 4,
+        min_fanout: int = 1,
+        max_fanout: int = 12,
+    ) -> None:
         self.node_id = node_id
         self.base_fanout = base_fanout
         self.min_fanout = min_fanout
@@ -21,7 +27,11 @@ class DynamicFanoutController:
 
     def compute_fanout(self, stratum: Optional[str] = None) -> int:
         with self._lock:
-            avg_reach = self.matrix.stratum_reachability(stratum) if stratum else self.matrix.average_reachability()
+            avg_reach = (
+                self.matrix.stratum_reachability(stratum)
+                if stratum
+                else self.matrix.average_reachability()
+            )
             # Target reachability is 0.9. Error = Target - Actual
             error = 0.9 - avg_reach
             self._integral += error
@@ -34,7 +44,13 @@ class DynamicFanoutController:
             computed = self.base_fanout + adjustment
             return max(self.min_fanout, min(self.max_fanout, computed))
 
-    def update_peer_feedback(self, peer_id: str, success: bool, latency: float = 0.0, stratum: str = "default") -> None:
+    def update_peer_feedback(
+        self,
+        peer_id: str,
+        success: bool,
+        latency: float = 0.0,
+        stratum: str = "default",
+    ) -> None:
         with self._lock:
             self.matrix.record_ack(peer_id, success, latency=latency, stratum=stratum)
 

@@ -7,9 +7,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from gossipmesh.api import deps
 from gossipmesh.models.user import User
 from gossipmesh.models.organization import UserOrganization, OrganizationRole
-from gossipmesh.models.repository import Repository, RepositoryPolicy, IndexState
+from gossipmesh.models.repository import Repository, RepositoryPolicy
 from gossipmesh.models.audit import AuditEvent
-from gossipmesh.repository.github import GitHubIntegration
 from gossipmesh.core.exceptions import AuthorizationError
 
 router = APIRouter()
@@ -23,7 +22,9 @@ class SyncRequest(BaseModel):
 
 
 class BranchSelectRequest(BaseModel):
-    default_branch: str = Field(..., min_length=1, description="New default branch name")
+    default_branch: str = Field(
+        ..., min_length=1, description="New default branch name"
+    )
 
 
 class RepositoryPolicyUpdate(BaseModel):
@@ -65,8 +66,12 @@ class RepositoryDetailResponse(BaseModel):
     policy: Optional[RepositoryPolicyResponse] = None
 
 
-def log_audit_event(db: Session, action: str, actor_id: int, org_id: int, details: dict):
-    event = AuditEvent(action=action, actor_id=actor_id, organization_id=org_id, details=details)
+def log_audit_event(
+    db: Session, action: str, actor_id: int, org_id: int, details: dict
+):
+    event = AuditEvent(
+        action=action, actor_id=actor_id, organization_id=org_id, details=details
+    )
     db.add(event)
 
 
@@ -88,11 +93,15 @@ def get_user_repo_membership(
         .first()
     )
     if not user_org:
-        raise HTTPException(status_code=403, detail="Not authorized for this repository's organization.")
+        raise HTTPException(
+            status_code=403, detail="Not authorized for this repository's organization."
+        )
     return repo, user_org
 
 
-def require_repo_admin(repo_id: int, db: Session, current_user: User) -> Tuple[Repository, Optional[UserOrganization]]:
+def require_repo_admin(
+    repo_id: int, db: Session, current_user: User
+) -> Tuple[Repository, Optional[UserOrganization]]:
     repo, user_org = get_user_repo_membership(repo_id, db, current_user)
     if getattr(current_user, "is_superuser", False):
         return repo, user_org
@@ -102,11 +111,16 @@ def require_repo_admin(repo_id: int, db: Session, current_user: User) -> Tuple[R
         OrganizationRole.OWNER,
     ]
     if role_val not in allowed_admin_roles:
-        raise HTTPException(status_code=403, detail="Admin permissions required for this repository action.")
+        raise HTTPException(
+            status_code=403,
+            detail="Admin permissions required for this repository action.",
+        )
     return repo, user_org
 
 
-def require_repo_writer(repo_id: int, db: Session, current_user: User) -> Tuple[Repository, Optional[UserOrganization]]:
+def require_repo_writer(
+    repo_id: int, db: Session, current_user: User
+) -> Tuple[Repository, Optional[UserOrganization]]:
     repo, user_org = get_user_repo_membership(repo_id, db, current_user)
     if getattr(current_user, "is_superuser", False):
         return repo, user_org
@@ -117,12 +131,19 @@ def require_repo_writer(repo_id: int, db: Session, current_user: User) -> Tuple[
         OrganizationRole.DEVELOPER,
     ]
     if role_val not in allowed_writer_roles:
-        raise HTTPException(status_code=403, detail="Write permissions required for this repository action.")
+        raise HTTPException(
+            status_code=403,
+            detail="Write permissions required for this repository action.",
+        )
     return repo, user_org
 
 
 def get_or_create_default_policy(repo: Repository, db: Session) -> RepositoryPolicy:
-    policy = db.query(RepositoryPolicy).filter(RepositoryPolicy.repository_id == repo.id).first()
+    policy = (
+        db.query(RepositoryPolicy)
+        .filter(RepositoryPolicy.repository_id == repo.id)
+        .first()
+    )
     if not policy:
         policy = RepositoryPolicy(
             repository_id=repo.id,
@@ -151,7 +172,8 @@ def sync_repository(
     is_member = (
         db.query(UserOrganization)
         .filter(
-            UserOrganization.user_id == current_user.id, UserOrganization.organization_id == request.organization_id
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.organization_id == request.organization_id,
         )
         .first()
     )
@@ -162,7 +184,9 @@ def sync_repository(
 
 @router.get("/{repo_id}", response_model=RepositoryDetailResponse)
 def get_repository(
-    repo_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    repo_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     repo, _ = get_user_repo_membership(repo_id, db, current_user)
     get_or_create_default_policy(repo, db)
@@ -186,10 +210,14 @@ def select_branch(
 
 @router.delete("/{repo_id}", status_code=status.HTTP_200_OK)
 def remove_repository(
-    repo_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    repo_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     repo, _ = require_repo_admin(repo_id, db, current_user)
-    db.query(RepositoryPolicy).filter(RepositoryPolicy.repository_id == repo.id).delete()
+    db.query(RepositoryPolicy).filter(
+        RepositoryPolicy.repository_id == repo.id
+    ).delete()
     db.delete(repo)
     db.commit()
     return {"message": "Repository removed successfully."}
@@ -197,7 +225,9 @@ def remove_repository(
 
 @router.get("/{repo_id}/policy", response_model=RepositoryPolicyResponse)
 def get_repository_policy(
-    repo_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    repo_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     repo, _ = get_user_repo_membership(repo_id, db, current_user)
     return get_or_create_default_policy(repo, db)

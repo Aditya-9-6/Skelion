@@ -11,14 +11,21 @@ class MinHashSketchRegistry:
     sub-millisecond distributed topology deduplication and similarity routing.
     """
 
-    def __init__(self, num_perm: int = 128, max_capacity: int = 10000, similarity_threshold: float = 0.85):
+    def __init__(
+        self,
+        num_perm: int = 128,
+        max_capacity: int = 10000,
+        similarity_threshold: float = 0.85,
+    ):
         self.num_perm = num_perm
         self.max_capacity = max_capacity
         self.similarity_threshold = similarity_threshold
         self._sketches: Dict[str, MinHashSketch] = {}
         self._lock = threading.RLock()
 
-    def register_peer(self, peer_id: str, tokens: Optional[List[str]] = None) -> MinHashSketch:
+    def register_peer(
+        self, peer_id: str, tokens: Optional[List[str]] = None
+    ) -> MinHashSketch:
         """Register or update a peer sketch in the registry."""
         with self._lock:
             if peer_id in self._sketches:

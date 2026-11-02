@@ -49,7 +49,9 @@ class EpollEventLoop:
             if data:
                 success = self.ring_buffer.write(data)
                 if not success:
-                    logger.warning("Ring buffer full during epoll packet ingestion; packet dropped.")
+                    logger.warning(
+                        "Ring buffer full during epoll packet ingestion; packet dropped."
+                    )
         except BlockingIOError:
             pass
         except Exception as e:

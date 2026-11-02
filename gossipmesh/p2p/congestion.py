@@ -12,7 +12,7 @@ import math
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 class CongestionState(str, enum.Enum):
@@ -104,7 +104,9 @@ class SlidingWindowCongestionController:
         with self._lock:
             return len(self._in_flight) < int(math.ceil(self.cwnd))
 
-    def register_send(self, packet_id: str, size_bytes: int, now: Optional[float] = None) -> bool:
+    def register_send(
+        self, packet_id: str, size_bytes: int, now: Optional[float] = None
+    ) -> bool:
         timestamp = time.monotonic() if now is None else now
         with self._lock:
             if len(self._in_flight) >= int(math.ceil(self.cwnd)):
@@ -116,7 +118,9 @@ class SlidingWindowCongestionController:
             )
             return True
 
-    def register_ack(self, packet_id: str, now: Optional[float] = None) -> Optional[float]:
+    def register_ack(
+        self, packet_id: str, now: Optional[float] = None
+    ) -> Optional[float]:
         timestamp = time.monotonic() if now is None else now
         with self._lock:
             pkt = self._in_flight.pop(packet_id, None)
@@ -127,7 +131,6 @@ class SlidingWindowCongestionController:
             if sample_rtt < 0.0:
                 sample_rtt = 0.0
 
-            # Update SRTT
             if self.srtt is None:
                 self.srtt = sample_rtt
             else:
@@ -136,7 +139,6 @@ class SlidingWindowCongestionController:
 
             self.jitter_estimator.update(sample_rtt)
 
-            # Congestion window state machine update
             if self.state == CongestionState.SLOW_START:
                 self.cwnd += 1.0
                 if self.cwnd >= self.ssthresh:
@@ -156,7 +158,9 @@ class SlidingWindowCongestionController:
                 return False
 
             self._loss_count += 1
-            self.ssthresh = max(self.config.min_cwnd, self.cwnd * self.config.loss_reduction_factor)
+            self.ssthresh = max(
+                self.config.min_cwnd, self.cwnd * self.config.loss_reduction_factor
+            )
             self.cwnd = self.ssthresh
             self.state = CongestionState.FAST_RECOVERY
             return True
@@ -182,7 +186,9 @@ class AdaptiveRingBufferCongestionShaper:
     without blocking the reactor thread.
     """
 
-    def __init__(self, capacity: int = 1024, config: Optional[CongestionConfig] = None) -> None:
+    def __init__(
+        self, capacity: int = 1024, config: Optional[CongestionConfig] = None
+    ) -> None:
         self.capacity = max(16, capacity)
         self.config = config or CongestionConfig()
         self._buffer: List[Optional[Dict[str, Any]]] = [None] * self.capacity
@@ -219,14 +225,18 @@ class AdaptiveRingBufferCongestionShaper:
     def _update_metrics(self) -> None:
         current_ratio = float(self._size) / float(self.capacity)
         alpha = self.config.congestion_ewma_alpha
-        self._fill_ratio_ewma = alpha * current_ratio + (1.0 - alpha) * self._fill_ratio_ewma
+        self._fill_ratio_ewma = (
+            alpha * current_ratio + (1.0 - alpha) * self._fill_ratio_ewma
+        )
 
     def record_write_latency(self, latency_sec: float) -> None:
         if latency_sec < 0.0:
             raise ValueError("latency_sec cannot be negative")
         with self._lock:
             alpha = self.config.congestion_ewma_alpha
-            self._write_latency_ewma = alpha * latency_sec + (1.0 - alpha) * self._write_latency_ewma
+            self._write_latency_ewma = (
+                alpha * latency_sec + (1.0 - alpha) * self._write_latency_ewma
+            )
 
     def get_fill_ratio(self) -> float:
         with self._lock:
@@ -241,36 +251,31 @@ class AdaptiveRingBufferCongestionShaper:
             return self._write_latency_ewma
 
     def calculate_fanout_scaling_factor(self) -> float:
-        """
-        Calculates backpressure-driven fanout multiplier in range [0.0, 1.0].
-        When buffer fill ratio or write latency exceeds high watermarks, scaling factor drops.
-        """
         with self._lock:
             fill_ratio = self.get_fill_ratio()
             if fill_ratio >= self.config.buffer_high_watermark:
-                # Severe backpressure / congestion
                 return 0.25
             elif fill_ratio <= self.config.buffer_low_watermark:
                 return 1.0
             else:
-                # Linear interpolation between low and high watermarks
-                span = self.config.buffer_high_watermark - self.config.buffer_low_watermark
+                span = (
+                    self.config.buffer_high_watermark - self.config.buffer_low_watermark
+                )
                 if span <= 0:
                     return 1.0
                 offset = (fill_ratio - self.config.buffer_low_watermark) / span
                 return float(max(0.25, min(1.0, 1.0 - 0.75 * offset)))
 
-    def prune_low_priority_transmissions(self, peer_rankings: Dict[str, float]) -> Dict[str, bool]:
-        """
-        Applies backpressure-driven fanout pruning across peers based on priority/reliability ranking.
-        Returns a mapping of peer_id -> keep_transmission (bool).
-        """
+    def prune_low_priority_transmissions(
+        self, peer_rankings: Dict[str, float]
+    ) -> Dict[str, bool]:
         scaling = self.calculate_fanout_scaling_factor()
-        sorted_peers = sorted(peer_rankings.items(), key=lambda item: item[1], reverse=True)
+        sorted_peers = sorted(
+            peer_rankings.items(), key=lambda item: item[1], reverse=True
+        )
         total_peers = len(sorted_peers)
         if total_peers == 0:
             return {}
-
         allowed_count = max(1, int(math.ceil(total_peers * scaling)))
         decisions: Dict[str, bool] = {}
         for idx, (peer_id, score) in enumerate(sorted_peers):

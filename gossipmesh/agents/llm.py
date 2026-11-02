@@ -16,7 +16,12 @@ except ImportError:
 class LocalLlamaFallback:
     """Local LLM fallback provider using Llama.cpp bindings for GossipMesh agents."""
 
-    def __init__(self, model_path: Optional[str] = None, n_ctx: int = 2048, n_threads: Optional[int] = None):
+    def __init__(
+        self,
+        model_path: Optional[str] = None,
+        n_ctx: int = 2048,
+        n_threads: Optional[int] = None,
+    ):
         self.model_path = model_path or "model.gguf"
         self.n_ctx = n_ctx
         self.n_threads = n_threads
@@ -27,7 +32,10 @@ class LocalLlamaFallback:
             raise RuntimeError("llama_cpp package is not installed or unavailable.")
         if self._model is None:
             logger.info(f"Loading local Llama.cpp model from {self.model_path}...")
-            kwargs: Dict[str, Any] = {"model_path": self.model_path, "n_ctx": self.n_ctx}
+            kwargs: Dict[str, Any] = {
+                "model_path": self.model_path,
+                "n_ctx": self.n_ctx,
+            }
             if self.n_threads is not None:
                 kwargs["n_threads"] = self.n_threads
             self._model = Llama(**kwargs)
@@ -83,5 +91,7 @@ class LocalLlamaFallback:
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
-            logger.info(f"Local fallback completion generated in {(time.time() - start_time) * 1000:.2f}ms")
+            logger.info(
+                f"Local fallback completion generated in {(time.time() - start_time) * 1000:.2f}ms"
+            )
             return result

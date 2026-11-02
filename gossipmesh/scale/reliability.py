@@ -24,7 +24,9 @@ class RateLimiter:
 
         if entity_id not in self.requests:
             self.requests[entity_id] = {}
-        self.requests[entity_id][limit_type] = self.requests[entity_id].get(limit_type, 0) + 1
+        self.requests[entity_id][limit_type] = (
+            self.requests[entity_id].get(limit_type, 0) + 1
+        )
         return True
 
 

@@ -22,8 +22,6 @@ import argparse
 import datetime
 import json
 import math
-import os
-import sys
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -45,7 +43,9 @@ class AutomationEvent:
     event_type: str
     repo: str
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: str = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat()
+    )
     tenant_id: Optional[int] = None
     issue_number: Optional[int] = None
     pr_number: Optional[int] = None
@@ -163,11 +163,19 @@ class AutomationOutcomeReporter:
                     ev_time = ev_time.replace(tzinfo=datetime.timezone.utc)
 
                 if start_time:
-                    st = start_time if start_time.tzinfo else start_time.replace(tzinfo=datetime.timezone.utc)
+                    st = (
+                        start_time
+                        if start_time.tzinfo
+                        else start_time.replace(tzinfo=datetime.timezone.utc)
+                    )
                     if ev_time < st:
                         continue
                 if end_time:
-                    et = end_time if end_time.tzinfo else end_time.replace(tzinfo=datetime.timezone.utc)
+                    et = (
+                        end_time
+                        if end_time.tzinfo
+                        else end_time.replace(tzinfo=datetime.timezone.utc)
+                    )
                     if ev_time > et:
                         continue
                 if tenant_id is not None and ev.tenant_id != tenant_id:
@@ -188,7 +196,9 @@ class AutomationOutcomeReporter:
         repo: Optional[str] = None,
     ) -> AutomationOutcomeReport:
         """Aggregates metrics for the given period."""
-        events = self.load_events(start_time=start_time, end_time=end_time, tenant_id=tenant_id, repo=repo)
+        events = self.load_events(
+            start_time=start_time, end_time=end_time, tenant_id=tenant_id, repo=repo
+        )
 
         issues_processed = 0
         prs_created = 0
@@ -227,12 +237,16 @@ class AutomationOutcomeReporter:
                 if ev.is_false_positive:
                     false_positives += 1
 
-        ci_pass_rate = (ci_passed_runs / ci_total_runs * 100.0) if ci_total_runs > 0 else 100.0
+        ci_pass_rate = (
+            (ci_passed_runs / ci_total_runs * 100.0) if ci_total_runs > 0 else 100.0
+        )
         avg_score = (sum(review_scores) / len(review_scores)) if review_scores else 0.0
         decided_prs = prs_merged + prs_rejected + prs_reverted
         approval_rate = (prs_merged / decided_prs * 100.0) if decided_prs > 0 else 100.0
         total_reviews = len(review_scores)
-        fp_rate = (false_positives / total_reviews * 100.0) if total_reviews > 0 else 0.0
+        fp_rate = (
+            (false_positives / total_reviews * 100.0) if total_reviews > 0 else 0.0
+        )
 
         avg_latency = (sum(latencies) / len(latencies)) if latencies else 0.0
         p95_latency = 0.0
@@ -270,9 +284,19 @@ class AutomationOutcomeReporter:
     ) -> AutomationOutcomeReport:
         """Generates report for a 24-hour day window."""
         day = target_date or datetime.datetime.now(datetime.timezone.utc).date()
-        start = datetime.datetime.combine(day, datetime.time.min, tzinfo=datetime.timezone.utc)
-        end = datetime.datetime.combine(day, datetime.time.max, tzinfo=datetime.timezone.utc)
-        return self.generate_report(start_time=start, end_time=end, period="daily", tenant_id=tenant_id, repo=repo)
+        start = datetime.datetime.combine(
+            day, datetime.time.min, tzinfo=datetime.timezone.utc
+        )
+        end = datetime.datetime.combine(
+            day, datetime.time.max, tzinfo=datetime.timezone.utc
+        )
+        return self.generate_report(
+            start_time=start,
+            end_time=end,
+            period="daily",
+            tenant_id=tenant_id,
+            repo=repo,
+        )
 
     def get_weekly_report(
         self,
@@ -283,19 +307,48 @@ class AutomationOutcomeReporter:
         """Generates report for the 7-day window ending on end_date."""
         ed = end_date or datetime.datetime.now(datetime.timezone.utc).date()
         start_day = ed - datetime.timedelta(days=7)
-        start = datetime.datetime.combine(start_day, datetime.time.min, tzinfo=datetime.timezone.utc)
-        end = datetime.datetime.combine(ed, datetime.time.max, tzinfo=datetime.timezone.utc)
-        return self.generate_report(start_time=start, end_time=end, period="weekly", tenant_id=tenant_id, repo=repo)
+        start = datetime.datetime.combine(
+            start_day, datetime.time.min, tzinfo=datetime.timezone.utc
+        )
+        end = datetime.datetime.combine(
+            ed, datetime.time.max, tzinfo=datetime.timezone.utc
+        )
+        return self.generate_report(
+            start_time=start,
+            end_time=end,
+            period="weekly",
+            tenant_id=tenant_id,
+            repo=repo,
+        )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="GossipMesh Automation Outcome Report CLI")
-    parser.add_argument("--period", choices=["daily", "weekly"], default="daily", help="Report time window")
-    parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format")
-    parser.add_argument("--storage-path", type=str, default=None, help="Custom metrics storage JSONL path")
+    parser = argparse.ArgumentParser(
+        description="GossipMesh Automation Outcome Report CLI"
+    )
+    parser.add_argument(
+        "--period",
+        choices=["daily", "weekly"],
+        default="daily",
+        help="Report time window",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["markdown", "json"],
+        default="markdown",
+        help="Output format",
+    )
+    parser.add_argument(
+        "--storage-path",
+        type=str,
+        default=None,
+        help="Custom metrics storage JSONL path",
+    )
     args = parser.parse_args()
 
-    reporter = AutomationOutcomeReporter(storage_path=Path(args.storage_path) if args.storage_path else None)
+    reporter = AutomationOutcomeReporter(
+        storage_path=Path(args.storage_path) if args.storage_path else None
+    )
     if args.period == "daily":
         report = reporter.get_daily_report()
     else:

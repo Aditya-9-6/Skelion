@@ -8,11 +8,10 @@ and functions strictly under 60 LOC.
 
 from __future__ import annotations
 
-import math
 import random
 import struct
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -37,14 +36,23 @@ class FountainFragment:
         idx_count = len(self.indices)
         idx_bytes = struct.pack(f"{idx_count}I", *self.indices)
         pay_len = len(self.payload)
-        header = struct.pack("H Q H H H", sid_len, self.symbol_id, self.degree, self.total_chunks, idx_count)
+        header = struct.pack(
+            "H Q H H H",
+            sid_len,
+            self.symbol_id,
+            self.degree,
+            self.total_chunks,
+            idx_count,
+        )
         return header + sid_bytes + idx_bytes + struct.pack("I", pay_len) + self.payload
 
     @classmethod
     def deserialize(cls, raw: bytes) -> FountainFragment:
         header_format = "H Q H H H"
         header_size = struct.calcsize(header_format)
-        sid_len, symbol_id, degree, total_chunks, idx_count = struct.unpack_from(header_format, raw, 0)
+        sid_len, symbol_id, degree, total_chunks, idx_count = struct.unpack_from(
+            header_format, raw, 0
+        )
         offset = header_size
         session_id = raw[offset : offset + sid_len].decode("utf-8")
         offset += sid_len
@@ -64,7 +72,9 @@ class FountainFragment:
 
 
 class FountainEncoder:
-    def __init__(self, data: bytes, config: Optional[FountainFragmentConfig] = None) -> None:
+    def __init__(
+        self, data: bytes, config: Optional[FountainFragmentConfig] = None
+    ) -> None:
         self.config = config or FountainFragmentConfig()
         self.data = data
         self.chunks = self._chunk_data()
@@ -122,18 +132,24 @@ class FountainDecoder:
         while progress:
             progress = False
             for sym in self.received_symbols:
-                unknowns = [idx for idx in sym.indices if idx not in self._decoded_chunks]
+                unknowns = [
+                    idx for idx in sym.indices if idx not in self._decoded_chunks
+                ]
                 if len(unknowns) == 1:
                     target = unknowns[0]
                     val = bytearray(sym.payload)
                     for idx in sym.indices:
                         if idx != target:
-                            val = bytearray(b ^ c for b, c in zip(val, self._decoded_chunks[idx]))
+                            val = bytearray(
+                                b ^ c for b, c in zip(val, self._decoded_chunks[idx])
+                            )
                     self._decoded_chunks[target] = bytes(val)
                     progress = True
         return len(self._decoded_chunks) == self.total_chunks
 
-    def get_reassembled_data(self, original_len: Optional[int] = None) -> Optional[bytes]:
+    def get_reassembled_data(
+        self, original_len: Optional[int] = None
+    ) -> Optional[bytes]:
         if len(self._decoded_chunks) < self.total_chunks:
             return None
         full = bytearray()

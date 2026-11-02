@@ -13,7 +13,6 @@ Coordinates the continuous autonomous development and incident remediation cycle
 """
 
 import os
-import sys
 import re
 import json
 import time
@@ -24,8 +23,8 @@ from typing import Dict, Any, List, Optional, Tuple
 
 from sqlmodel import Session, select
 from skelion_agent.database import get_engine
-from skelion_agent.models import Organization, AgentRun, Incident, utc_now
-from skelion_agent.limits_service import deduct_autofix_tokens, deduct_coding_tokens
+from skelion_agent.models import Organization, AgentRun, Incident
+from skelion_agent.limits_service import deduct_autofix_tokens
 from skelion_agent.pr_comment_bot import generate_pr_diagnostic_card
 from core.replay_sandbox import run_replay_verification
 
@@ -36,33 +35,35 @@ SKELION_CATALOG = [
         "area": "area/sre",
         "difficulty": "priority/high",
         "spec": "Implement a high-throughput, non-blocking epoll event loop leveraging atomic ring buffers for sub-millisecond edge telemetry interception.",
-        "target_path": "skelion_agent/sre/epoll_reactor.py"
+        "target_path": "skelion_agent/sre/epoll_reactor.py",
     },
     {
         "title": "feat(proxy): Implement Lock-Free Leaky Bucket Rate Limiter with Nanosecond Windows",
         "area": "area/proxy",
         "difficulty": "enhancement",
         "spec": "Add a thread-safe rate limiter using atomic compare-and-swap operations to enforce strict egress caps under high concurrency.",
-        "target_path": "skelion_agent/proxy/atomic_limiter.py"
+        "target_path": "skelion_agent/proxy/atomic_limiter.py",
     },
     {
         "title": "feat(waf): Implement Stream-Based Aho-Corasick Multi-Pattern Payload Scanner",
         "area": "area/security",
         "difficulty": "priority/high",
         "spec": "Add zero-copy string search automaton over chunked HTTP streaming bodies to detect SQLi/XSS without buffering entire payloads.",
-        "target_path": "skelion_agent/proxy/stream_scanner.py"
+        "target_path": "skelion_agent/proxy/stream_scanner.py",
     },
     {
         "title": "feat(causality): Implement Lamport Timestamp Vector Clock Synchronization Mesh",
         "area": "area/consensus",
         "difficulty": "priority/high",
         "spec": "Implement deterministic causal order tracking across distributed edge proxies to prevent out-of-order state replay anomalies.",
-        "target_path": "skelion_agent/consensus/causal_mesh.py"
-    }
+        "target_path": "skelion_agent/consensus/causal_mesh.py",
+    },
 ]
 
 
-def run_cmd(cmd: List[str], cwd: Optional[Path] = None, env: Optional[Dict[str, str]] = None) -> Tuple[int, str, str]:
+def run_cmd(
+    cmd: List[str], cwd: Optional[Path] = None, env: Optional[Dict[str, str]] = None
+) -> Tuple[int, str, str]:
     """Execute command safely and return (returncode, stdout, stderr)."""
     full_env = os.environ.copy()
     if env:
@@ -76,7 +77,7 @@ def run_cmd(cmd: List[str], cwd: Optional[Path] = None, env: Optional[Dict[str, 
             encoding="utf-8",
             errors="replace",
             env=full_env,
-            timeout=180
+            timeout=180,
         )
         return res.returncode, res.stdout.strip(), res.stderr.strip()
     except subprocess.TimeoutExpired:
@@ -88,9 +89,17 @@ def run_cmd(cmd: List[str], cwd: Optional[Path] = None, env: Optional[Dict[str, 
 class AutonomousLoopEngine:
     """Manages the full lifecycle of autonomous issue creation, acceptance, solving, and PR monitoring."""
 
-    def __init__(self, workspace_root: Optional[Path] = None, default_repo: str = "Aditya-9-6/Skelion"):
+    def __init__(
+        self,
+        workspace_root: Optional[Path] = None,
+        default_repo: str = "Aditya-9-6/Skelion",
+    ):
         self.workspace = workspace_root or Path.cwd()
-        self.repo = os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY") or default_repo
+        self.repo = (
+            os.environ.get("GH_REPO")
+            or os.environ.get("GITHUB_REPOSITORY")
+            or default_repo
+        )
         self.is_running = False
         self.last_status = "IDLE"
         self.activity_log: List[Dict[str, Any]] = []
@@ -99,20 +108,24 @@ class AutonomousLoopEngine:
         entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": level,
-            "message": message
+            "message": message,
         }
         self.activity_log.append(entry)
         if len(self.activity_log) > 100:
             self.activity_log.pop(0)
-        print(f"[{entry['timestamp']}] [{level}] [AutonomousLoop] {message}", flush=True)
+        print(
+            f"[{entry['timestamp']}] [{level}] [AutonomousLoop] {message}", flush=True
+        )
 
     # =========================================================================
     # 1. ISSUE GENERATION & SYNTHESIS
     # =========================================================================
-    def generate_advancement_issue(self, title: Optional[str] = None, spec: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def generate_advancement_issue(
+        self, title: Optional[str] = None, spec: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """Create a new architectural advancement issue on GitHub."""
         self.log(f"Generating new architectural advancement issue for {self.repo}...")
-        
+
         # Select from catalog or default
         item = SKELION_CATALOG[int(time.time()) % len(SKELION_CATALOG)]
         issue_title = title or item["title"]
@@ -135,13 +148,22 @@ class AutonomousLoopEngine:
 ---
 *Autonomous loop awaiting maintainer approval. Comment **`accepted`** or **`approve`** on this issue to trigger autonomous solver synthesis and Pull Request generation.*
 """
-        code, stdout, stderr = run_cmd([
-            "gh", "issue", "create",
-            "--repo", self.repo,
-            "--title", issue_title,
-            "--body", body,
-            "--label", "awaiting-approval,skelion-advancement"
-        ], cwd=self.workspace)
+        code, stdout, stderr = run_cmd(
+            [
+                "gh",
+                "issue",
+                "create",
+                "--repo",
+                self.repo,
+                "--title",
+                issue_title,
+                "--body",
+                body,
+                "--label",
+                "awaiting-approval,skelion-advancement",
+            ],
+            cwd=self.workspace,
+        )
 
         if code == 0 and "http" in stdout:
             issue_url = stdout.strip()
@@ -153,7 +175,7 @@ class AutonomousLoopEngine:
                 "url": issue_url,
                 "title": issue_title,
                 "body": body,
-                "status": "awaiting_acceptance"
+                "status": "awaiting_acceptance",
             }
         else:
             self.log(f"Failed to create GitHub issue: {stderr}", level="ERROR")
@@ -162,16 +184,28 @@ class AutonomousLoopEngine:
     # =========================================================================
     # 2. USER "ACCEPTED" COMMENT DETECTION
     # =========================================================================
-    def check_issue_accepted(self, issue_number: int) -> Tuple[bool, Optional[str], str]:
+    def check_issue_accepted(
+        self, issue_number: int
+    ) -> Tuple[bool, Optional[str], str]:
         """Check if any comment on the issue contains 'accepted' or 'approve'."""
-        code, stdout, stderr = run_cmd([
-            "gh", "issue", "view", str(issue_number),
-            "--repo", self.repo,
-            "--json", "comments,state,labels,body,title"
-        ], cwd=self.workspace)
+        code, stdout, stderr = run_cmd(
+            [
+                "gh",
+                "issue",
+                "view",
+                str(issue_number),
+                "--repo",
+                self.repo,
+                "--json",
+                "comments,state,labels,body,title",
+            ],
+            cwd=self.workspace,
+        )
 
         if code != 0:
-            self.log(f"Failed to fetch issue #{issue_number} details: {stderr}", level="WARN")
+            self.log(
+                f"Failed to fetch issue #{issue_number} details: {stderr}", level="WARN"
+            )
             return False, None, "skelion_agent/core/advancement.py"
 
         try:
@@ -180,14 +214,23 @@ class AutonomousLoopEngine:
                 return False, None, "skelion_agent/core/advancement.py"
 
             comments = data.get("comments") or []
-            acceptance_keywords = ["accepted", "accept", "/accept", "approved", "approve", "/solve"]
-            
+            acceptance_keywords = [
+                "accepted",
+                "accept",
+                "/accept",
+                "approved",
+                "approve",
+                "/solve",
+            ]
+
             author_found = None
             for c in comments:
                 body = (c.get("body") or "").lower()
                 author = c.get("author", {}).get("login", "unknown")
                 if any(k in body for k in acceptance_keywords):
-                    self.log(f"Detected acceptance keyword by @{author} in issue #{issue_number} comment!")
+                    self.log(
+                        f"Detected acceptance keyword by @{author} in issue #{issue_number} comment!"
+                    )
                     author_found = author
                     break
 
@@ -201,29 +244,45 @@ class AutonomousLoopEngine:
                 target_path = target_match.group(1).strip()
             else:
                 for item in SKELION_CATALOG:
-                    if item["title"].lower() in data.get("title", "").lower() or data.get("title", "").lower() in item["title"].lower():
+                    if (
+                        item["title"].lower() in data.get("title", "").lower()
+                        or data.get("title", "").lower() in item["title"].lower()
+                    ):
                         target_path = item["target_path"]
                         break
 
             return True, author_found, target_path
         except Exception as e:
-            self.log(f"Error parsing comments for issue #{issue_number}: {e}", level="ERROR")
+            self.log(
+                f"Error parsing comments for issue #{issue_number}: {e}", level="ERROR"
+            )
             return False, None, "skelion_agent/core/advancement.py"
 
     # =========================================================================
     # 3. TOKEN DEDUCTION & BILLING INTEGRATION
     # =========================================================================
-    def deduct_task_tokens(self, org_id: Optional[str] = None, token_cost: int = 250, task_id: str = "advancement_issue") -> Tuple[bool, int, str]:
+    def deduct_task_tokens(
+        self,
+        org_id: Optional[str] = None,
+        token_cost: int = 250,
+        task_id: str = "advancement_issue",
+    ) -> Tuple[bool, int, str]:
         """
         Deduct tokens from the user's/org's credit balance.
         Returns (success, remaining_tokens, message).
         """
         engine = get_engine()
         with Session(engine) as db:
-            org = db.get(Organization, org_id) if org_id else db.exec(select(Organization)).first()
+            org = (
+                db.get(Organization, org_id)
+                if org_id
+                else db.exec(select(Organization)).first()
+            )
             if not org:
                 # Fallback for dev mode
-                self.log("No organization found; proceeding with dev credits.", level="WARN")
+                self.log(
+                    "No organization found; proceeding with dev credits.", level="WARN"
+                )
                 return True, 50000, "Dev Org Active"
 
             remaining = max(0, org.autofix_tokens_total - org.autofix_tokens_used)
@@ -245,21 +304,19 @@ class AutonomousLoopEngine:
                     http_method="POST",
                     route_path="/autonomous/loop",
                     status_code=500,
-                    error_summary="Autonomous Loop Issue Resolution"
+                    error_summary="Autonomous Loop Issue Resolution",
                 )
                 db.add(inc)
                 db.commit()
 
             # Record AgentRun transaction log
-            run_log = AgentRun(
-                org_id=org.id,
-                incident_id=inc.id,
-                status="completed"
-            )
+            run_log = AgentRun(org_id=org.id, incident_id=inc.id, status="completed")
             db.add(run_log)
             db.commit()
 
-            self.log(f"Deducted {token_cost} tokens from Org '{org.name}'. Remaining balance: {new_remaining}")
+            self.log(
+                f"Deducted {token_cost} tokens from Org '{org.name}'. Remaining balance: {new_remaining}"
+            )
             return True, new_remaining, "Success"
 
     # =========================================================================
@@ -271,14 +328,18 @@ class AutonomousLoopEngine:
         title: str,
         target_path: str = "skelion_agent/core/advancement.py",
         author_name: str = "Dahale Aditya Dnyaneshwar",
-        author_email: str = "adityadahale96@gmail.com"
+        author_email: str = "adityadahale96@gmail.com",
     ) -> Optional[Dict[str, Any]]:
         """Synthesize solution, test in sandbox, commit to branch, and open Pull Request."""
         branch_name = f"skelion/solve-issue-{issue_number}"
-        self.log(f"Starting solution synthesis for Issue #{issue_number} on branch '{branch_name}'...")
+        self.log(
+            f"Starting solution synthesis for Issue #{issue_number} on branch '{branch_name}'..."
+        )
 
         # Prepare clean patch code
-        class_name = "".join(w.capitalize() for w in re.sub(r"[^a-zA-Z0-9 ]", "", title).split()[:4])
+        class_name = "".join(
+            w.capitalize() for w in re.sub(r"[^a-zA-Z0-9 ]", "", title).split()[:4]
+        )
         patch_code = f"""# {target_path} — Synthesized by Skelion Autonomous Loop
 \"\"\"{title}\"\"\"
 
@@ -318,7 +379,9 @@ class {class_name}:
         else:
             test_path = f"tests/test_{stem}.py"
 
-        module_import = target_path.replace("/", ".").replace("\\", ".").replace(".py", "")
+        module_import = (
+            target_path.replace("/", ".").replace("\\", ".").replace(".py", "")
+        )
         test_code = f"""# {test_path} — Automated verification suite for #{issue_number}
 import pytest
 from {module_import} import {class_name}
@@ -346,8 +409,17 @@ def test_{stem}_concurrency_bounds():
 
         # Run pre-flight Sandbox Verification
         self.log("Running pre-flight Sandbox Replay Verification...")
-        replays = [{"path": "/api/health", "method": "GET", "baseline_status": 200, "baseline_latency_ms": 12.0}]
-        verification = run_replay_verification(replays, mock_responses={"/api/health": 200})
+        replays = [
+            {
+                "path": "/api/health",
+                "method": "GET",
+                "baseline_status": 200,
+                "baseline_latency_ms": 12.0,
+            }
+        ]
+        verification = run_replay_verification(
+            replays, mock_responses={"/api/health": 200}
+        )
 
         # Git operations: Checkout branch, stage, commit, push
         run_cmd(["git", "config", "user.name", author_name], cwd=self.workspace)
@@ -358,7 +430,9 @@ def test_{stem}_concurrency_bounds():
         run_cmd(["git", "commit", "-m", commit_msg], cwd=self.workspace)
 
         self.log(f"Pushing branch {branch_name} to origin...")
-        code, stdout, stderr = run_cmd(["git", "push", "origin", branch_name, "--force"], cwd=self.workspace)
+        code, stdout, stderr = run_cmd(
+            ["git", "push", "origin", branch_name, "--force"], cwd=self.workspace
+        )
         if code != 0:
             self.log(f"Git push failed: {stderr}", level="ERROR")
             run_cmd(["git", "checkout", "main"], cwd=self.workspace)
@@ -373,13 +447,13 @@ def test_{stem}_concurrency_bounds():
             captured_method="POST",
             route_path=f"/issue/{issue_number}",
             status_code=500,
-            error_summary=title
+            error_summary=title,
         )
         pr_card = generate_pr_diagnostic_card(
             mock_incident,
             pr_url="",
             verification=verification,
-            proposed_diff=patch_code[:400] + "..."
+            proposed_diff=patch_code[:400] + "...",
         )
 
         pr_body = f"""### 🤖 Skelion Autonomous Issue Resolution
@@ -392,14 +466,24 @@ Closes #{issue_number}
 *Automated solution generated and verified by Skelion Autonomous Loop.*
 """
         self.log("Opening GitHub Pull Request...")
-        pr_code, pr_out, pr_err = run_cmd([
-            "gh", "pr", "create",
-            "--repo", self.repo,
-            "--head", branch_name,
-            "--base", "main",
-            "--title", f"🚀 [Skelion Auto-PR] {title}",
-            "--body", pr_body
-        ], cwd=self.workspace)
+        pr_code, pr_out, pr_err = run_cmd(
+            [
+                "gh",
+                "pr",
+                "create",
+                "--repo",
+                self.repo,
+                "--head",
+                branch_name,
+                "--base",
+                "main",
+                "--title",
+                f"🚀 [Skelion Auto-PR] {title}",
+                "--body",
+                pr_body,
+            ],
+            cwd=self.workspace,
+        )
 
         # Always return to main branch
         run_cmd(["git", "checkout", "main"], cwd=self.workspace)
@@ -414,7 +498,7 @@ Closes #{issue_number}
                 "pr_url": pr_url,
                 "branch": branch_name,
                 "issue_number": issue_number,
-                "verification": verification
+                "verification": verification,
             }
         else:
             self.log(f"Failed to create PR: {pr_err}", level="ERROR")
@@ -423,7 +507,9 @@ Closes #{issue_number}
     # =========================================================================
     # 5. PR MONITORING, CI FIXER & MERGE CONFLICT RESOLUTION
     # =========================================================================
-    def monitor_and_auto_merge_pr(self, pr_number: int, max_checks: int = 10) -> Dict[str, Any]:
+    def monitor_and_auto_merge_pr(
+        self, pr_number: int, max_checks: int = 10
+    ) -> Dict[str, Any]:
         """
         Polls PR status, fixes failing CI checks or merge conflicts, and auto-merges when 100% green.
         """
@@ -432,11 +518,19 @@ Closes #{issue_number}
         for attempt in range(1, max_checks + 1):
             time.sleep(3)
             # 1. Check Mergeability
-            c_view, view_out, _ = run_cmd([
-                "gh", "pr", "view", str(pr_number),
-                "--repo", self.repo,
-                "--json", "state,mergeable,headRefName"
-            ], cwd=self.workspace)
+            c_view, view_out, _ = run_cmd(
+                [
+                    "gh",
+                    "pr",
+                    "view",
+                    str(pr_number),
+                    "--repo",
+                    self.repo,
+                    "--json",
+                    "state,mergeable,headRefName",
+                ],
+                cwd=self.workspace,
+            )
 
             if c_view == 0 and view_out:
                 try:
@@ -447,18 +541,33 @@ Closes #{issue_number}
                         return {"status": "merged", "pr_number": pr_number}
 
                     if pr_info.get("mergeable") == "CONFLICTING":
-                        self.log(f"[!] Merge conflict detected on PR #{pr_number}! Resolving conflicts...", level="WARN")
-                        self.resolve_merge_conflicts(pr_info.get("headRefName", f"skelion/solve-issue-{pr_number}"))
+                        self.log(
+                            f"[!] Merge conflict detected on PR #{pr_number}! Resolving conflicts...",
+                            level="WARN",
+                        )
+                        self.resolve_merge_conflicts(
+                            pr_info.get(
+                                "headRefName", f"skelion/solve-issue-{pr_number}"
+                            )
+                        )
 
                 except Exception as e:
                     self.log(f"Error parsing PR view data: {e}", level="WARN")
 
             # 2. Check CI Status Checks
-            c_chk, chk_out, _ = run_cmd([
-                "gh", "pr", "checks", str(pr_number),
-                "--repo", self.repo,
-                "--json", "name,state,bucket"
-            ], cwd=self.workspace)
+            c_chk, chk_out, _ = run_cmd(
+                [
+                    "gh",
+                    "pr",
+                    "checks",
+                    str(pr_number),
+                    "--repo",
+                    self.repo,
+                    "--json",
+                    "name,state,bucket",
+                ],
+                cwd=self.workspace,
+            )
 
             failing = []
             pending = []
@@ -470,50 +579,121 @@ Closes #{issue_number}
                         name = c.get("name", "Unknown Check")
                         bucket = (c.get("bucket") or "").lower()
                         st = (c.get("state") or "").upper()
-                        if any(ignored in name.lower() for ignored in ["auto-merge", "auto merge"]):
+                        if any(
+                            ignored in name.lower()
+                            for ignored in ["auto-merge", "auto merge"]
+                        ):
                             continue
-                        if bucket == "fail" or st in ("FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED"):
+                        if bucket == "fail" or st in (
+                            "FAILURE",
+                            "CANCELLED",
+                            "TIMED_OUT",
+                            "ACTION_REQUIRED",
+                        ):
                             failing.append(name)
-                        elif bucket == "pending" or st in ("PENDING", "STARTING", "QUEUED", "IN_PROGRESS"):
+                        elif bucket == "pending" or st in (
+                            "PENDING",
+                            "STARTING",
+                            "QUEUED",
+                            "IN_PROGRESS",
+                        ):
                             pending.append(name)
-                        elif bucket in ("pass", "skipping") or st in ("SUCCESS", "SKIPPED", "NEUTRAL"):
+                        elif bucket in ("pass", "skipping") or st in (
+                            "SUCCESS",
+                            "SKIPPED",
+                            "NEUTRAL",
+                        ):
                             passing.append(name)
 
                     if failing:
-                        self.log(f"CI Failures detected on PR #{pr_number}: {failing}. Running Autonomous CI Fixer...", level="WARN")
+                        self.log(
+                            f"CI Failures detected on PR #{pr_number}: {failing}. Running Autonomous CI Fixer...",
+                            level="WARN",
+                        )
                         self.repair_ci_failure(pr_number, failing[0])
                         continue
 
                     if not failing and not pending:
-                        self.log(f"All checks passed (100% GREEN) for PR #{pr_number}! Executing auto-merge...")
-                        run_cmd(["gh", "label", "create", "ready-to-merge", "--color", "0E8A16", "-f"], cwd=self.workspace)
-                        run_cmd(["gh", "pr", "edit", str(pr_number), "--repo", self.repo, "--add-label", "ready-to-merge"], cwd=self.workspace)
+                        self.log(
+                            f"All checks passed (100% GREEN) for PR #{pr_number}! Executing auto-merge..."
+                        )
+                        run_cmd(
+                            [
+                                "gh",
+                                "label",
+                                "create",
+                                "ready-to-merge",
+                                "--color",
+                                "0E8A16",
+                                "-f",
+                            ],
+                            cwd=self.workspace,
+                        )
+                        run_cmd(
+                            [
+                                "gh",
+                                "pr",
+                                "edit",
+                                str(pr_number),
+                                "--repo",
+                                self.repo,
+                                "--add-label",
+                                "ready-to-merge",
+                            ],
+                            cwd=self.workspace,
+                        )
 
-                        m_code, m_out, m_err = run_cmd([
-                            "gh", "pr", "merge", str(pr_number),
-                            "--repo", self.repo,
-                            "--squash",
-                            "--delete-branch"
-                        ], cwd=self.workspace)
+                        m_code, m_out, m_err = run_cmd(
+                            [
+                                "gh",
+                                "pr",
+                                "merge",
+                                str(pr_number),
+                                "--repo",
+                                self.repo,
+                                "--squash",
+                                "--delete-branch",
+                            ],
+                            cwd=self.workspace,
+                        )
                         if m_code != 0:
-                            m_code, m_out, m_err = run_cmd([
-                                "gh", "pr", "merge", str(pr_number),
-                                "--repo", self.repo,
-                                "--merge",
-                                "--delete-branch"
-                            ], cwd=self.workspace)
+                            m_code, m_out, m_err = run_cmd(
+                                [
+                                    "gh",
+                                    "pr",
+                                    "merge",
+                                    str(pr_number),
+                                    "--repo",
+                                    self.repo,
+                                    "--merge",
+                                    "--delete-branch",
+                                ],
+                                cwd=self.workspace,
+                            )
 
                         if m_code == 0:
                             self.log(f"PR #{pr_number} auto-merged successfully!")
-                            run_cmd([
-                                "gh", "pr", "comment", str(pr_number),
-                                "--repo", self.repo,
-                                "--body", f"🎉 **Pull Request #{pr_number} Successfully Auto-Merged!**\n\n- Zero merge conflicts\n- All CI checks verified\n- Target branch: `main`\n- Autonomous continuous loop active."
-                            ], cwd=self.workspace)
+                            run_cmd(
+                                [
+                                    "gh",
+                                    "pr",
+                                    "comment",
+                                    str(pr_number),
+                                    "--repo",
+                                    self.repo,
+                                    "--body",
+                                    f"🎉 **Pull Request #{pr_number} Successfully Auto-Merged!**\n\n- Zero merge conflicts\n- All CI checks verified\n- Target branch: `main`\n- Autonomous continuous loop active.",
+                                ],
+                                cwd=self.workspace,
+                            )
                             return {"status": "merged", "pr_number": pr_number}
                         else:
                             self.log(f"Auto-merge note: {m_err or m_out}")
-                            return {"status": "merge_ready", "pr_number": pr_number, "note": m_err or m_out}
+                            return {
+                                "status": "merge_ready",
+                                "pr_number": pr_number,
+                                "note": m_err or m_out,
+                            }
 
                 except Exception as e:
                     self.log(f"Error parsing checks JSON: {e}", level="WARN")
@@ -535,7 +715,16 @@ Closes #{issue_number}
         self.log(f"Synthesizing repair commit for failed check: {failed_check_name}...")
         branch_name = f"skelion/solve-issue-{pr_number}"
         run_cmd(["git", "checkout", branch_name], cwd=self.workspace)
-        run_cmd(["git", "commit", "--allow-empty", "-m", f"fix(ci): repair test failures on {failed_check_name}"], cwd=self.workspace)
+        run_cmd(
+            [
+                "git",
+                "commit",
+                "--allow-empty",
+                "-m",
+                f"fix(ci): repair test failures on {failed_check_name}",
+            ],
+            cwd=self.workspace,
+        )
         run_cmd(["git", "push", "origin", branch_name, "--force"], cwd=self.workspace)
         run_cmd(["git", "checkout", "main"], cwd=self.workspace)
         return True
@@ -549,12 +738,20 @@ Closes #{issue_number}
         self.log("=== STARTING AUTONOMOUS ADVANCEMENT CYCLE ===")
 
         # 1. Check open issues for user acceptance
-        c_list, out_list, _ = run_cmd([
-            "gh", "issue", "list",
-            "--repo", self.repo,
-            "--state", "open",
-            "--json", "number,title,labels"
-        ], cwd=self.workspace)
+        c_list, out_list, _ = run_cmd(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                self.repo,
+                "--state",
+                "open",
+                "--json",
+                "number,title,labels",
+            ],
+            cwd=self.workspace,
+        )
 
         accepted_issue = None
         if c_list == 0 and out_list:
@@ -564,7 +761,12 @@ Closes #{issue_number}
                     num = iss.get("number")
                     is_acc, user, target_path = self.check_issue_accepted(num)
                     if is_acc:
-                        accepted_issue = (num, iss.get("title", f"Issue #{num}"), user, target_path)
+                        accepted_issue = (
+                            num,
+                            iss.get("title", f"Issue #{num}"),
+                            user,
+                            target_path,
+                        )
                         break
             except Exception as e:
                 self.log(f"Error checking issue list: {e}", level="WARN")
@@ -572,35 +774,60 @@ Closes #{issue_number}
         # 2. If an accepted issue was found: Solve, deduct tokens, and open PR
         if accepted_issue:
             num, title, user, target_path = accepted_issue
-            self.log(f"Found user-accepted issue #{num} ('{title}') by @{user}! Target: {target_path}. Deducting tokens...")
+            self.log(
+                f"Found user-accepted issue #{num} ('{title}') by @{user}! Target: {target_path}. Deducting tokens..."
+            )
 
             # Deduct tokens (250 tokens per autonomous fix)
-            ok, rem, msg = self.deduct_task_tokens(org_id=org_id, token_cost=250, task_id=f"issue_{num}")
+            ok, rem, msg = self.deduct_task_tokens(
+                org_id=org_id, token_cost=250, task_id=f"issue_{num}"
+            )
             if not ok:
-                run_cmd([
-                    "gh", "issue", "comment", str(num),
-                    "--repo", self.repo,
-                    "--body", f"⚠️ **Skelion Autonomous Loop Paused**: Insufficient tokens to proceed ({msg}). Please top up credits in the Skelion dashboard."
-                ], cwd=self.workspace)
+                run_cmd(
+                    [
+                        "gh",
+                        "issue",
+                        "comment",
+                        str(num),
+                        "--repo",
+                        self.repo,
+                        "--body",
+                        f"⚠️ **Skelion Autonomous Loop Paused**: Insufficient tokens to proceed ({msg}). Please top up credits in the Skelion dashboard.",
+                    ],
+                    cwd=self.workspace,
+                )
                 self.last_status = "PAUSED_NO_CREDITS"
-                return {"status": "paused_insufficient_credits", "issue_number": num, "remaining": rem}
+                return {
+                    "status": "paused_insufficient_credits",
+                    "issue_number": num,
+                    "remaining": rem,
+                }
 
             # Solve issue and open PR
-            pr_data = self.solve_issue_and_create_pr(num, title, target_path=target_path)
+            pr_data = self.solve_issue_and_create_pr(
+                num, title, target_path=target_path
+            )
             if pr_data:
                 # Monitor until merged
                 res = self.monitor_and_auto_merge_pr(pr_data["pr_number"])
                 self.last_status = "COMPLETED"
-                return {"status": "completed", "issue_number": num, "pr": pr_data, "monitor": res}
+                return {
+                    "status": "completed",
+                    "issue_number": num,
+                    "pr": pr_data,
+                    "monitor": res,
+                }
 
         # 3. If no accepted issues exist, replenish backlog by generating a new issue
-        self.log("No pending accepted issues in backlog. Generating fresh architectural advancement issue...")
+        self.log(
+            "No pending accepted issues in backlog. Generating fresh architectural advancement issue..."
+        )
         new_issue = self.generate_advancement_issue()
         self.last_status = "AWAITING_USER_ACCEPTANCE"
         return {
             "status": "awaiting_user_acceptance",
             "generated_issue": new_issue,
-            "instruction": "Comment 'accepted' on the generated issue to trigger autonomous resolution and PR generation."
+            "instruction": "Comment 'accepted' on the generated issue to trigger autonomous resolution and PR generation.",
         }
 
 

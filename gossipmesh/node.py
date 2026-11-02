@@ -117,9 +117,13 @@ class GossipNode:
                                 mid = data.get("message_id")
                                 if mid:
                                     self.seen_messages.add(mid)
-                                    self._message_cache.append(GossipMessage.from_dict(data))
+                                    self._message_cache.append(
+                                        GossipMessage.from_dict(data)
+                                    )
                             except Exception as e:
-                                print(f"[{self.node_id}] Error parsing ledger history line: {e}")
+                                print(
+                                    f"[{self.node_id}] Error parsing ledger history line: {e}"
+                                )
             except Exception as e:
                 print(f"[{self.node_id}] Error reading ledger history: {e}")
 
@@ -131,7 +135,11 @@ class GossipNode:
         self.subscriptions[t_val].append(handler)
 
     def publish(
-        self, topic: GossipTopic, payload: Dict[str, Any], repo: str = "global", ttl: int = 10
+        self,
+        topic: GossipTopic,
+        payload: Dict[str, Any],
+        repo: str = "global",
+        ttl: int = 10,
     ) -> GossipMessage:
         """Broadcasts an epidemic gossip event across the mesh."""
         t_val = topic.value if isinstance(topic, GossipTopic) else str(topic)
@@ -192,7 +200,9 @@ class GossipNode:
                                     try:
                                         handler(msg)
                                     except Exception as e:
-                                        print(f"[{self.node_id}] Gossip dispatch error: {e}")
+                                        print(
+                                            f"[{self.node_id}] Gossip dispatch error: {e}"
+                                        )
                     except Exception as e:
                         print(f"[{self.node_id}] Error parsing sync line: {e}")
         except Exception as e:
@@ -219,9 +229,15 @@ class GossipNode:
         except Exception as e:
             print(f"[{self.node_id}] Error writing heartbeats: {e}")
 
-    def get_recent_messages(self, topic: Optional[GossipTopic] = None, limit: int = 50) -> List[GossipMessage]:
+    def get_recent_messages(
+        self, topic: Optional[GossipTopic] = None, limit: int = 50
+    ) -> List[GossipMessage]:
         """Fetches the latest gossip messages from the in-memory cache."""
-        t_val = topic.value if isinstance(topic, GossipTopic) else (str(topic) if topic else None)
+        t_val = (
+            topic.value
+            if isinstance(topic, GossipTopic)
+            else (str(topic) if topic else None)
+        )
 
         filtered = []
         for msg in reversed(self._message_cache):

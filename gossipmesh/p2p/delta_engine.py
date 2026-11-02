@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional
 
 
 class DeltaBuffer:
@@ -8,6 +8,7 @@ class DeltaBuffer:
     Represents a double-buffered container holding peer state matrices and delta payloads.
     Segregates active read-only snapshots from inactive write buffers for lock-free reads.
     """
+
     def __init__(self, states: Optional[Dict[str, Dict[str, Any]]] = None):
         self.states: Dict[str, Dict[str, Any]] = states if states is not None else {}
         self.version: int = 0
@@ -26,12 +27,13 @@ class LockFreeDoubleBufferedDeltaEngine:
     Utilizes atomic reference swapping to segregate incoming network payload writes from active
     reader traversals, achieving zero-contention parallel updates and sub-microsecond latency.
     """
+
     def __init__(self, node_id: str):
         self.node_id = node_id
         # Initialize double buffers: active (read snapshot) and inactive (write buffer)
         self._active_buffer = DeltaBuffer()
         self._write_buffer = DeltaBuffer()
-        # Lock is strictly used to serialize write-buffer mutations and atomic swaps, 
+        # Lock is strictly used to serialize write-buffer mutations and atomic swaps,
         # while readers access _active_buffer atomically without locking.
         self._write_lock = threading.Lock()
         self._swap_lock = threading.Lock()
@@ -73,7 +75,9 @@ class LockFreeDoubleBufferedDeltaEngine:
                 old_active = self._active_buffer
                 self._active_buffer = new_write
                 # Reset write buffer to fresh clone of active or empty delta
-                self._write_buffer = DeltaBuffer(states={k: dict(v) for k, v in self._active_buffer.states.items()})
+                self._write_buffer = DeltaBuffer(
+                    states={k: dict(v) for k, v in self._active_buffer.states.items()}
+                )
                 self._write_buffer.version = self._active_buffer.version
 
             return self._active_buffer.version

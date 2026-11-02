@@ -11,7 +11,6 @@ import asyncio
 import hashlib
 import json
 import mmap
-import os
 import struct
 import threading
 from pathlib import Path
@@ -73,7 +72,9 @@ class JournalLog:
             return
 
         # Resize strategy: double current size or allocate enough
-        new_size = max(self._file_size * 2, self._write_offset + needed_bytes + 1024 * 1024)
+        new_size = max(
+            self._file_size * 2, self._write_offset + needed_bytes + 1024 * 1024
+        )
         self._mmap.close()
         self._file.close()
 
@@ -94,11 +95,16 @@ class JournalLog:
         while pos + self.HEADER_SIZE <= mmap_len:
             # Check if remaining buffer is padding (zeros)
             header_chunk = self._mmap[pos : pos + self.HEADER_SIZE]
-            if len(header_chunk) < self.HEADER_SIZE or header_chunk == b"\x00" * self.HEADER_SIZE:
+            if (
+                len(header_chunk) < self.HEADER_SIZE
+                or header_chunk == b"\x00" * self.HEADER_SIZE
+            ):
                 break
 
             try:
-                magic, seq, length, checksum = struct.unpack(self.HEADER_FORMAT, header_chunk)
+                magic, seq, length, checksum = struct.unpack(
+                    self.HEADER_FORMAT, header_chunk
+                )
                 if magic != self.MAGIC:
                     break
 
@@ -109,7 +115,9 @@ class JournalLog:
                 payload = self._mmap[pos + self.HEADER_SIZE : payload_end]
                 computed_checksum = hashlib.sha256(payload).digest()
                 if computed_checksum != checksum:
-                    raise JournalCorruptionError(f"Checksum mismatch at journal offset {pos}")
+                    raise JournalCorruptionError(
+                        f"Checksum mismatch at journal offset {pos}"
+                    )
 
                 if seq > max_seq:
                     max_seq = seq
@@ -135,12 +143,16 @@ class JournalLog:
             self._next_sequence += 1
 
             header = (
-                struct.pack(self.MAGIC, self.HEADER_FORMAT.split()[0], seq, length, checksum)
+                struct.pack(
+                    self.MAGIC, self.HEADER_FORMAT.split()[0], seq, length, checksum
+                )
                 if False
                 else struct.pack(self.HEADER_FORMAT, self.MAGIC, seq, length, checksum)
             )
 
-            self._mmap[self._write_offset : self._write_offset + self.HEADER_SIZE] = header
+            self._mmap[self._write_offset : self._write_offset + self.HEADER_SIZE] = (
+                header
+            )
             self._write_offset += self.HEADER_SIZE
 
             self._mmap[self._write_offset : self._write_offset + length] = payload
@@ -163,10 +175,15 @@ class JournalLog:
             mmap_len = len(self._mmap)
             while pos + self.HEADER_SIZE <= mmap_len:
                 header_chunk = self._mmap[pos : pos + self.HEADER_SIZE]
-                if len(header_chunk) < self.HEADER_SIZE or header_chunk == b"\x00" * self.HEADER_SIZE:
+                if (
+                    len(header_chunk) < self.HEADER_SIZE
+                    or header_chunk == b"\x00" * self.HEADER_SIZE
+                ):
                     break
 
-                magic, seq, length, checksum = struct.unpack(self.HEADER_FORMAT, header_chunk)
+                magic, seq, length, checksum = struct.unpack(
+                    self.HEADER_FORMAT, header_chunk
+                )
                 if magic != self.MAGIC:
                     break
 
@@ -174,7 +191,9 @@ class JournalLog:
                 payload = self._mmap[pos + self.HEADER_SIZE : payload_end]
 
                 if hashlib.sha256(payload).digest() != checksum:
-                    raise JournalCorruptionError(f"Journal corruption detected at offset {pos}")
+                    raise JournalCorruptionError(
+                        f"Journal corruption detected at offset {pos}"
+                    )
 
                 data = json.loads(payload.decode("utf-8"))
                 records.append((seq, data))

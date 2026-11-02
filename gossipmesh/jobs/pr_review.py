@@ -16,7 +16,12 @@ class PRReviewJob:
     Orchestrates the PR Review process (Milestone 6).
     """
 
-    def __init__(self, pr_data: Dict[str, Any], workflow_id: int | None = None, db: Session | None = None):
+    def __init__(
+        self,
+        pr_data: Dict[str, Any],
+        workflow_id: int | None = None,
+        db: Session | None = None,
+    ):
         self.pr_data = pr_data
         self.workflow_id = workflow_id
         self.db = db
@@ -31,7 +36,9 @@ class PRReviewJob:
         if self.db and self.workflow_id:
             manager = WorkflowManager(self.db)
             if manager.check_cancellation(self.workflow_id):
-                logger.warning(f"Workflow {self.workflow_id} for PR #{pr_number} was cancelled or timed out.")
+                logger.warning(
+                    f"Workflow {self.workflow_id} for PR #{pr_number} was cancelled or timed out."
+                )
                 return
 
         owner = self.pr_data.get("owner", "dummy_owner")
@@ -45,7 +52,10 @@ class PRReviewJob:
         github_pr_service = GitHubPRService(token="dummy_token")
 
         integration = GitHubIntegration(
-            owner=owner, repo=repo, pr_number=pr_number, github_pr_service=github_pr_service
+            owner=owner,
+            repo=repo,
+            pr_number=pr_number,
+            github_pr_service=github_pr_service,
         )
 
         # Simulate PR review steps

@@ -12,13 +12,12 @@ import threading
 import logging
 from enum import IntEnum
 from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 
-from gossipmesh.core.exceptions import ConflictError, RateLimitError
+from gossipmesh.core.exceptions import RateLimitError
 from gossipmesh.models.runtime import Workflow, Job
-from gossipmesh.models.repository import Repository, IndexState, RepositoryPolicy
+from gossipmesh.models.repository import IndexState, RepositoryPolicy
 from gossipmesh.models.audit import AuditEvent
 from gossipmesh.runtime.worker_lease import WorkerLeaseManager
 
@@ -63,7 +62,9 @@ class GracefulShutdownController:
 
     def register_job_start(self) -> None:
         if self.is_shutting_down:
-            raise RuntimeError("Scheduler is shutting down. New jobs cannot be accepted.")
+            raise RuntimeError(
+                "Scheduler is shutting down. New jobs cannot be accepted."
+            )
         with self._lock:
             self._active_jobs_count += 1
 
@@ -114,7 +115,9 @@ class WorkflowScheduler:
         pending_count = (
             db.query(Job)
             .join(Workflow, Job.workflow_id == Workflow.id)
-            .filter(Workflow.organization_id == organization_id, Job.status == "pending")
+            .filter(
+                Workflow.organization_id == organization_id, Job.status == "pending"
+            )
             .count()
         )
         if pending_count >= queue_limit:
@@ -145,7 +148,11 @@ class WorkflowScheduler:
         base_prio = JobPriority.CRITICAL if is_user_triggered else JobPriority.NORMAL
         effective_prio = cls.calculate_effective_priority(base_prio, plan_tier)
 
-        workflow = Workflow(organization_id=organization_id, repository_id=repository_id, status="pending")
+        workflow = Workflow(
+            organization_id=organization_id,
+            repository_id=repository_id,
+            status="pending",
+        )
         db.add(workflow)
         db.flush()
 
@@ -208,9 +215,17 @@ class WorkflowScheduler:
             return None
 
         # Check policy scan frequency
-        idx_state = db.query(IndexState).filter(IndexState.repository_id == repository_id).first()
+        idx_state = (
+            db.query(IndexState)
+            .filter(IndexState.repository_id == repository_id)
+            .first()
+        )
         if not force and idx_state and idx_state.last_indexed_at:
-            policy = db.query(RepositoryPolicy).filter(RepositoryPolicy.repository_id == repository_id).first()
+            policy = (
+                db.query(RepositoryPolicy)
+                .filter(RepositoryPolicy.repository_id == repository_id)
+                .first()
+            )
             freq_hours = policy.scan_frequency_hours if policy else 24
             cutoff = datetime.now(timezone.utc) - timedelta(hours=freq_hours)
             last_indexed = idx_state.last_indexed_at
@@ -221,7 +236,11 @@ class WorkflowScheduler:
 
         effective_prio = cls.calculate_effective_priority(JobPriority.LOW, plan_tier)
 
-        workflow = Workflow(organization_id=organization_id, repository_id=repository_id, status="pending")
+        workflow = Workflow(
+            organization_id=organization_id,
+            repository_id=repository_id,
+            status="pending",
+        )
         db.add(workflow)
         db.flush()
 
@@ -267,7 +286,12 @@ class WorkflowScheduler:
             return None, None
 
         # Fetch pending jobs
-        pending_jobs = db.query(Job).filter(Job.status == "pending").order_by(Job.created_at.asc()).all()
+        pending_jobs = (
+            db.query(Job)
+            .filter(Job.status == "pending")
+            .order_by(Job.created_at.asc())
+            .all()
+        )
         if not pending_jobs:
             return None, None
 

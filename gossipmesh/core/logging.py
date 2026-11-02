@@ -1,7 +1,6 @@
 import logging
 import json
 import re
-import sys
 import contextvars
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -9,10 +8,18 @@ from typing import Any, Dict, Generator, Optional
 
 from gossipmesh.core.config import settings
 
-request_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("request_id", default=None)
-workflow_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("workflow_id", default=None)
-job_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("job_id", default=None)
-organization_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("organization_id", default=None)
+request_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "request_id", default=None
+)
+workflow_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "workflow_id", default=None
+)
+job_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "job_id", default=None
+)
+organization_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "organization_id", default=None
+)
 
 SECRET_PATTERNS = [
     re.compile(r"(sk-[a-zA-Z0-9_-]{20,})", re.IGNORECASE),
@@ -22,17 +29,23 @@ SECRET_PATTERNS = [
     re.compile(r"(bearer\s+)([a-zA-Z0-9\._-]{20,})", re.IGNORECASE),
     re.compile(r"(password[\"']?\s*[:=]\s*[\"']?)([^\"',}]+)", re.IGNORECASE),
     re.compile(r"(client_secret[\"']?\s*[:=]\s*[\"']?)([^\"',}]+)", re.IGNORECASE),
-    re.compile(r"(-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]+?-----END [A-Z ]+ PRIVATE KEY-----)"),
+    re.compile(
+        r"(-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]+?-----END [A-Z ]+ PRIVATE KEY-----)"
+    ),
 ]
 
-CODE_BLOCK_PATTERN = re.compile(r"(```[\s\S]*?```|(?:def\s+[a-zA-Z_]\w*\s*\(|class\s+[a-zA-Z_]\w*[:\(])[\s\S]{40,})")
+CODE_BLOCK_PATTERN = re.compile(
+    r"(```[\s\S]*?```|(?:def\s+[a-zA-Z_]\w*\s*\(|class\s+[a-zA-Z_]\w*[:\(])[\s\S]{40,})"
+)
 
 
 def scrub_sensitive_data(text: str) -> str:
     for pattern in SECRET_PATTERNS:
         if "bearer" in pattern.pattern.lower():
             text = pattern.sub(r"\1[REDACTED_TOKEN]", text)
-        elif "password" in pattern.pattern.lower() or "secret" in pattern.pattern.lower():
+        elif (
+            "password" in pattern.pattern.lower() or "secret" in pattern.pattern.lower()
+        ):
             text = pattern.sub(r"\1[REDACTED]", text)
         else:
             text = pattern.sub("[REDACTED_SECRET]", text)
@@ -117,7 +130,9 @@ def bind_logging_context(
     if job_id is not None:
         tokens.append((job_id_var, job_id_var.set(str(job_id))))
     if organization_id is not None:
-        tokens.append((organization_id_var, organization_id_var.set(str(organization_id))))
+        tokens.append(
+            (organization_id_var, organization_id_var.set(str(organization_id)))
+        )
     try:
         yield
     finally:
@@ -125,7 +140,9 @@ def bind_logging_context(
             var.reset(token)
 
 
-def log_structured_event(logger: logging.Logger, level: int, event: str, message: str, **kwargs: Any) -> None:
+def log_structured_event(
+    logger: logging.Logger, level: int, event: str, message: str, **kwargs: Any
+) -> None:
     logger.log(level, message, extra={"event": event, **kwargs})
 
 

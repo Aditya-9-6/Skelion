@@ -4,7 +4,7 @@ import bisect
 import hashlib
 import struct
 import threading
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set
 
 
 class ConsistentHashRing:

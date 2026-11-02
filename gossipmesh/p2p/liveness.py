@@ -53,7 +53,9 @@ class PeerLivenessTracker:
         self.quarantined_peers: Dict[str, bool] = {}
         self._lock = threading.Lock()
 
-    def record_ping(self, peer_id: str, rtt_ms: Optional[float], timed_out: bool = False) -> Dict[str, Any]:
+    def record_ping(
+        self, peer_id: str, rtt_ms: Optional[float], timed_out: bool = False
+    ) -> Dict[str, Any]:
         with self._lock:
             if peer_id not in self.latency_matrix:
                 self.latency_matrix[peer_id] = SlidingWindowEWMA(
@@ -66,7 +68,10 @@ class PeerLivenessTracker:
 
             if timed_out or rtt_ms is None or rtt_ms > self.config.timeout_threshold_ms:
                 self.consecutive_failures[peer_id] += 1
-                if self.consecutive_failures[peer_id] >= self.config.quarantine_failure_count:
+                if (
+                    self.consecutive_failures[peer_id]
+                    >= self.config.quarantine_failure_count
+                ):
                     self.quarantined_peers[peer_id] = True
                 current_ewma = ewma_tracker.get_ewma()
             else:

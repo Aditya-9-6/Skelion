@@ -6,13 +6,15 @@ Provides MTU-safe chunking, sequence numbering, CRC32 error checking, and slidin
 import zlib
 import time
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class PacketFragment:
-    def __init__(self, message_id: str, index: int, total: int, crc32: int, data: bytes):
+    def __init__(
+        self, message_id: str, index: int, total: int, crc32: int, data: bytes
+    ):
         self.message_id = message_id
         self.index = index
         self.total = total
@@ -20,7 +22,6 @@ class PacketFragment:
         self.data = data
 
     def serialize(self) -> bytes:
-        # Simple header format: msg_id_len (1B), msg_id, index (4B), total (4B), crc32 (4B), data_len (4B), data
         msg_bytes = self.message_id.encode("utf-8")
         header = (
             bytes([len(msg_bytes)])
@@ -58,14 +59,18 @@ class PacketFragmenter:
 
     def fragment(self, message_id: str, payload: bytes) -> List[PacketFragment]:
         full_crc = zlib.crc32(payload) & 0xFFFFFFFF
-        # Reserve space for header overhead
         chunk_size = max(100, self.mtu - 128)
-        chunks = [payload[i : i + chunk_size] for i in range(0, len(payload), chunk_size)]
+        chunks = [
+            payload[i : i + chunk_size] for i in range(0, len(payload), chunk_size)
+        ]
         total = len(chunks)
         if total == 0:
             chunks = [b""]
             total = 1
-        return [PacketFragment(message_id, i, total, full_crc, chunk) for i, chunk in enumerate(chunks)]
+        return [
+            PacketFragment(message_id, i, total, full_crc, chunk)
+            for i, chunk in enumerate(chunks)
+        ]
 
 
 class PacketReassembler:
@@ -94,13 +99,19 @@ class PacketReassembler:
             computed_crc = zlib.crc32(complete_data) & 0xFFFFFFFF
             del self.buffers[frag.message_id]
             if computed_crc != frag.crc32:
-                logger.error(f"CRC32 validation failed for reassembled message {frag.message_id}")
+                logger.error(
+                    f"CRC32 validation failed for reassembled message {frag.message_id}"
+                )
                 raise ValueError("CRC32 checksum mismatch on reassembled packet")
             return complete_data
         return None
 
     def _gc(self):
         now = time.time()
-        expired = [mid for mid, b in self.buffers.items() if now - b["timestamp"] > self.timeout_sec]
+        expired = [
+            mid
+            for mid, b in self.buffers.items()
+            if now - b["timestamp"] > self.timeout_sec
+        ]
         for mid in expired:
             del self.buffers[mid]

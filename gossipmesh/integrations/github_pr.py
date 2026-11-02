@@ -30,15 +30,21 @@ class GitHubPRService:
 
         for attempt in range(self.max_retries):
             try:
-                async with httpx.AsyncClient(timeout=client_kwargs["timeout"]) as client:
-                    response = await client.request(method, url, headers=headers, **kwargs)
+                async with httpx.AsyncClient(
+                    timeout=client_kwargs["timeout"]
+                ) as client:
+                    response = await client.request(
+                        method, url, headers=headers, **kwargs
+                    )
 
                     if response.status_code in (403, 429):
                         remaining = response.headers.get("x-ratelimit-remaining")
                         if remaining == "0" or response.status_code == 429:
                             raise RateLimitError(
                                 message="GitHub API rate limit exceeded",
-                                details={"reset": response.headers.get("x-ratelimit-reset")},
+                                details={
+                                    "reset": response.headers.get("x-ratelimit-reset")
+                                },
                             )
 
                     if response.status_code >= 500:
@@ -57,7 +63,9 @@ class GitHubPRService:
                 if e.response.status_code >= 500 and attempt < self.max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue
-                raise GitHubIntegrationError(f"HTTP error: {e.response.status_code} - {e.response.text}")
+                raise GitHubIntegrationError(
+                    f"HTTP error: {e.response.status_code} - {e.response.text}"
+                )
 
         raise GitHubIntegrationError("Max retries exceeded")
 
@@ -86,7 +94,9 @@ class GitHubPRService:
 
         return results
 
-    async def get_pr_metadata(self, owner: str, repo: str, pull_number: int) -> Dict[str, Any]:
+    async def get_pr_metadata(
+        self, owner: str, repo: str, pull_number: int
+    ) -> Dict[str, Any]:
         """Get basic pull request metadata."""
         url = f"{self.base_url}/repos/{owner}/{repo}/pulls/{pull_number}"
         response = await self._request("GET", url)
@@ -99,22 +109,30 @@ class GitHubPRService:
         response = await self._request("GET", url, headers=headers)
         return response.text
 
-    async def get_pr_files(self, owner: str, repo: str, pull_number: int) -> List[Dict[str, Any]]:
+    async def get_pr_files(
+        self, owner: str, repo: str, pull_number: int
+    ) -> List[Dict[str, Any]]:
         """Get list of changed files in the pull request."""
         url = f"{self.base_url}/repos/{owner}/{repo}/pulls/{pull_number}/files"
         return await self._get_paginated(url)
 
-    async def get_pr_commits(self, owner: str, repo: str, pull_number: int) -> List[Dict[str, Any]]:
+    async def get_pr_commits(
+        self, owner: str, repo: str, pull_number: int
+    ) -> List[Dict[str, Any]]:
         """Get list of commits in the pull request."""
         url = f"{self.base_url}/repos/{owner}/{repo}/pulls/{pull_number}/commits"
         return await self._get_paginated(url)
 
-    async def get_pr_reviews(self, owner: str, repo: str, pull_number: int) -> List[Dict[str, Any]]:
+    async def get_pr_reviews(
+        self, owner: str, repo: str, pull_number: int
+    ) -> List[Dict[str, Any]]:
         """Fetch all reviews for a pull request."""
         url = f"{self.base_url}/repos/{owner}/{repo}/pulls/{pull_number}/reviews"
         return await self._get_paginated(url)
 
-    async def get_pr_details(self, owner: str, repo: str, pull_number: int) -> Dict[str, Any]:
+    async def get_pr_details(
+        self, owner: str, repo: str, pull_number: int
+    ) -> Dict[str, Any]:
         """
         Get comprehensive details about a pull request including metadata,
         diff, files, and commits.
@@ -125,7 +143,11 @@ class GitHubPRService:
         commits = await self.get_pr_commits(owner, repo, pull_number)
 
         changed_files = [f["filename"] for f in files if "filename" in f]
-        file_status = {f["filename"]: f["status"] for f in files if "filename" in f and "status" in f}
+        file_status = {
+            f["filename"]: f["status"]
+            for f in files
+            if "filename" in f and "status" in f
+        }
         renamed_files = {
             f.get("previous_filename", ""): f["filename"]
             for f in files

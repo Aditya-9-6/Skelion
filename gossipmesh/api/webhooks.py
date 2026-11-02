@@ -14,7 +14,11 @@ from gossipmesh.models.audit import AuditEvent
 from gossipmesh.jobs.pr_review import PRReviewJob
 from gossipmesh.workflows.issue_solver import IssueSolverWorkflow
 from gossipmesh.workflows.ci_fixer import CIFixerWorkflow
-from gossipmesh.core.exceptions import AuthenticationError, ValidationError, AuthorizationError
+from gossipmesh.core.exceptions import (
+    AuthenticationError,
+    ValidationError,
+    AuthorizationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +33,14 @@ def verify_github_signature(request: Request, payload: bytes) -> bool:
     if not secret:
         # If secret is not configured, we allow it for development only
         if os.environ.get("ENVIRONMENT") == "development":
-            logger.warning("GITHUB_WEBHOOK_SECRET is not set, skipping signature verification in development")
+            logger.warning(
+                "GITHUB_WEBHOOK_SECRET is not set, skipping signature verification in development"
+            )
             return True
         else:
-            logger.error("GITHUB_WEBHOOK_SECRET is not set in a non-development environment")
+            logger.error(
+                "GITHUB_WEBHOOK_SECRET is not set in a non-development environment"
+            )
             return False
 
     signature_header = request.headers.get("X-Hub-Signature-256")
@@ -40,7 +48,9 @@ def verify_github_signature(request: Request, payload: bytes) -> bool:
         logger.error("Missing X-Hub-Signature-256 header")
         return False
 
-    hash_object = hmac.new(secret.encode("utf-8"), msg=payload, digestmod=hashlib.sha256)
+    hash_object = hmac.new(
+        secret.encode("utf-8"), msg=payload, digestmod=hashlib.sha256
+    )
     expected_signature = "sha256=" + hash_object.hexdigest()
 
     if not hmac.compare_digest(expected_signature, signature_header):
@@ -85,7 +95,11 @@ def dispatch_webhook(event: str, payload: dict, background_tasks: BackgroundTask
 
 
 @router.post("/github")
-async def github_webhook(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(deps.get_db)):
+async def github_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(deps.get_db),
+):
     """
     Handle incoming GitHub webhooks for Milestone 6 and 7.
     Supported events: pull_request, issues, issue_comment, workflow_run
@@ -111,16 +125,22 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks, db
     except Exception:
         raise ValidationError(message="Invalid JSON payload")
 
-    logger.info(f"Received GitHub webhook event: {event} with delivery_id: {delivery_id}")
+    logger.info(
+        f"Received GitHub webhook event: {event} with delivery_id: {delivery_id}"
+    )
 
     # Check for idempotency
-    existing_event = db.query(WebhookEvent).filter(WebhookEvent.delivery_id == delivery_id).first()
+    existing_event = (
+        db.query(WebhookEvent).filter(WebhookEvent.delivery_id == delivery_id).first()
+    )
     if existing_event:
         logger.info(f"Webhook {delivery_id} already processed. Skipping.")
         return {"status": "already_processed", "event": event}
 
     # Store event
-    webhook_record = WebhookEvent(delivery_id=delivery_id, event=event, payload=payload, status="pending")
+    webhook_record = WebhookEvent(
+        delivery_id=delivery_id, event=event, payload=payload, status="pending"
+    )
     db.add(webhook_record)
     try:
         db.commit()

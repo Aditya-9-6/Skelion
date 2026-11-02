@@ -1,13 +1,20 @@
 import asyncio
 import heapq
-from typing import Dict, Set, Tuple, Any, List
+from typing import Dict, Set, Tuple, List
 from gossipmesh.p2p.rate_limiter import TokenBucketRateLimiter
 
 
 class ConnectionManager:
-    def __init__(self, max_connections: int = 100, capacity: float = 50.0, refill_rate: float = 10.0):
+    def __init__(
+        self,
+        max_connections: int = 100,
+        capacity: float = 50.0,
+        refill_rate: float = 10.0,
+    ):
         self.max_connections = max_connections
-        self.rate_limiter = TokenBucketRateLimiter(capacity=capacity, refill_rate=refill_rate)
+        self.rate_limiter = TokenBucketRateLimiter(
+            capacity=capacity, refill_rate=refill_rate
+        )
         self.active_connections: Set[str] = set()
         self.connection_priorities: Dict[str, int] = {}
         self._pq: List[Tuple[int, float, str]] = []
@@ -24,7 +31,14 @@ class ConnectionManager:
                     return False
                 lowest_priority, _, evicted_peer = heapq.heappop(self._pq)
                 if priority <= lowest_priority:
-                    heapq.heappush(self._pq, (lowest_priority, asyncio.get_event_loop().time(), evicted_peer))
+                    heapq.heappush(
+                        self._pq,
+                        (
+                            lowest_priority,
+                            asyncio.get_event_loop().time(),
+                            evicted_peer,
+                        ),
+                    )
                     return False
                 self.active_connections.remove(evicted_peer)
                 if evicted_peer in self.connection_priorities:
@@ -32,7 +46,9 @@ class ConnectionManager:
 
             self.active_connections.add(peer_id)
             self.connection_priorities[peer_id] = priority
-            heapq.heappush(self._pq, (priority, asyncio.get_event_loop().time(), peer_id))
+            heapq.heappush(
+                self._pq, (priority, asyncio.get_event_loop().time(), peer_id)
+            )
             return True
 
     async def remove_peer(self, peer_id: str) -> None:

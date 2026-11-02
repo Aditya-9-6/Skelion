@@ -1,8 +1,6 @@
 import time
 import jwt
 from github import Github, Auth
-from github.Installation import Installation
-from gossipmesh.core.config import settings
 
 
 class GitHubIntegration:
@@ -11,7 +9,11 @@ class GitHubIntegration:
         self.private_key = private_key
 
     def _generate_jwt(self) -> str:
-        payload = {"iat": int(time.time()) - 60, "exp": int(time.time()) + (10 * 60), "iss": self.app_id}
+        payload = {
+            "iat": int(time.time()) - 60,
+            "exp": int(time.time()) + (10 * 60),
+            "iss": self.app_id,
+        }
         encoded = jwt.encode(payload, self.private_key, algorithm="RS256")
         return encoded if isinstance(encoded, str) else encoded.decode("utf-8")
 

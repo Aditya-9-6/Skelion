@@ -1,6 +1,6 @@
 import zlib
 import struct
-from typing import Set, Tuple, List, Optional
+from typing import Set, Tuple, List
 
 
 class IBLTCell:
@@ -78,11 +78,15 @@ class InvertibleBloomLookupTable:
 
         for cell in clone.table:
             if not cell.is_empty():
-                raise ValueError("IBLT could not be fully decoded due to high entropy or insufficient capacity")
+                raise ValueError(
+                    "IBLT could not be fully decoded due to high entropy or insufficient capacity"
+                )
 
         return positive_keys, negative_keys
 
-    def subtract(self, other: "InvertibleBloomLookupTable") -> "InvertibleBloomLookupTable":
+    def subtract(
+        self, other: "InvertibleBloomLookupTable"
+    ) -> "InvertibleBloomLookupTable":
         if self.size != other.size or self.hash_functions != other.hash_functions:
             raise ValueError("Cannot subtract IBLTs of differing sizes or hash counts")
         result = InvertibleBloomLookupTable(self.size, self.hash_functions)

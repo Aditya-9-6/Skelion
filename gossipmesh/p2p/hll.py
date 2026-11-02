@@ -1,7 +1,7 @@
 import math
 import threading
 import time
-from typing import Optional, List, Union
+from typing import Optional, Union
 
 try:
     import mmh3
@@ -43,7 +43,9 @@ class WindowedHyperLogLog:
             return max_bits + 1
         return max_bits - val.bit_length() + 1
 
-    def add(self, item: Union[str, bytes], current_time: Optional[float] = None) -> None:
+    def add(
+        self, item: Union[str, bytes], current_time: Optional[float] = None
+    ) -> None:
         if not isinstance(item, (str, bytes)):
             raise TypeError("Item must be str or bytes")
 
@@ -53,7 +55,11 @@ class WindowedHyperLogLog:
             item_bytes = item
 
         t = current_time if current_time is not None else time.time()
-        h = self._hash(item_bytes if isinstance(item, str) else item.decode("utf-8", errors="ignore"))
+        h = self._hash(
+            item_bytes
+            if isinstance(item, str)
+            else item.decode("utf-8", errors="ignore")
+        )
 
         idx = h & (self.num_registers - 1)
         w_val = h >> self.p
@@ -67,7 +73,10 @@ class WindowedHyperLogLog:
                 self.timestamps[idx] = t
 
     def _decay_register(self, idx: int, current_time: float) -> None:
-        if self.timestamps[idx] > 0 and (current_time - self.timestamps[idx]) > self.window_ttl:
+        if (
+            self.timestamps[idx] > 0
+            and (current_time - self.timestamps[idx]) > self.window_ttl
+        ):
             self.registers[idx] = 0
             self.timestamps[idx] = 0.0
 

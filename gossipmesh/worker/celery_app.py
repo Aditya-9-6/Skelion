@@ -1,6 +1,3 @@
-from celery import Celery
-
-
 class CeleryStub:
     broker_url: str = "redis://localhost:6379/0"
 

@@ -20,14 +20,20 @@ if str(ROOT) not in sys.path:
 
 # Set test environment for in-process validation
 os.environ["TESTING"] = "true"
-os.environ["ENCRYPTION_KEY"] = os.environ.get("ENCRYPTION_KEY", "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=")
-os.environ["SECRET_KEY"] = os.environ.get("SECRET_KEY", "supersecretkey_please_change_in_production")
+os.environ["ENCRYPTION_KEY"] = os.environ.get(
+    "ENCRYPTION_KEY", "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
+)
+os.environ["SECRET_KEY"] = os.environ.get(
+    "SECRET_KEY", "supersecretkey_please_change_in_production"
+)
 os.environ["POSTGRES_USER"] = os.environ.get("POSTGRES_USER", "testuser")
 os.environ["POSTGRES_PASSWORD"] = os.environ.get("POSTGRES_PASSWORD", "testpass")
 os.environ["POSTGRES_HOST"] = os.environ.get("POSTGRES_HOST", "localhost")
 os.environ["POSTGRES_PORT"] = os.environ.get("POSTGRES_PORT", "5432")
 os.environ["POSTGRES_DB"] = os.environ.get("POSTGRES_DB", "testdb")
-os.environ["GEMINI_API_KEY"] = os.environ.get("GEMINI_API_KEY", "dummy_test_gemini_key_12345")
+os.environ["GEMINI_API_KEY"] = os.environ.get(
+    "GEMINI_API_KEY", "dummy_test_gemini_key_12345"
+)
 
 REPO = "Aditya-9-6/GossipMesh"
 
@@ -53,7 +59,10 @@ def run_cmd(cmd, cwd=None, check=False):
 
 def audit_and_close_unneeded_prs(workspace: Path) -> int:
     """Audits open PRs and closes those that are not needed using fast batch queries."""
-    print("[*] Fetching open PRs, closed issues, and merged PRs for batch triage...", flush=True)
+    print(
+        "[*] Fetching open PRs, closed issues, and merged PRs for batch triage...",
+        flush=True,
+    )
 
     # 1. Fast batch fetch open PRs
     prs_raw = run_cmd(
@@ -80,10 +89,26 @@ def audit_and_close_unneeded_prs(workspace: Path) -> int:
 
     # 2. Fast batch fetch closed issue numbers
     closed_issues_raw = run_cmd(
-        ["gh", "issue", "list", "--repo", REPO, "--state", "closed", "--limit", "300", "--json", "number"],
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            REPO,
+            "--state",
+            "closed",
+            "--limit",
+            "300",
+            "--json",
+            "number",
+        ],
         cwd=workspace,
     )
-    closed_issues = set(i["number"] for i in json.loads(closed_issues_raw)) if closed_issues_raw else set()
+    closed_issues = (
+        set(i["number"] for i in json.loads(closed_issues_raw))
+        if closed_issues_raw
+        else set()
+    )
 
     # 3. Fast batch fetch merged PR numbers and linked issue references
     merged_prs_raw = run_cmd(
@@ -145,12 +170,30 @@ def audit_and_close_unneeded_prs(workspace: Path) -> int:
         linked = p.get("linked_issue")
 
         # Check 1: Linked issue was already resolved in a merged PR
-        if linked and linked in merged_issue_to_pr and merged_issue_to_pr[linked] != num:
+        if (
+            linked
+            and linked in merged_issue_to_pr
+            and merged_issue_to_pr[linked] != num
+        ):
             solver_pr = merged_issue_to_pr[linked]
             reason = f"👋 **Closing PR #{num}**: Linked Issue #{linked} was already resolved and merged into `main` in PR #{solver_pr}."
-            print(f"[*] Closing redundant PR #{num} (Issue #{linked} merged in PR #{solver_pr})...", flush=True)
+            print(
+                f"[*] Closing redundant PR #{num} (Issue #{linked} merged in PR #{solver_pr})...",
+                flush=True,
+            )
             run_cmd(
-                ["gh", "pr", "close", str(num), "--repo", REPO, "--comment", reason, "--delete-branch"], cwd=workspace
+                [
+                    "gh",
+                    "pr",
+                    "close",
+                    str(num),
+                    "--repo",
+                    REPO,
+                    "--comment",
+                    reason,
+                    "--delete-branch",
+                ],
+                cwd=workspace,
             )
             closed_count += 1
             continue
@@ -158,28 +201,60 @@ def audit_and_close_unneeded_prs(workspace: Path) -> int:
         # Check 2: Linked issue is marked CLOSED
         if linked and linked in closed_issues:
             reason = f"👋 **Closing PR #{num}**: Linked Issue #{linked} is closed and no longer planned."
-            print(f"[*] Closing obsolete PR #{num} (Linked Issue #{linked} is closed)...", flush=True)
+            print(
+                f"[*] Closing obsolete PR #{num} (Linked Issue #{linked} is closed)...",
+                flush=True,
+            )
             run_cmd(
-                ["gh", "pr", "close", str(num), "--repo", REPO, "--comment", reason, "--delete-branch"], cwd=workspace
+                [
+                    "gh",
+                    "pr",
+                    "close",
+                    str(num),
+                    "--repo",
+                    REPO,
+                    "--comment",
+                    reason,
+                    "--delete-branch",
+                ],
+                cwd=workspace,
             )
             closed_count += 1
             continue
 
         # Check 3: Duplicate PRs for the same issue (keep newest, close older ones)
         if linked and len(issue_to_prs.get(linked, [])) > 1:
-            all_for_issue = sorted(issue_to_prs[linked], key=lambda x: x["number"], reverse=True)
+            all_for_issue = sorted(
+                issue_to_prs[linked], key=lambda x: x["number"], reverse=True
+            )
             newest = all_for_issue[0]
             if num != newest["number"]:
                 reason = f"👋 **Closing PR #{num} as duplicate**: Superseded by newer PR #{newest['number']} for Issue #{linked}."
-                print(f"[*] Closing duplicate PR #{num} in favor of newer PR #{newest['number']}...", flush=True)
+                print(
+                    f"[*] Closing duplicate PR #{num} in favor of newer PR #{newest['number']}...",
+                    flush=True,
+                )
                 run_cmd(
-                    ["gh", "pr", "close", str(num), "--repo", REPO, "--comment", reason, "--delete-branch"],
+                    [
+                        "gh",
+                        "pr",
+                        "close",
+                        str(num),
+                        "--repo",
+                        REPO,
+                        "--comment",
+                        reason,
+                        "--delete-branch",
+                    ],
                     cwd=workspace,
                 )
                 closed_count += 1
                 continue
 
-    print(f"[+] PR Audit Complete: Closed {closed_count} unneeded / duplicate PR(s).", flush=True)
+    print(
+        f"[+] PR Audit Complete: Closed {closed_count} unneeded / duplicate PR(s).",
+        flush=True,
+    )
     return closed_count
 
 
@@ -187,7 +262,19 @@ def audit_and_close_unneeded_issues(workspace: Path) -> int:
     """Audits open issues and closes those that are already resolved, duplicate, or unneeded."""
     print("[*] Auditing open Issues for necessity and validity...", flush=True)
     raw = run_cmd(
-        ["gh", "issue", "list", "--repo", REPO, "--state", "open", "--limit", "300", "--json", "number,title,body"],
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            REPO,
+            "--state",
+            "open",
+            "--limit",
+            "300",
+            "--json",
+            "number,title,body",
+        ],
         cwd=workspace,
     )
     if not raw:
@@ -239,8 +326,14 @@ def audit_and_close_unneeded_issues(workspace: Path) -> int:
         if num in merged_issue_to_pr:
             solver_pr = merged_issue_to_pr[num]
             reason = f"✅ **Closing Issue #{num}**: This issue has already been resolved and merged into `main` via PR #{solver_pr}."
-            print(f"[*] Closing Issue #{num}: Already resolved in merged PR #{solver_pr}.", flush=True)
-            run_cmd(["gh", "issue", "close", str(num), "--repo", REPO, "--comment", reason], cwd=workspace)
+            print(
+                f"[*] Closing Issue #{num}: Already resolved in merged PR #{solver_pr}.",
+                flush=True,
+            )
+            run_cmd(
+                ["gh", "issue", "close", str(num), "--repo", REPO, "--comment", reason],
+                cwd=workspace,
+            )
             closed_count += 1
             continue
 
@@ -255,12 +348,30 @@ def audit_and_close_unneeded_issues(workspace: Path) -> int:
                 if task_entry:
                     task_entry["verify"]()
                     reason = f"✅ **Closing Issue #{num}**: Master Implementation Plan Task {task_num} ('{task_entry['title']}') is already fully implemented and verified on `main`."
-                    print(f"[*] Closing Issue #{num}: Task {task_num} already verified on main.", flush=True)
-                    run_cmd(["gh", "issue", "close", str(num), "--repo", REPO, "--comment", reason], cwd=workspace)
+                    print(
+                        f"[*] Closing Issue #{num}: Task {task_num} already verified on main.",
+                        flush=True,
+                    )
+                    run_cmd(
+                        [
+                            "gh",
+                            "issue",
+                            "close",
+                            str(num),
+                            "--repo",
+                            REPO,
+                            "--comment",
+                            reason,
+                        ],
+                        cwd=workspace,
+                    )
                     closed_count += 1
                     continue
             except Exception as e:
-                print(f"[!] Task {task_num} verification failed: {e}. Keeping Issue #{num} open to solve.", flush=True)
+                print(
+                    f"[!] Task {task_num} verification failed: {e}. Keeping Issue #{num} open to solve.",
+                    flush=True,
+                )
 
         # 3. Check for duplicate issue titles and semantically identical topics
         norm = re.sub(r"[^a-zA-Z0-9]", "", title.lower())
@@ -298,9 +409,23 @@ def audit_and_close_unneeded_issues(workspace: Path) -> int:
         if topic_key in seen_normalized_titles:
             primary = seen_normalized_titles[topic_key]
             reason = f"👋 **Closing Issue #{num} as duplicate**: Identical capability is already tracked in Issue #{primary}."
-            print(f"[*] Closing duplicate Issue #{num} in favor of #{primary}...", flush=True)
+            print(
+                f"[*] Closing duplicate Issue #{num} in favor of #{primary}...",
+                flush=True,
+            )
             run_cmd(
-                ["gh", "issue", "close", str(num), "--repo", REPO, "--reason", "duplicate", "--comment", reason],
+                [
+                    "gh",
+                    "issue",
+                    "close",
+                    str(num),
+                    "--repo",
+                    REPO,
+                    "--reason",
+                    "duplicate",
+                    "--comment",
+                    reason,
+                ],
                 cwd=workspace,
             )
             closed_count += 1
@@ -309,21 +434,42 @@ def audit_and_close_unneeded_issues(workspace: Path) -> int:
             seen_normalized_titles[topic_key] = num
 
         # 4. Check for capabilities already fully present in main
-        if "Adaptive Gossip Fanout" in title and (workspace / "gossipmesh" / "p2p" / "fanout.py").exists():
+        if (
+            "Adaptive Gossip Fanout" in title
+            and (workspace / "gossipmesh" / "p2p" / "fanout.py").exists()
+        ):
             reason = f"✅ **Closing Issue #{num}**: Adaptive Gossip Fanout Control is already fully implemented on `main` in `gossipmesh/p2p/fanout.py`."
-            print(f"[*] Closing Issue #{num}: Capability already present on main.", flush=True)
-            run_cmd(["gh", "issue", "close", str(num), "--repo", REPO, "--comment", reason], cwd=workspace)
+            print(
+                f"[*] Closing Issue #{num}: Capability already present on main.",
+                flush=True,
+            )
+            run_cmd(
+                ["gh", "issue", "close", str(num), "--repo", REPO, "--comment", reason],
+                cwd=workspace,
+            )
             closed_count += 1
             continue
 
-        if "Noise Protocol Framework" in title and (workspace / "gossipmesh" / "crypto" / "noise.py").exists():
+        if (
+            "Noise Protocol Framework" in title
+            and (workspace / "gossipmesh" / "crypto" / "noise.py").exists()
+        ):
             reason = f"✅ **Closing Issue #{num}**: Noise Protocol Handshake is already fully implemented on `main` in `gossipmesh/crypto/noise.py`."
-            print(f"[*] Closing Issue #{num}: Capability already present on main.", flush=True)
-            run_cmd(["gh", "issue", "close", str(num), "--repo", REPO, "--comment", reason], cwd=workspace)
+            print(
+                f"[*] Closing Issue #{num}: Capability already present on main.",
+                flush=True,
+            )
+            run_cmd(
+                ["gh", "issue", "close", str(num), "--repo", REPO, "--comment", reason],
+                cwd=workspace,
+            )
             closed_count += 1
             continue
 
-    print(f"[+] Issue Audit Complete: Closed {closed_count} unneeded / duplicate issue(s).", flush=True)
+    print(
+        f"[+] Issue Audit Complete: Closed {closed_count} unneeded / duplicate issue(s).",
+        flush=True,
+    )
     return closed_count
 
 
@@ -335,7 +481,9 @@ def main():
     prs_closed = audit_and_close_unneeded_prs(workspace)
     issues_closed = audit_and_close_unneeded_issues(workspace)
     print("=" * 70)
-    print(f"[Summary] Closed {prs_closed} unneeded PR(s) and {issues_closed} unneeded Issue(s).")
+    print(
+        f"[Summary] Closed {prs_closed} unneeded PR(s) and {issues_closed} unneeded Issue(s)."
+    )
     print("=" * 70)
 
 

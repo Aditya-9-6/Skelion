@@ -32,13 +32,19 @@ def configure_saml(
     require_org_admin(org_id, db, current_user)
 
     # Validate certificate using the adapter
-    adapter = SAMLAdapter(config_in.idp_entity_id, config_in.sso_url, config_in.x509_cert)
+    adapter = SAMLAdapter(
+        config_in.idp_entity_id, config_in.sso_url, config_in.x509_cert
+    )
     if not adapter.validate_certificate():
         raise HTTPException(status_code=400, detail="Invalid X509 Certificate format")
 
     encrypted_cert = encrypt_string(config_in.x509_cert)
 
-    config = db.query(OrganizationSAMLConfig).filter(OrganizationSAMLConfig.organization_id == org_id).first()
+    config = (
+        db.query(OrganizationSAMLConfig)
+        .filter(OrganizationSAMLConfig.organization_id == org_id)
+        .first()
+    )
     if config:
         config.idp_entity_id = config_in.idp_entity_id
         config.sso_url = config_in.sso_url
@@ -68,12 +74,18 @@ def configure_saml(
 def saml_login(org_id: int, db: Session = Depends(deps.get_db)) -> Any:
     config = (
         db.query(OrganizationSAMLConfig)
-        .filter(OrganizationSAMLConfig.organization_id == org_id, OrganizationSAMLConfig.is_active)
+        .filter(
+            OrganizationSAMLConfig.organization_id == org_id,
+            OrganizationSAMLConfig.is_active,
+        )
         .first()
     )
 
     if not config:
-        raise HTTPException(status_code=404, detail="SAML configuration not found or inactive for this organization")
+        raise HTTPException(
+            status_code=404,
+            detail="SAML configuration not found or inactive for this organization",
+        )
 
     decrypted_cert = decrypt_string(config.x509_cert_encrypted)
     adapter = SAMLAdapter(config.idp_entity_id, config.sso_url, decrypted_cert)
@@ -81,7 +93,9 @@ def saml_login(org_id: int, db: Session = Depends(deps.get_db)) -> Any:
     redirect_url = adapter.build_authn_request()
 
     # Using system actor (0) since user is not logged in yet
-    event = AuditEvent(action="saml_login.initiated", actor_id=0, organization_id=org_id, details={})
+    event = AuditEvent(
+        action="saml_login.initiated", actor_id=0, organization_id=org_id, details={}
+    )
     db.add(event)
     db.commit()
 
@@ -89,15 +103,25 @@ def saml_login(org_id: int, db: Session = Depends(deps.get_db)) -> Any:
 
 
 @router.post("/{org_id}/acs")
-def saml_acs(org_id: int, request: Request, SAMLResponse: str = Form(...), db: Session = Depends(deps.get_db)) -> Any:
+def saml_acs(
+    org_id: int,
+    request: Request,
+    SAMLResponse: str = Form(...),
+    db: Session = Depends(deps.get_db),
+) -> Any:
     config = (
         db.query(OrganizationSAMLConfig)
-        .filter(OrganizationSAMLConfig.organization_id == org_id, OrganizationSAMLConfig.is_active)
+        .filter(
+            OrganizationSAMLConfig.organization_id == org_id,
+            OrganizationSAMLConfig.is_active,
+        )
         .first()
     )
 
     if not config:
-        raise HTTPException(status_code=404, detail="SAML configuration not found or inactive")
+        raise HTTPException(
+            status_code=404, detail="SAML configuration not found or inactive"
+        )
 
     decrypted_cert = decrypt_string(config.x509_cert_encrypted)
     adapter = SAMLAdapter(config.idp_entity_id, config.sso_url, decrypted_cert)
@@ -108,13 +132,21 @@ def saml_acs(org_id: int, request: Request, SAMLResponse: str = Form(...), db: S
     except NotImplementedError as e:
         # Log the attempt and return a 501 Not Implemented gracefully
         event = AuditEvent(
-            action="saml_login.failed_not_implemented", actor_id=0, organization_id=org_id, details={"error": str(e)}
+            action="saml_login.failed_not_implemented",
+            actor_id=0,
+            organization_id=org_id,
+            details={"error": str(e)},
         )
         db.add(event)
         db.commit()
         raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
-        event = AuditEvent(action="saml_login.failed", actor_id=0, organization_id=org_id, details={"error": str(e)})
+        event = AuditEvent(
+            action="saml_login.failed",
+            actor_id=0,
+            organization_id=org_id,
+            details={"error": str(e)},
+        )
         db.add(event)
         db.commit()
         raise HTTPException(status_code=400, detail="Invalid SAML Response")
@@ -125,11 +157,16 @@ def saml_acs(org_id: int, request: Request, SAMLResponse: str = Form(...), db: S
 
 @router.get("/{org_id}/logout")
 def saml_logout(
-    org_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    org_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     config = (
         db.query(OrganizationSAMLConfig)
-        .filter(OrganizationSAMLConfig.organization_id == org_id, OrganizationSAMLConfig.is_active)
+        .filter(
+            OrganizationSAMLConfig.organization_id == org_id,
+            OrganizationSAMLConfig.is_active,
+        )
         .first()
     )
 
@@ -144,7 +181,12 @@ def saml_logout(
     except NotImplementedError as e:
         raise HTTPException(status_code=501, detail=str(e))
 
-    event = AuditEvent(action="saml_logout.initiated", actor_id=current_user.id, organization_id=org_id, details={})
+    event = AuditEvent(
+        action="saml_logout.initiated",
+        actor_id=current_user.id,
+        organization_id=org_id,
+        details={},
+    )
     db.add(event)
     db.commit()
 

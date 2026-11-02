@@ -39,8 +39,12 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
 
 
-def log_audit_event(db: Session, action: str, actor_id: int, org_id: int, details: dict):
-    event = AuditEvent(action=action, actor_id=actor_id, organization_id=org_id, details=details)
+def log_audit_event(
+    db: Session, action: str, actor_id: int, org_id: int, details: dict
+):
+    event = AuditEvent(
+        action=action, actor_id=actor_id, organization_id=org_id, details=details
+    )
     db.add(event)
 
 
@@ -60,7 +64,9 @@ def require_project_member(project_id: int, db: Session, current_user: User) -> 
         .first()
     )
     if not user_org:
-        raise HTTPException(status_code=403, detail="Not authorized for this project's organization.")
+        raise HTTPException(
+            status_code=403, detail="Not authorized for this project's organization."
+        )
     return project
 
 
@@ -77,8 +83,14 @@ def require_project_admin(project_id: int, db: Session, current_user: User) -> P
         )
         .first()
     )
-    if not user_org or user_org.role not in [OrganizationRole.admin, OrganizationRole.owner]:
-        raise HTTPException(status_code=403, detail="Admin permissions required for this project action.")
+    if not user_org or user_org.role not in [
+        OrganizationRole.admin,
+        OrganizationRole.owner,
+    ]:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin permissions required for this project action.",
+        )
     return project
 
 
@@ -179,9 +191,15 @@ def unlink_repository_from_project(
     db: Session = Depends(deps.get_db),
 ) -> Any:
     project = require_project_admin(project_id, db, current_user)
-    repo = db.query(Repository).filter(Repository.id == repo_id, Repository.project_id == project.id).first()
+    repo = (
+        db.query(Repository)
+        .filter(Repository.id == repo_id, Repository.project_id == project.id)
+        .first()
+    )
     if not repo:
-        raise HTTPException(status_code=404, detail="Repository not linked to this project.")
+        raise HTTPException(
+            status_code=404, detail="Repository not linked to this project."
+        )
     repo.project_id = None
     log_audit_event(
         db,

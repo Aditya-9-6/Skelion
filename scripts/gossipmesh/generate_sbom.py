@@ -7,8 +7,6 @@ Generates standard CycloneDX JSON SBOM for GossipMesh dependencies and component
 from __future__ import annotations
 
 import json
-import os
-import sys
 from datetime import datetime, timezone
 from importlib.metadata import distributions
 from pathlib import Path
@@ -65,7 +63,9 @@ def main():
     sbom = generate_sbom()
     out_path = Path("sbom.json")
     out_path.write_text(json.dumps(sbom, indent=2), encoding="utf-8")
-    print(f"[+] Successfully generated CycloneDX SBOM at {out_path} ({len(sbom['components'])} components)")
+    print(
+        f"[+] Successfully generated CycloneDX SBOM at {out_path} ({len(sbom['components'])} components)"
+    )
 
 
 if __name__ == "__main__":

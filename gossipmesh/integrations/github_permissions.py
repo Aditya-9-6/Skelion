@@ -5,7 +5,7 @@ required permission level, adhering strictly to the principle of least privilege
 """
 
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, Set, Tuple, Any
 from gossipmesh.core.exceptions import AuthorizationError
 
 
@@ -114,14 +114,20 @@ class GitHubPermissionsAuditor:
     """Audits granted GitHub App or OAuth tokens against least-privilege policies."""
 
     @staticmethod
-    def get_required_permission(operation: str) -> Tuple[GitHubResource, GitHubPermissionLevel]:
+    def get_required_permission(
+        operation: str,
+    ) -> Tuple[GitHubResource, GitHubPermissionLevel]:
         spec = GITHUB_PERMISSION_MATRIX.get(operation)
         if not spec:
-            raise ValueError(f"Unknown GitHub operation '{operation}' not defined in permission matrix.")
+            raise ValueError(
+                f"Unknown GitHub operation '{operation}' not defined in permission matrix."
+            )
         return spec["resource"], spec["level"]
 
     @classmethod
-    def verify_operation_permission(cls, operation: str, granted_permissions: Dict[str, str]) -> bool:
+    def verify_operation_permission(
+        cls, operation: str, granted_permissions: Dict[str, str]
+    ) -> bool:
         """Verifies that the granted permissions satisfy the minimum requirement for the operation without granting excessive forbidden privileges."""
         # 1. Check for prohibited permissions
         for forbidden in FORBIDDEN_PERMISSIONS:
@@ -153,7 +159,9 @@ class GitHubPermissionsAuditor:
         # Check for forbidden permissions
         for forbidden in FORBIDDEN_PERMISSIONS:
             if manifest_permissions.get(forbidden.value, "none") not in ("none", None):
-                excessive.append(f"{forbidden.value}:{manifest_permissions.get(forbidden.value)}")
+                excessive.append(
+                    f"{forbidden.value}:{manifest_permissions.get(forbidden.value)}"
+                )
 
         # Check required ops
         for op, spec in GITHUB_PERMISSION_MATRIX.items():

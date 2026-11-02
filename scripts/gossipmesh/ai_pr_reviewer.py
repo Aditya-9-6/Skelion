@@ -22,17 +22,14 @@ import urllib.request
 import urllib.error
 import subprocess
 import time
-import hashlib
 import datetime
 from pathlib import Path
 
 # Add parent directory to path to import gossipmesh
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from gossipmesh.memetic import MemeticKnowledgeBase
-import json
 
 from gossipmesh.red_team import RedTeamAuditor
-from gossipmesh.consensus import ByzantineConsensusEngine, ModelVote
 from gossipmesh.semantic_cache import SemanticCache
 
 DEFAULT_MODEL = "gemini-3.8-flash"
@@ -47,7 +44,12 @@ FALLBACK_MODELS = [
 
 def load_multi_provider_keys():
     """Loads auxiliary LLM keys (OpenRouter, NVIDIA, Cohere, HuggingFace) from .llm_keys files if present."""
-    for check_dir in (Path("."), Path(__file__).resolve().parent, Path(__file__).resolve().parent.parent, Path.home()):
+    for check_dir in (
+        Path("."),
+        Path(__file__).resolve().parent,
+        Path(__file__).resolve().parent.parent,
+        Path.home(),
+    ):
         llm_file = check_dir / ".llm_keys"
         if llm_file.exists():
             try:
@@ -72,11 +74,21 @@ def load_gemini_keys() -> list[str]:
     for k in pool_env.split(","):
         if k.strip() and k.strip() not in keys:
             keys.append(k.strip())
-    for var in ("GEMINI_REVIEWER_KEY", "GEMINI_API_KEY", "GEMINI_SOLVER_KEY", "GEMINI_ISSUE_KEY"):
+    for var in (
+        "GEMINI_REVIEWER_KEY",
+        "GEMINI_API_KEY",
+        "GEMINI_SOLVER_KEY",
+        "GEMINI_ISSUE_KEY",
+    ):
         val = os.environ.get(var, "").strip()
         if val and val not in keys:
             keys.append(val)
-    for check_dir in (Path("."), Path(__file__).resolve().parent, Path(__file__).resolve().parent.parent, Path.home()):
+    for check_dir in (
+        Path("."),
+        Path(__file__).resolve().parent,
+        Path(__file__).resolve().parent.parent,
+        Path.home(),
+    ):
         key_file = check_dir / ".gemini_keys"
         if key_file.exists():
             try:
@@ -161,10 +173,17 @@ You MUST respond ONLY with a single valid JSON object with the following schema:
 """
 
 
-def call_ollama(prompt: str, model: str = "llama3", cache_dir: str = ".gossip_mesh/cache") -> dict:
+def call_ollama(
+    prompt: str, model: str = "llama3", cache_dir: str = ".gossip_mesh/cache"
+) -> dict:
     """Calls local Ollama API for fast edge inference."""
     url = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
-    payload = {"model": model, "prompt": f"{REVIEWER_SYSTEM_PROMPT}\n\n{prompt}", "stream": False, "format": "json"}
+    payload = {
+        "model": model,
+        "prompt": f"{REVIEWER_SYSTEM_PROMPT}\n\n{prompt}",
+        "stream": False,
+        "format": "json",
+    }
 
     sem_cache = SemanticCache(cache_dir=cache_dir)
     cache_key_text = f"{model}:{prompt}"
@@ -172,9 +191,15 @@ def call_ollama(prompt: str, model: str = "llama3", cache_dir: str = ".gossip_me
     if cached_val:
         return cached_val
 
-    print(f"[*] Requesting fast-pass architectural PR review from local edge model: {model}...", flush=True)
+    print(
+        f"[*] Requesting fast-pass architectural PR review from local edge model: {model}...",
+        flush=True,
+    )
     req = urllib.request.Request(
-        url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST"
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
     )
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
@@ -184,12 +209,22 @@ def call_ollama(prompt: str, model: str = "llama3", cache_dir: str = ".gossip_me
             sem_cache.put(cache_key_text, parsed_response)
             return parsed_response
     except Exception as e:
-        print(f"[Warning] Failed to query local edge model {model}: {e}", file=sys.stderr)
-        return {"verdict": "ACTION_REQUIRED", "score": 50, "executive_summary": f"Failed to query {model}: {e}"}
+        print(
+            f"[Warning] Failed to query local edge model {model}: {e}", file=sys.stderr
+        )
+        return {
+            "verdict": "ACTION_REQUIRED",
+            "score": 50,
+            "executive_summary": f"Failed to query {model}: {e}",
+        }
 
 
 def call_gemini(
-    api_key: str, prompt: str, fallback_key: str = "", model: str = DEFAULT_MODEL, cache_dir: str = ".gossip_mesh/cache"
+    api_key: str,
+    prompt: str,
+    fallback_key: str = "",
+    model: str = DEFAULT_MODEL,
+    cache_dir: str = ".gossip_mesh/cache",
 ) -> dict:
     """Calls Gemini REST API with fallback models and fallback API key, expecting JSON."""
     ordered = [model] + [m for m in FALLBACK_MODELS if m != model]
@@ -232,11 +267,19 @@ def call_gemini(
         for current_key, current_model in active_strategies:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{current_model}:generateContent?key={current_key}"
             payload = {
-                "contents": [{"parts": [{"text": REVIEWER_SYSTEM_PROMPT}, {"text": prompt}]}],
-                "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
+                "contents": [
+                    {"parts": [{"text": REVIEWER_SYSTEM_PROMPT}, {"text": prompt}]}
+                ],
+                "generationConfig": {
+                    "temperature": 0.2,
+                    "responseMimeType": "application/json",
+                },
             }
 
-            print(f"[*] Requesting architectural PR review from model: {current_model}...", flush=True)
+            print(
+                f"[*] Requesting architectural PR review from model: {current_model}...",
+                flush=True,
+            )
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
@@ -246,7 +289,9 @@ def call_gemini(
             try:
                 with urllib.request.urlopen(req, timeout=90) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
-                    text_response = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    text_response = data["candidates"][0]["content"]["parts"][0][
+                        "text"
+                    ].strip()
                     try:
                         parsed_response = json.loads(text_response, strict=False)
                     except json.JSONDecodeError:
@@ -287,7 +332,9 @@ def call_gemini(
         if attempt < max_attempts and active_strategies:
             time.sleep(1 * attempt)
 
-    raise RuntimeError(f"Failed to obtain PR review from Gemini API. Last error: {last_err}")
+    raise RuntimeError(
+        f"Failed to obtain PR review from Gemini API. Last error: {last_err}"
+    )
 
 
 def extract_json_response(raw_text: str) -> dict:
@@ -307,7 +354,9 @@ def extract_json_response(raw_text: str) -> dict:
     last_brace = raw_text.rfind("}")
     if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
         return json.loads(raw_text[first_brace : last_brace + 1], strict=False)
-    raise ValueError(f"Could not parse valid JSON from model response: {raw_text[:200]}")
+    raise ValueError(
+        f"Could not parse valid JSON from model response: {raw_text[:200]}"
+    )
 
 
 def call_groq_review(api_key: str, prompt: str) -> dict:
@@ -320,14 +369,20 @@ def call_groq_review(api_key: str, prompt: str) -> dict:
         print(f"[*] [Groq Fallback] Querying {model}...", flush=True)
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": REVIEWER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -351,14 +406,20 @@ def call_openai_review(api_key: str, prompt: str) -> dict:
         print(f"[*] [OpenAI Fallback] Querying {model}...", flush=True)
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": REVIEWER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -382,14 +443,20 @@ def call_deepseek_review(api_key: str, prompt: str) -> dict:
         print(f"[*] [DeepSeek Fallback] Querying {model}...", flush=True)
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": REVIEWER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -413,14 +480,20 @@ def call_mistral_review(api_key: str, prompt: str) -> dict:
         print(f"[*] [Mistral Fallback] Querying {model}...", flush=True)
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": REVIEWER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -474,20 +547,30 @@ def call_openrouter_review(api_key: str, prompt: str) -> dict:
     if not api_key:
         raise ValueError("Missing OPENROUTER_API_KEY")
     url = "https://openrouter.ai/api/v1/chat/completions"
-    models = ["google/gemini-2.5-flash", "meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-chat"]
+    models = [
+        "google/gemini-2.5-flash",
+        "meta-llama/llama-3.3-70b-instruct",
+        "deepseek/deepseek-chat",
+    ]
     last_err = None
     for model in models:
         print(f"[*] [OpenRouter Fallback] Querying {model}...", flush=True)
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": REVIEWER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -505,19 +588,29 @@ def call_nvidia_review(api_key: str, prompt: str) -> dict:
     if not api_key:
         raise ValueError("Missing NVIDIA_API_KEY")
     url = "https://integrate.api.nvidia.com/v1/chat/completions"
-    models = ["nvidia/llama-3.1-nemotron-70b-instruct", "meta/llama-3.1-70b-instruct", "meta/llama-3.1-8b-instruct"]
+    models = [
+        "nvidia/llama-3.1-nemotron-70b-instruct",
+        "meta/llama-3.1-70b-instruct",
+        "meta/llama-3.1-8b-instruct",
+    ]
     last_err = None
     for model in models:
         print(f"[*] [NVIDIA Fallback] Querying {model}...", flush=True)
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": REVIEWER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -541,13 +634,19 @@ def call_cohere_review(api_key: str, prompt: str) -> dict:
         print(f"[*] [Cohere Fallback] Querying {model}...", flush=True)
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": REVIEWER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -573,14 +672,20 @@ def call_huggingface_review(api_key: str, prompt: str) -> dict:
         print(f"[*] [HuggingFace Fallback] Querying {model}...", flush=True)
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": REVIEWER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -594,7 +699,9 @@ def call_huggingface_review(api_key: str, prompt: str) -> dict:
     raise RuntimeError(f"HuggingFace calls failed: {last_err}")
 
 
-def log_enterprise_audit(workspace: Path, pr_number: str, verdict: str, metrics: dict, privacy_audit: str):
+def log_enterprise_audit(
+    workspace: Path, pr_number: str, verdict: str, metrics: dict, privacy_audit: str
+):
     """Logs an immutable JSON audit trail for enterprise readiness."""
     log_dir = workspace / ".gossip_mesh" / "audit_logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -625,13 +732,18 @@ def get_pr_diff(workspace: Path, pr_number: str = None) -> str:
     gh_repo = os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY")
     if pr_number and gh_repo:
         try:
-            res = run_cmd(["gh", "pr", "diff", str(pr_number), "--repo", gh_repo], capture_output=True)
+            res = run_cmd(
+                ["gh", "pr", "diff", str(pr_number), "--repo", gh_repo],
+                capture_output=True,
+            )
             if res.stdout.strip():
                 return res.stdout.strip()[:35000]
         except Exception:
             pass
     try:
-        res = run_cmd(["git", "diff", "origin/main...HEAD"], cwd=workspace, capture_output=True)
+        res = run_cmd(
+            ["git", "diff", "origin/main...HEAD"], cwd=workspace, capture_output=True
+        )
         if res.stdout.strip():
             return res.stdout.strip()[:35000]
     except Exception:
@@ -643,9 +755,6 @@ def get_pr_diff(workspace: Path, pr_number: str = None) -> str:
     except Exception:
         pass
     return "No git diff available."
-
-
-import re
 
 
 def extract_ast_metadata(diff: str) -> str:
@@ -700,8 +809,16 @@ def extract_ast_metadata(diff: str) -> str:
         # Fallback to naive approach for partial snippets.
         lines = diff.splitlines()
         for line in lines:
-            clean_line = line[1:].lstrip() if line.startswith("+") or line.startswith("-") else ""
-            if clean_line.startswith("def ") or clean_line.startswith("class ") or clean_line.startswith("async def "):
+            clean_line = (
+                line[1:].lstrip()
+                if line.startswith("+") or line.startswith("-")
+                else ""
+            )
+            if (
+                clean_line.startswith("def ")
+                or clean_line.startswith("class ")
+                or clean_line.startswith("async def ")
+            ):
                 summary.append(clean_line.strip())
 
     if not summary:
@@ -727,7 +844,12 @@ def get_head_sha(workspace: Path) -> str:
         return ""
 
 
-def set_commit_status(head_sha: str, state: str, description: str, context: str = "ai/architectural-review"):
+def set_commit_status(
+    head_sha: str,
+    state: str,
+    description: str,
+    context: str = "ai/architectural-review",
+):
     """Posts a commit status check to GitHub."""
     gh_repo = os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY")
     gh_token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
@@ -758,13 +880,18 @@ def set_commit_status(head_sha: str, state: str, description: str, context: str 
 
 
 def main():
-    parser = argparse.ArgumentParser(description="GossipMesh Autonomous PR Reviewer & Architectural Gate")
+    parser = argparse.ArgumentParser(
+        description="GossipMesh Autonomous PR Reviewer & Architectural Gate"
+    )
     parser.add_argument("--pr-number", required=True, help="GitHub Pull Request Number")
     parser.add_argument("--workspace", default=".", help="Workspace root directory")
     args = parser.parse_args()
 
     all_keys = load_gemini_keys()
-    primary_key = os.environ.get("GEMINI_REVIEWER_KEY", "").strip() or os.environ.get("GEMINI_API_KEY", "").strip()
+    primary_key = (
+        os.environ.get("GEMINI_REVIEWER_KEY", "").strip()
+        or os.environ.get("GEMINI_API_KEY", "").strip()
+    )
     if not primary_key and all_keys:
         primary_key = all_keys[0]
     fallback_key = os.environ.get("GEMINI_SOLVER_KEY", "").strip() or (
@@ -772,7 +899,10 @@ def main():
     )
 
     if not primary_key:
-        print("MISSING_KEY: No Gemini API keys found in environment or .gemini_keys.", file=sys.stderr)
+        print(
+            "MISSING_KEY: No Gemini API keys found in environment or .gemini_keys.",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     os.environ["GEMINI_API_KEY"] = primary_key
@@ -784,7 +914,14 @@ def main():
     # Fetch PR details
     try:
         pr_json = run_cmd(
-            ["gh", "pr", "view", args.pr_number, "--json", "title,body,headRefName,baseRefName,files"],
+            [
+                "gh",
+                "pr",
+                "view",
+                args.pr_number,
+                "--json",
+                "title,body,headRefName,baseRefName,files",
+            ],
             cwd=workspace,
             capture_output=True,
         )
@@ -843,9 +980,7 @@ def main():
         if infra_findings:
             crit = infra_res["severity_summary"].get("critical", 0)
             high = infra_res["severity_summary"].get("high", 0)
-            red_team_findings += (
-                f"\n### 🛡️ INFRASTRUCTURE SECURITY FINDINGS (Grade: {infra_grade}, Score: {infra_score}/100):\n"
-            )
+            red_team_findings += f"\n### 🛡️ INFRASTRUCTURE SECURITY FINDINGS (Grade: {infra_grade}, Score: {infra_score}/100):\n"
             for f in infra_findings[:5]:
                 red_team_findings += f"- **[{f['severity'].upper()}]** `{f['file']}:{f['line']}` - {f['message']}\n"
     except Exception as _ie:
@@ -877,8 +1012,13 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
     audit = None
     for model_candidate in [DEFAULT_MODEL, "gemini-3.8-flash", "gemini-flash-latest"]:
         try:
-            print(f"[*] Requesting architectural review from Gemini {model_candidate}...", flush=True)
-            audit = call_gemini(primary_key, prompt, fallback_key=fallback_key, model=model_candidate)
+            print(
+                f"[*] Requesting architectural review from Gemini {model_candidate}...",
+                flush=True,
+            )
+            audit = call_gemini(
+                primary_key, prompt, fallback_key=fallback_key, model=model_candidate
+            )
             if audit and isinstance(audit, dict) and "verdict" in audit:
                 break
         except Exception as e:
@@ -887,18 +1027,35 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
     # Multi-provider resilient failover chain:
     providers = [
         ("Groq", os.environ.get("GROQ_API_KEY", "").strip(), call_groq_review),
-        ("OpenRouter", os.environ.get("OPENROUTER_API_KEY", "").strip(), call_openrouter_review),
+        (
+            "OpenRouter",
+            os.environ.get("OPENROUTER_API_KEY", "").strip(),
+            call_openrouter_review,
+        ),
         ("OpenAI", os.environ.get("OPENAI_API_KEY", "").strip(), call_openai_review),
-        ("DeepSeek", os.environ.get("DEEPSEEK_API_KEY", "").strip(), call_deepseek_review),
+        (
+            "DeepSeek",
+            os.environ.get("DEEPSEEK_API_KEY", "").strip(),
+            call_deepseek_review,
+        ),
         ("Mistral", os.environ.get("MISTRAL_API_KEY", "").strip(), call_mistral_review),
-        ("Anthropic", os.environ.get("ANTHROPIC_API_KEY", "").strip(), call_anthropic_review),
+        (
+            "Anthropic",
+            os.environ.get("ANTHROPIC_API_KEY", "").strip(),
+            call_anthropic_review,
+        ),
         (
             "NVIDIA",
-            os.environ.get("NVIDIA_API_KEY", "").strip() or os.environ.get("NVIDIA_API_KEY_2", "").strip(),
+            os.environ.get("NVIDIA_API_KEY", "").strip()
+            or os.environ.get("NVIDIA_API_KEY_2", "").strip(),
             call_nvidia_review,
         ),
         ("Cohere", os.environ.get("COHERE_API_KEY", "").strip(), call_cohere_review),
-        ("HuggingFace", os.environ.get("HUGGINGFACE_API_KEY", "").strip(), call_huggingface_review),
+        (
+            "HuggingFace",
+            os.environ.get("HUGGINGFACE_API_KEY", "").strip(),
+            call_huggingface_review,
+        ),
     ]
 
     for name, key, func in providers:
@@ -922,7 +1079,10 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
             "test_coverage_audit": "Test suite verified.",
             "privacy_security_audit": "No credentials or secrets leaked.",
             "system_impact": "Positive system throughput and modularity impact.",
-            "roi_metrics": {"estimated_review_time_saved_minutes": 15, "defects_prevented": 1},
+            "roi_metrics": {
+                "estimated_review_time_saved_minutes": 15,
+                "defects_prevented": 1,
+            },
             "action_items": [],
             "safe_auto_fixes": [],
         }
@@ -931,14 +1091,23 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
     is_approved = verdict_val == "APPROVED"
     score = int(audit.get("score", 95 if is_approved else 75))
 
-    summary = audit.get("executive_summary", "Autonomous architectural audit completed.")
+    summary = audit.get(
+        "executive_summary", "Autonomous architectural audit completed."
+    )
     anti_spaghetti = audit.get("anti_spaghetti_audit", "No architectural issues noted.")
-    concurrency_sec = audit.get("security_concurrency_audit", "Concurrency & security invariants checked.")
-    perf_mem = audit.get("performance_memory_audit", "Memory allocation & streaming checked.")
+    concurrency_sec = audit.get(
+        "security_concurrency_audit", "Concurrency & security invariants checked."
+    )
+    perf_mem = audit.get(
+        "performance_memory_audit", "Memory allocation & streaming checked."
+    )
     test_cov = audit.get("test_coverage_audit", "Test coverage evaluated.")
     privacy_sec = audit.get("privacy_security_audit", "Privacy and secrets verified.")
     system_impact = audit.get("system_impact", "System impact evaluated.")
-    roi_metrics = audit.get("roi_metrics", {"estimated_review_time_saved_minutes": 0, "defects_prevented": 0})
+    roi_metrics = audit.get(
+        "roi_metrics",
+        {"estimated_review_time_saved_minutes": 0, "defects_prevented": 0},
+    )
     action_items = audit.get("action_items", [])
     safe_auto_fixes = audit.get("safe_auto_fixes", [])
 
@@ -956,10 +1125,15 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
         is_approved = False
         score = min(score, 50)
         if not any("Local tests failed" in item for item in action_items):
-            action_items.append("Local tests failed: Check diagnostic verification logs.")
+            action_items.append(
+                "Local tests failed: Check diagnostic verification logs."
+            )
 
     if any(f.get("severity") == "critical" for f in infra_findings):
-        print("[!] Critical infrastructure security hazards detected! Forcing ACTION_REQUIRED.", flush=True)
+        print(
+            "[!] Critical infrastructure security hazards detected! Forcing ACTION_REQUIRED.",
+            flush=True,
+        )
         is_approved = False
         score = min(score, 50)
         for f in infra_findings:
@@ -970,7 +1144,11 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
 
     auto_patch = audit.get("auto_patch", "")
 
-    auto_patch_md = f"\n### 🛠️ Auto-Generated Patch\n```diff\n{auto_patch}\n```\n" if auto_patch else ""
+    auto_patch_md = (
+        f"\n### 🛠️ Auto-Generated Patch\n```diff\n{auto_patch}\n```\n"
+        if auto_patch
+        else ""
+    )
 
     # Memetic memory extraction
     meme_prompt = f"""
@@ -992,7 +1170,9 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
     """
 
     try:
-        meme_result = call_gemini(primary_key, meme_prompt, fallback_key=fallback_key, model=DEFAULT_MODEL)
+        meme_result = call_gemini(
+            primary_key, meme_prompt, fallback_key=fallback_key, model=DEFAULT_MODEL
+        )
 
         # In case the result is returned as text from our wrapper, parse it
         if isinstance(meme_result, str):
@@ -1022,14 +1202,20 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
                 kb.reward(m_id)
             elif not is_approved:
                 kb.penalize(m_id)
-            print(f"[*] Distilled new memetic knowledge: {m_id} (Approved: {is_approved})")
+            print(
+                f"[*] Distilled new memetic knowledge: {m_id} (Approved: {is_approved})"
+            )
     except Exception as e:
         print(f"[Warning] Failed to extract memetic knowledge: {e}")
 
     # Format Markdown Review
     arch_badge = "Modular" if is_approved else "Refactor~Required"
     arch_color = "success" if is_approved else "yellow"
-    infra_color = "success" if infra_grade in ("A", "B") else ("yellow" if infra_grade == "C" else "red")
+    infra_color = (
+        "success"
+        if infra_grade in ("A", "B")
+        else ("yellow" if infra_grade == "C" else "red")
+    )
     score_color = "success" if score >= 90 else ("yellow" if score >= 70 else "red")
 
     badges_md = f"""| 🏗️ Architectural Invariants | 🛡️ Infrastructure Security | ⚡ Concurrency Safety | 🔒 Air-Gap & Privacy | 🏆 Overall Score |
@@ -1043,7 +1229,9 @@ Audit the code against all anti-spaghetti, concurrency, performance, and securit
             for f in infra_findings[:5]
         )
     else:
-        infra_findings_md = "\n- Zero misconfigurations or hardcoded credentials detected."
+        infra_findings_md = (
+            "\n- Zero misconfigurations or hardcoded credentials detected."
+        )
 
     infra_section_md = f"""### 🛡️ Infrastructure-as-Code Security & Architecture (Grade: {infra_grade})
 - **Deterministic Security Score**: {infra_score}/100
@@ -1132,10 +1320,14 @@ To complete the merge into `main`:
 """
         avg_confidence = 90
         if avg_confidence >= 80:
-            commit_desc = f"Architectural Improvements Required ({score}/100) [High Confidence]"
+            commit_desc = (
+                f"Architectural Improvements Required ({score}/100) [High Confidence]"
+            )
             set_commit_status(head_sha, "failure", commit_desc)
         else:
-            commit_desc = f"Architectural Warnings ({score}/100) [Low Confidence - Non-Blocking]"
+            commit_desc = (
+                f"Architectural Warnings ({score}/100) [Low Confidence - Non-Blocking]"
+            )
             set_commit_status(head_sha, "success", commit_desc)
 
     # Save Markdown file
@@ -1153,7 +1345,9 @@ To complete the merge into `main`:
     }
     status_file.write_text(json.dumps(status_data, indent=2), encoding="utf-8")
 
-    log_enterprise_audit(workspace, str(args.pr_number), status_data["verdict"], roi_metrics, privacy_sec)
+    log_enterprise_audit(
+        workspace, str(args.pr_number), status_data["verdict"], roi_metrics, privacy_sec
+    )
 
     print(
         f"[OK] Audit finished: Verdict={status_data['verdict']} Score={score} (Written to {review_file} & {status_file})"
@@ -1162,16 +1356,32 @@ To complete the merge into `main`:
     # Post review comment to GitHub PR
     gh_repo = os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY")
     try:
-        cmd = ["gh", "pr", "comment", str(args.pr_number), "--body-file", str(review_file)]
+        cmd = [
+            "gh",
+            "pr",
+            "comment",
+            str(args.pr_number),
+            "--body-file",
+            str(review_file),
+        ]
         if gh_repo:
             cmd.extend(["--repo", gh_repo])
         run_cmd(cmd, cwd=workspace)
-        print(f"[OK] Posted review comment to PR #{args.pr_number} on {gh_repo or 'current repo'}")
+        print(
+            f"[OK] Posted review comment to PR #{args.pr_number} on {gh_repo or 'current repo'}"
+        )
     except Exception as _pe:
         print(f"[Warning] Could not post PR comment via gh: {_pe}", file=sys.stderr)
 
     try:
-        label_cmd = ["gh", "pr", "edit", str(args.pr_number), "--add-label", f"score-{score}"]
+        label_cmd = [
+            "gh",
+            "pr",
+            "edit",
+            str(args.pr_number),
+            "--add-label",
+            f"score-{score}",
+        ]
         if gh_repo:
             label_cmd.extend(["--repo", gh_repo])
         run_cmd(label_cmd, cwd=workspace)
@@ -1196,7 +1406,12 @@ To complete the merge into `main`:
         )
 
         # Check if fixer made changes
-        status_check = subprocess.run(["git", "status", "--porcelain"], cwd=workspace, capture_output=True, text=True)
+        status_check = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+        )
         if status_check.stdout.strip():
             print("[*] Committing and pushing fixes to PR branch...", flush=True)
             head_ref = pr_data.get("headRefName")
@@ -1218,10 +1433,18 @@ To complete the merge into `main`:
                     cwd=workspace,
                     check=False,
                 )
-                author_name = os.environ.get("GIT_AUTHOR_NAME") or "Dahale Aditya Dnyaneshwar"
-                author_email = os.environ.get("GIT_AUTHOR_EMAIL") or "adityadahale96@gmail.com"
-                subprocess.run(["git", "config", "user.name", author_name], cwd=workspace)
-                subprocess.run(["git", "config", "user.email", author_email], cwd=workspace)
+                author_name = (
+                    os.environ.get("GIT_AUTHOR_NAME") or "Dahale Aditya Dnyaneshwar"
+                )
+                author_email = (
+                    os.environ.get("GIT_AUTHOR_EMAIL") or "adityadahale96@gmail.com"
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", author_name], cwd=workspace
+                )
+                subprocess.run(
+                    ["git", "config", "user.email", author_email], cwd=workspace
+                )
                 subprocess.run(
                     [
                         "git",
@@ -1232,12 +1455,27 @@ To complete the merge into `main`:
                     ],
                     cwd=workspace,
                 )
-                push_res = subprocess.run(["git", "push", "origin", f"HEAD:refs/heads/{head_ref}"], cwd=workspace)
+                push_res = subprocess.run(
+                    ["git", "push", "origin", f"HEAD:refs/heads/{head_ref}"],
+                    cwd=workspace,
+                )
                 if push_res.returncode != 0:
-                    subprocess.run(["git", "push", "origin", f"HEAD:refs/heads/{head_ref}", "--force"], cwd=workspace)
+                    subprocess.run(
+                        [
+                            "git",
+                            "push",
+                            "origin",
+                            f"HEAD:refs/heads/{head_ref}",
+                            "--force",
+                        ],
+                        cwd=workspace,
+                    )
     else:
         # PR is approved! Attempt autonomous merge
-        print(f"[*] PR #{args.pr_number} is APPROVED ({score}/100). Attempting autonomous merge...", flush=True)
+        print(
+            f"[*] PR #{args.pr_number} is APPROVED ({score}/100). Attempting autonomous merge...",
+            flush=True,
+        )
         try:
             sys.path.insert(0, str(Path(__file__).resolve().parent))
             from auto_merge_pr import auto_merge_pr

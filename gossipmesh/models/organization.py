@@ -28,7 +28,9 @@ class GithubAppInstallation(Base):
     events = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     organization = relationship("Organization", back_populates="github_installations")
@@ -42,17 +44,30 @@ class Organization(Base):
     name = Column(String, unique=True, index=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    members = relationship("UserOrganization", back_populates="organization", cascade="all, delete-orphan")
-    projects = relationship("Project", back_populates="organization", cascade="all, delete-orphan")
-    repositories = relationship("Repository", back_populates="organization", cascade="all, delete-orphan")
+    members = relationship(
+        "UserOrganization", back_populates="organization", cascade="all, delete-orphan"
+    )
+    projects = relationship(
+        "Project", back_populates="organization", cascade="all, delete-orphan"
+    )
+    repositories = relationship(
+        "Repository", back_populates="organization", cascade="all, delete-orphan"
+    )
     saml_config = relationship(
-        "OrganizationSAMLConfig", back_populates="organization", uselist=False, cascade="all, delete-orphan"
+        "OrganizationSAMLConfig",
+        back_populates="organization",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
     github_installations = relationship(
-        "GithubAppInstallation", back_populates="organization", cascade="all, delete-orphan"
+        "GithubAppInstallation",
+        back_populates="organization",
+        cascade="all, delete-orphan",
     )
 
 

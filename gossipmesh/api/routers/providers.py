@@ -1,7 +1,7 @@
 import threading
 from collections import OrderedDict
-from typing import Any, Dict, List
-from fastapi import APIRouter, Depends, Request
+from typing import Any, Dict
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -35,12 +35,18 @@ def _get_provider_manager_for_org(db: Session, org_id: int) -> ProviderManager:
             return _MANAGER_CACHE[org_id]
 
     manager = ProviderManager()
-    credentials = db.query(ProviderCredential).filter(ProviderCredential.organization_id == org_id).all()
+    credentials = (
+        db.query(ProviderCredential)
+        .filter(ProviderCredential.organization_id == org_id)
+        .all()
+    )
 
     for cred in credentials:
         try:
             # We assume Ollama uses base_url instead of api_key if needed, but for simplicity here:
-            decrypted_key = decrypt_string(cred.encrypted_key) if cred.encrypted_key else None
+            decrypted_key = (
+                decrypt_string(cred.encrypted_key) if cred.encrypted_key else None
+            )
             manager.register_provider(cred.provider_name, decrypted_key)
         except Exception:
             pass  # Skip failed decryptions in this simple example
@@ -63,7 +69,10 @@ def register_provider(
     """Registers and persists a provider credential for the organization."""
     is_member = (
         db.query(UserOrganization)
-        .filter(UserOrganization.user_id == current_user.id, UserOrganization.organization_id == organization_id)
+        .filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.organization_id == organization_id,
+        )
         .first()
     )
     if not is_member:
@@ -78,7 +87,9 @@ def register_provider(
         manager.register_provider(registration.name, registration.api_key, **kwargs)
 
         # Persist to database
-        encrypted_key = encrypt_string(registration.api_key) if registration.api_key else ""
+        encrypted_key = (
+            encrypt_string(registration.api_key) if registration.api_key else ""
+        )
 
         cred = (
             db.query(ProviderCredential)
@@ -93,7 +104,9 @@ def register_provider(
             cred.encrypted_key = encrypted_key
         else:
             cred = ProviderCredential(
-                organization_id=organization_id, provider_name=registration.name, encrypted_key=encrypted_key
+                organization_id=organization_id,
+                provider_name=registration.name,
+                encrypted_key=encrypted_key,
             )
             db.add(cred)
         db.commit()
@@ -101,19 +114,27 @@ def register_provider(
         with _CACHE_LOCK:
             _MANAGER_CACHE.pop(organization_id, None)
 
-        return {"status": "success", "message": f"Provider {registration.name} registered and saved."}
+        return {
+            "status": "success",
+            "message": f"Provider {registration.name} registered and saved.",
+        }
     except ValueError as e:
         raise ValidationError(message=str(e))
 
 
 @router.get("/health", response_model=Dict[str, ProviderHealth])
 async def get_providers_health(
-    organization_id: int, current_user: User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)
+    organization_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
 ) -> Any:
     """Returns the health status of providers registered for the organization."""
     is_member = (
         db.query(UserOrganization)
-        .filter(UserOrganization.user_id == current_user.id, UserOrganization.organization_id == organization_id)
+        .filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.organization_id == organization_id,
+        )
         .first()
     )
     if not is_member:

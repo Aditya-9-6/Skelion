@@ -2,9 +2,9 @@ import enum
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-from gossipmesh.p2p.backpressure import BackpressureSignalManager, BackpressureConfig, BackpressureState
+from gossipmesh.p2p.backpressure import BackpressureSignalManager, BackpressureConfig
 
 
 class ConnectionPriority(enum.IntEnum):
@@ -51,7 +51,12 @@ class LeakyBucketConnectionPool:
         self._dropped_count: int = 0
         self._allocated_count: int = 0
 
-    def acquire(self, peer_id: str, socket_ref: Any, priority: Optional[ConnectionPriority] = None) -> bool:
+    def acquire(
+        self,
+        peer_id: str,
+        socket_ref: Any,
+        priority: Optional[ConnectionPriority] = None,
+    ) -> bool:
         """Acquires a socket allocation in the connection pool.
         Enforces strict capacity bounds using LRU eviction and backpressure signaling.
         Returns True if successfully added, False if dropped due to high-priority backpressure shedding."""
@@ -72,12 +77,17 @@ class LeakyBucketConnectionPool:
 
             # Check backpressure before accepting new connection
             current_count = len(self._connections)
-            bp_state = self._backpressure.update_saturation(current_count, self.config.max_capacity)
+            bp_state = self._backpressure.update_saturation(
+                current_count, self.config.max_capacity
+            )
 
             # If at or over capacity, we need to evict or shed
             if current_count >= self.config.max_capacity:
                 # If we are in critical backpressure and incoming is low/normal, consider dropping
-                if self._backpressure.should_drop_low_priority() and prio >= ConnectionPriority.NORMAL:
+                if (
+                    self._backpressure.should_drop_low_priority()
+                    and prio >= ConnectionPriority.NORMAL
+                ):
                     if prio == ConnectionPriority.LOW:
                         self._dropped_count += 1
                         return False
@@ -106,7 +116,9 @@ class LeakyBucketConnectionPool:
             self._allocated_count += 1
 
             # Update saturation post-allocation
-            self._backpressure.update_saturation(len(self._connections), self.config.max_capacity)
+            self._backpressure.update_saturation(
+                len(self._connections), self.config.max_capacity
+            )
             return True
 
     def release(self, peer_id: str) -> bool:
@@ -116,7 +128,9 @@ class LeakyBucketConnectionPool:
                 del self._connections[peer_id]
                 if peer_id in self._lru_order:
                     self._lru_order.remove(peer_id)
-                self._backpressure.update_saturation(len(self._connections), self.config.max_capacity)
+                self._backpressure.update_saturation(
+                    len(self._connections), self.config.max_capacity
+                )
                 return True
             return False
 
@@ -153,7 +167,9 @@ class LeakyBucketConnectionPool:
                 if evict_id in self._connections:
                     del self._connections[evict_id]
                     evicted.append(evict_id)
-            self._backpressure.update_saturation(len(self._connections), self.config.max_capacity)
+            self._backpressure.update_saturation(
+                len(self._connections), self.config.max_capacity
+            )
         return evicted
 
     def get_metrics(self) -> Dict[str, Any]:

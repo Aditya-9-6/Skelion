@@ -22,7 +22,9 @@ if hasattr(sys.stderr, "reconfigure"):
 
 def run_cmd(cmd: list[str], cwd: Path = Path(".")) -> tuple[int, str, str]:
     """Runs a subprocess command and returns (code, stdout, stderr)."""
-    res = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    res = subprocess.run(
+        cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
     return res.returncode, res.stdout.strip(), res.stderr.strip()
 
 
@@ -30,7 +32,14 @@ def get_pr_details(pr_number: str, workspace: Path) -> dict:
     """Fetches PR status, state, draft status, and mergeability with retries for UNKNOWN."""
     for attempt in range(1, 5):
         code, stdout, stderr = run_cmd(
-            ["gh", "pr", "view", pr_number, "--json", "number,title,state,isDraft,mergeable,headRefName,baseRefName"],
+            [
+                "gh",
+                "pr",
+                "view",
+                pr_number,
+                "--json",
+                "number,title,state,isDraft,mergeable,headRefName,baseRefName",
+            ],
             cwd=workspace,
         )
         if code != 0:
@@ -51,14 +60,21 @@ def get_pr_details(pr_number: str, workspace: Path) -> dict:
     return {}
 
 
-def evaluate_checks(pr_number: str, workspace: Path) -> tuple[list[str], list[str], list[str]]:
+def evaluate_checks(
+    pr_number: str, workspace: Path
+) -> tuple[list[str], list[str], list[str]]:
     """
     Evaluates PR status checks using `gh pr checks`.
     Returns (passing, failing, pending).
     """
-    code, stdout, stderr = run_cmd(["gh", "pr", "checks", pr_number, "--json", "name,bucket,state"], cwd=workspace)
+    code, stdout, stderr = run_cmd(
+        ["gh", "pr", "checks", pr_number, "--json", "name,bucket,state"], cwd=workspace
+    )
     if code != 0 or not stdout:
-        print(f"[*] No check runs recorded yet or checks query failed: {stderr}", flush=True)
+        print(
+            f"[*] No check runs recorded yet or checks query failed: {stderr}",
+            flush=True,
+        )
         return [], [], []
 
     try:
@@ -80,11 +96,25 @@ def evaluate_checks(pr_number: str, workspace: Path) -> tuple[list[str], list[st
         if any(ignored in name.lower() for ignored in ["auto-merge", "auto merge"]):
             continue
 
-        if bucket == "fail" or state in ("FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED"):
+        if bucket == "fail" or state in (
+            "FAILURE",
+            "CANCELLED",
+            "TIMED_OUT",
+            "ACTION_REQUIRED",
+        ):
             failing.append(f"{name} ({state or bucket})")
-        elif bucket == "pending" or state in ("PENDING", "STARTING", "QUEUED", "IN_PROGRESS"):
+        elif bucket == "pending" or state in (
+            "PENDING",
+            "STARTING",
+            "QUEUED",
+            "IN_PROGRESS",
+        ):
             pending.append(f"{name} ({state or bucket})")
-        elif bucket in ("pass", "skipping") or state in ("SUCCESS", "SKIPPED", "NEUTRAL"):
+        elif bucket in ("pass", "skipping") or state in (
+            "SUCCESS",
+            "SKIPPED",
+            "NEUTRAL",
+        ):
             passing.append(name)
         else:
             pending.append(f"{name} ({state or bucket})")
@@ -92,9 +122,13 @@ def evaluate_checks(pr_number: str, workspace: Path) -> tuple[list[str], list[st
     return passing, failing, pending
 
 
-def auto_merge_pr(pr_number: str, workspace: Path, notify_on_failure: bool = False) -> bool:
+def auto_merge_pr(
+    pr_number: str, workspace: Path, notify_on_failure: bool = False
+) -> bool:
     """Evaluates PR conditions and adds ready-to-merge label if 100% green and no conflicts."""
-    print(f"[*] Evaluating Quality Gate for PR #{pr_number} in {workspace}...", flush=True)
+    print(
+        f"[*] Evaluating Quality Gate for PR #{pr_number} in {workspace}...", flush=True
+    )
     pr = get_pr_details(pr_number, workspace)
     if not pr:
         print(f"[!] Could not retrieve metadata for PR #{pr_number}.", file=sys.stderr)
@@ -108,7 +142,10 @@ def auto_merge_pr(pr_number: str, workspace: Path, notify_on_failure: bool = Fal
     base_ref = pr.get("baseRefName", "main")
 
     if state != "OPEN":
-        print(f"[*] PR #{pr_number} is not OPEN (current state: {state}). Skipping.", flush=True)
+        print(
+            f"[*] PR #{pr_number} is not OPEN (current state: {state}). Skipping.",
+            flush=True,
+        )
         return False
 
     if is_draft:
@@ -124,31 +161,60 @@ def auto_merge_pr(pr_number: str, workspace: Path, notify_on_failure: bool = Fal
 
     has_conflicts = mergeable == "CONFLICTING"
     is_mergeable = mergeable == "MERGEABLE"
-    can_merge = is_mergeable and len(failing) == 0 and len(pending) == 0 and len(passing) > 0
+    can_merge = (
+        is_mergeable and len(failing) == 0 and len(pending) == 0 and len(passing) > 0
+    )
 
     if can_merge:
-        print(f"\n[🎉 READY TO MERGE] PR #{pr_number} meets all conditions! Merging to '{base_ref}'...", flush=True)
-        run_cmd(["gh", "label", "create", "ready-to-merge", "--color", "0E8A16", "-f"], cwd=workspace)
-        run_cmd(["gh", "pr", "edit", pr_number, "--add-label", "ready-to-merge"], cwd=workspace)
+        print(
+            f"\n[🎉 READY TO MERGE] PR #{pr_number} meets all conditions! Merging to '{base_ref}'...",
+            flush=True,
+        )
+        run_cmd(
+            ["gh", "label", "create", "ready-to-merge", "--color", "0E8A16", "-f"],
+            cwd=workspace,
+        )
+        run_cmd(
+            ["gh", "pr", "edit", pr_number, "--add-label", "ready-to-merge"],
+            cwd=workspace,
+        )
         code, stdout, stderr = run_cmd(
-            ["gh", "pr", "merge", pr_number, "--squash", "--delete-branch", "--subject", f"{title} (#{pr_number})"],
+            [
+                "gh",
+                "pr",
+                "merge",
+                pr_number,
+                "--squash",
+                "--delete-branch",
+                "--subject",
+                f"{title} (#{pr_number})",
+            ],
             cwd=workspace,
         )
         if code != 0:
-            print(f"[*] Squash merge failed ({stderr}). Retrying with default merge...", flush=True)
+            print(
+                f"[*] Squash merge failed ({stderr}). Retrying with default merge...",
+                flush=True,
+            )
             code, stdout, stderr = run_cmd(
                 ["gh", "pr", "merge", pr_number, "--merge", "--delete-branch"],
                 cwd=workspace,
             )
         if code == 0:
-            print(f"[✅ MERGED] PR #{pr_number} successfully merged into '{base_ref}'!", flush=True)
+            print(
+                f"[✅ MERGED] PR #{pr_number} successfully merged into '{base_ref}'!",
+                flush=True,
+            )
             success_comment = f"""🎉 **Pull Request #{pr_number} Successfully Merged!**
 
 - **Mergeability**: Clean (0 conflicts)
 - **CI Validation**: {len(passing)} check(s) passed (100% GREEN)
 - **Target Branch**: `{base_ref}`
 """
-            run_cmd(["gh", "pr", "comment", pr_number, "--body", success_comment], cwd=workspace)
+            run_cmd(
+                ["gh", "pr", "comment", pr_number, "--body", success_comment],
+                cwd=workspace,
+            )
             return True
         else:
             print(f"[!] PR #{pr_number} merge command failed: {stderr}", flush=True)
@@ -161,13 +227,20 @@ def auto_merge_pr(pr_number: str, workspace: Path, notify_on_failure: bool = Fal
     if failing:
         print(f"    - Blocked: {len(failing)} failing check(s): {failing}", flush=True)
     if pending:
-        print(f"    - Blocked: {len(pending)} pending/running check(s): {pending}", flush=True)
+        print(
+            f"    - Blocked: {len(pending)} pending/running check(s): {pending}",
+            flush=True,
+        )
     if len(passing) == 0:
         print("    - Blocked: Zero passing checks recorded.", flush=True)
 
     if notify_on_failure:
-        fail_list = "\n".join(f"  - ❌ `{f}`" for f in failing) if failing else "  - None"
-        pend_list = "\n".join(f"  - ⏳ `{p}`" for p in pending) if pending else "  - None"
+        fail_list = (
+            "\n".join(f"  - ❌ `{f}`" for f in failing) if failing else "  - None"
+        )
+        pend_list = (
+            "\n".join(f"  - ⏳ `{p}`" for p in pending) if pending else "  - None"
+        )
         comment = f"""⚠️ **Auto-Merge Pre-conditions Not Met for PR #{pr_number}**
 
 - **Merge Status**: `{mergeable}` {"(⚠️ Conflicts detected!)" if has_conflicts else "(Clean)"}
@@ -192,12 +265,16 @@ def main():
     parser.add_argument("--pr-number", required=True, help="GitHub Pull Request Number")
     parser.add_argument("--workspace", default=".", help="Workspace path")
     parser.add_argument(
-        "--notify-on-failure", action="store_true", help="Post comment explaining blockers if merge fails"
+        "--notify-on-failure",
+        action="store_true",
+        help="Post comment explaining blockers if merge fails",
     )
     args = parser.parse_args()
 
     workspace = Path(args.workspace).resolve()
-    merged = auto_merge_pr(args.pr_number, workspace, notify_on_failure=args.notify_on_failure)
+    merged = auto_merge_pr(
+        args.pr_number, workspace, notify_on_failure=args.notify_on_failure
+    )
     sys.exit(0 if merged else 1)
 
 

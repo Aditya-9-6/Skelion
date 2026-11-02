@@ -3,12 +3,13 @@ import cv2
 import numpy as np
 import potrace
 import resvg_py
-from PIL import Image
 
-SRC_IMG = r'C:/Users/adity/.gemini/antigravity/brain/eddfae2f-e0dc-4498-a908-e77d6173906d/.user_uploaded/media_1793538427613_5c0214ff.jpg'
-EXT_MEDIA = r'g:\My Drive\helios\skelion_vscode_extension\media'
-ARTIFACT_DIR = r'C:\Users\adity\.gemini\antigravity\brain\eddfae2f-e0dc-4498-a908-e77d6173906d'
-SCRATCH_DIR = r'g:\My Drive\helios\scratch'
+SRC_IMG = r"C:/Users/adity/.gemini/antigravity/brain/eddfae2f-e0dc-4498-a908-e77d6173906d/.user_uploaded/media_1793538427613_5c0214ff.jpg"
+EXT_MEDIA = r"g:\My Drive\helios\skelion_vscode_extension\media"
+ARTIFACT_DIR = (
+    r"C:\Users\adity\.gemini\antigravity\brain\eddfae2f-e0dc-4498-a908-e77d6173906d"
+)
+SCRATCH_DIR = r"g:\My Drive\helios\scratch"
 
 os.makedirs(EXT_MEDIA, exist_ok=True)
 os.makedirs(SCRATCH_DIR, exist_ok=True)
@@ -24,7 +25,8 @@ clean_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 data_all = (clean_mask > 0).astype(bool)
 bmp_all = potrace.Bitmap(data_all)
 path_all = bmp_all.trace(alphamax=1.0, opttolerance=0.2)
-curves_all = path_all[1:] # curve 0 is image border
+curves_all = path_all[1:]  # curve 0 is image border
+
 
 def get_pts(curves):
     pts = []
@@ -37,6 +39,7 @@ def get_pts(curves):
                 pts.extend([s.c1, s.c2, s.end_point])
     return pts
 
+
 all_pts = get_pts(curves_all)
 min_x = min(p.x for p in all_pts)
 max_x = max(p.x for p in all_pts)
@@ -46,6 +49,7 @@ logo_w = max_x - min_x
 logo_h = max_y - min_y
 cx = (min_x + max_x) / 2.0
 cy = (min_y + max_y) / 2.0
+
 
 def curve_to_svg_d(curve, scale=1.0, dx=0.0, dy=0.0):
     d = []
@@ -70,6 +74,7 @@ def curve_to_svg_d(curve, scale=1.0, dx=0.0, dy=0.0):
     d.append("Z")
     return " ".join(d)
 
+
 # 1. VS Code Extension Icon (24x24 viewBox)
 target_size_24 = 19.0
 scale_24 = target_size_24 / max(logo_w, logo_h)
@@ -77,11 +82,11 @@ dx_24 = 12.0 - cx * scale_24
 dy_24 = 12.0 - cy * scale_24
 d_24 = " ".join([curve_to_svg_d(c, scale_24, dx_24, dy_24) for c in curves_all])
 
-vscode_icon_svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+vscode_icon_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
   <!-- Skelion Geometric Shield Monogram Activity Bar Icon -->
   <path d="{d_24}" fill="currentColor" fill-rule="evenodd"/>
 </svg>
-'''
+"""
 # Save to extension media
 ext_icon_path = os.path.join(EXT_MEDIA, "icon.svg")
 with open(ext_icon_path, "w", encoding="utf-8") as f:
@@ -93,18 +98,20 @@ target_size_master = 820.0
 scale_master = target_size_master / max(logo_w, logo_h)
 dx_master = 512.0 - cx * scale_master
 dy_master = 512.0 - cy * scale_master
-d_master = " ".join([curve_to_svg_d(c, scale_master, dx_master, dy_master) for c in curves_all])
+d_master = " ".join(
+    [curve_to_svg_d(c, scale_master, dx_master, dy_master) for c in curves_all]
+)
 
 # Master Black SVG (transparent)
-svg_black = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
+svg_black = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
   <path d="{d_master}" fill="#000000" fill-rule="evenodd"/>
 </svg>
-'''
+"""
 # Master White SVG (transparent)
-svg_white = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
+svg_white = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
   <path d="{d_master}" fill="#FFFFFF" fill-rule="evenodd"/>
 </svg>
-'''
+"""
 
 # 3. Two-Tone Faceted Version
 # Trace amber and gold facets separately
@@ -112,19 +119,27 @@ amber_mask = (clean_mask > 0) & (gray < 180)
 gold_mask = (clean_mask > 0) & (gray >= 180)
 
 # clean masks
-amber_clean = cv2.morphologyEx(amber_mask.astype(np.uint8) * 255, cv2.MORPH_OPEN, kernel) > 0
-gold_clean = cv2.morphologyEx(gold_mask.astype(np.uint8) * 255, cv2.MORPH_OPEN, kernel) > 0
+amber_clean = (
+    cv2.morphologyEx(amber_mask.astype(np.uint8) * 255, cv2.MORPH_OPEN, kernel) > 0
+)
+gold_clean = (
+    cv2.morphologyEx(gold_mask.astype(np.uint8) * 255, cv2.MORPH_OPEN, kernel) > 0
+)
 
 bmp_amber = potrace.Bitmap(amber_clean)
 bmp_gold = potrace.Bitmap(gold_clean)
 path_amber = bmp_amber.trace(alphamax=1.0, opttolerance=0.2)
 path_gold = bmp_gold.trace(alphamax=1.0, opttolerance=0.2)
 
-d_amber_master = " ".join([curve_to_svg_d(c, scale_master, dx_master, dy_master) for c in path_amber[1:]])
-d_gold_master = " ".join([curve_to_svg_d(c, scale_master, dx_master, dy_master) for c in path_gold[1:]])
+d_amber_master = " ".join(
+    [curve_to_svg_d(c, scale_master, dx_master, dy_master) for c in path_amber[1:]]
+)
+d_gold_master = " ".join(
+    [curve_to_svg_d(c, scale_master, dx_master, dy_master) for c in path_gold[1:]]
+)
 
 # Duotone Black & Slate (Light background friendly)
-svg_duotone_light = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
+svg_duotone_light = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
   <g fill-rule="evenodd">
     <!-- Dark Amber Facets -> Solid Charcoal/Black -->
     <path d="{d_amber_master}" fill="#09090B"/>
@@ -132,10 +147,10 @@ svg_duotone_light = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 102
     <path d="{d_gold_master}" fill="#71717A"/>
   </g>
 </svg>
-'''
+"""
 
 # Duotone White & Zinc (Dark background friendly)
-svg_duotone_dark = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
+svg_duotone_dark = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
   <g fill-rule="evenodd">
     <!-- Dark Amber Facets -> Light Zinc Gray -->
     <path d="{d_amber_master}" fill="#A1A1AA"/>
@@ -143,7 +158,7 @@ svg_duotone_dark = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024
     <path d="{d_gold_master}" fill="#FFFFFF"/>
   </g>
 </svg>
-'''
+"""
 
 # Save all SVGs to ext_media and artifact dir
 files_to_save = {
@@ -181,8 +196,12 @@ for name, svg_str, w, h in png_renders:
 
 # Also copy source images to artifact dir for side-by-side display
 from shutil import copyfile
+
 copyfile(SRC_IMG, os.path.join(ARTIFACT_DIR, "original_logo_yellow.jpg"))
-copyfile(r"C:/Users/adity/.gemini/antigravity/brain/eddfae2f-e0dc-4498-a908-e77d6173906d/.user_uploaded/media_1793538394703_146fe754.png", os.path.join(ARTIFACT_DIR, "old_activity_bar_icon.png"))
+copyfile(
+    r"C:/Users/adity/.gemini/antigravity/brain/eddfae2f-e0dc-4498-a908-e77d6173906d/.user_uploaded/media_1793538394703_146fe754.png",
+    os.path.join(ARTIFACT_DIR, "old_activity_bar_icon.png"),
+)
 copyfile(ext_icon_path, os.path.join(ARTIFACT_DIR, "icon.svg"))
 
 print("All assets generated and exported successfully!")

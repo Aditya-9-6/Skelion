@@ -16,7 +16,9 @@ def run_cmd(cmd, check=True, text=True, input=None):
 
 def clean_tree(tree_sha: str) -> str:
     """Recursively strips trailing carriage return from directory/file names and drops G: entries."""
-    res = subprocess.run(["git", "ls-tree", "-z", tree_sha], capture_output=True, check=True)
+    res = subprocess.run(
+        ["git", "ls-tree", "-z", tree_sha], capture_output=True, check=True
+    )
     raw = res.stdout
     if not raw:
         return tree_sha
@@ -30,16 +32,33 @@ def clean_tree(tree_sha: str) -> str:
         meta, name = chunk.split(b"\t", 1)
         mode, obj_type, sha = meta.split(b" ")
         clean_name = name.rstrip(b"\r")
-        if clean_name.startswith(b"G:") or clean_name == b"G" or clean_name == b".gossip_mesh":
+        if (
+            clean_name.startswith(b"G:")
+            or clean_name == b"G"
+            or clean_name == b".gossip_mesh"
+        ):
             continue
 
         if obj_type == b"tree":
             clean_sub = clean_tree(sha.decode())
-            entries.append(f"{mode.decode()} tree {clean_sub}\t{clean_name.decode()}\0".encode("utf-8"))
+            entries.append(
+                f"{mode.decode()} tree {clean_sub}\t{clean_name.decode()}\0".encode(
+                    "utf-8"
+                )
+            )
         else:
-            entries.append(f"{mode.decode()} blob {sha.decode()}\t{clean_name.decode()}\0".encode("utf-8"))
+            entries.append(
+                f"{mode.decode()} blob {sha.decode()}\t{clean_name.decode()}\0".encode(
+                    "utf-8"
+                )
+            )
 
-    mktree = subprocess.run(["git", "mktree", "-z"], input=b"".join(entries), capture_output=True, check=True)
+    mktree = subprocess.run(
+        ["git", "mktree", "-z"],
+        input=b"".join(entries),
+        capture_output=True,
+        check=True,
+    )
     return mktree.stdout.decode().strip()
 
 
@@ -76,7 +95,7 @@ def fetch_and_prepare_branch(head_ref: str, local_branch: str):
     run_cmd(["git", "fetch", "origin", f"{head_ref}:{local_branch}"])
 
     # Sanitize tree
-    print(f"[*] Sanitizing Git tree...")
+    print("[*] Sanitizing Git tree...")
     sanitize_branch(local_branch)
 
     # Checkout
@@ -86,26 +105,38 @@ def fetch_and_prepare_branch(head_ref: str, local_branch: str):
 
 def merge_main_and_resolve_conflicts(pr_number: int) -> bool:
     # Merge origin/main
-    print(f"[*] Merging origin/main...")
+    print("[*] Merging origin/main...")
     merge_res = subprocess.run(
-        ["git", "merge", "origin/main", "-m", f"merge origin/main into PR #{pr_number} [resolve conflicts]"],
+        [
+            "git",
+            "merge",
+            "origin/main",
+            "-m",
+            f"merge origin/main into PR #{pr_number} [resolve conflicts]",
+        ],
         capture_output=True,
         text=True,
     )
 
     if merge_res.returncode != 0:
-        print(f"[!] Conflict encountered during merge:\n{merge_res.stdout}\n{merge_res.stderr}")
+        print(
+            f"[!] Conflict encountered during merge:\n{merge_res.stdout}\n{merge_res.stderr}"
+        )
         # Check conflicted files
         conflicted_files = [
             line.strip()
-            for line in run_cmd(["git", "diff", "--name-only", "--diff-filter=U"]).stdout.splitlines()
+            for line in run_cmd(
+                ["git", "diff", "--name-only", "--diff-filter=U"]
+            ).stdout.splitlines()
             if line.strip()
         ]
         print(f"[!] Conflicted files: {conflicted_files}")
 
         for cf in conflicted_files:
             print(f"[*] Resolving {cf}...")
-            chk = subprocess.run(["git", "cat-file", "-e", f"origin/main:{cf}"], capture_output=True)
+            chk = subprocess.run(
+                ["git", "cat-file", "-e", f"origin/main:{cf}"], capture_output=True
+            )
             if chk.returncode == 0:
                 print(f"    Restoring {cf} from origin/main...")
                 run_cmd(["git", "checkout", "origin/main", "--", cf])
@@ -117,7 +148,9 @@ def merge_main_and_resolve_conflicts(pr_number: int) -> bool:
         # Check if conflicts resolved
         unresolved = [
             line.strip()
-            for line in run_cmd(["git", "diff", "--name-only", "--diff-filter=U"]).stdout.splitlines()
+            for line in run_cmd(
+                ["git", "diff", "--name-only", "--diff-filter=U"]
+            ).stdout.splitlines()
             if line.strip()
         ]
         if unresolved:
@@ -146,16 +179,18 @@ def push_branch(local_branch: str, head_ref: str):
 
 
 def check_pr_mergeable_status(pr_number: int) -> bool:
-    view_res = run_cmd(["gh", "pr", "view", str(pr_number), "--json", "mergeable,title"])
+    view_res = run_cmd(
+        ["gh", "pr", "view", str(pr_number), "--json", "mergeable,title"]
+    )
     pr_data = json.loads(view_res.stdout)
     print(f"[STATUS] PR #{pr_number} mergeable: {pr_data.get('mergeable')}")
     return pr_data.get("mergeable") == "MERGEABLE"
 
 
 def resolve_pr(pr_number: int, head_ref: str):
-    print(f"\n==========================================")
+    print("\n==========================================")
     print(f"[*] Resolving PR #{pr_number} (Branch: {head_ref})")
-    print(f"==========================================")
+    print("==========================================")
 
     local_branch = f"resolve-pr-{pr_number}"
 

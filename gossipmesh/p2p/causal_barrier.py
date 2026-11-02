@@ -16,7 +16,9 @@ class CausalBarrierFilter:
         self.node_id = node_id
         self.retention_timeout = retention_timeout
         self._local_frontier: Dict[str, int] = {}
-        self._buffer: List[Tuple[float, Dict[str, int], Any]] = []  # (timestamp, vector_clock, message)
+        self._buffer: List[
+            Tuple[float, Dict[str, int], Any]
+        ] = []  # (timestamp, vector_clock, message)
         self._lock = threading.Lock()
 
     def update_frontier(self, clock: Dict[str, int]) -> None:
@@ -30,7 +32,9 @@ class CausalBarrierFilter:
         with self._lock:
             return dict(self._local_frontier)
 
-    def _is_causally_ready(self, msg_clock: Dict[str, int], sender_id: Optional[str] = None) -> bool:
+    def _is_causally_ready(
+        self, msg_clock: Dict[str, int], sender_id: Optional[str] = None
+    ) -> bool:
         """
         Checks if a message's vector clock satisfies causal readiness against the local frontier.
         A message from sender S with clock C is ready if:
@@ -50,7 +54,9 @@ class CausalBarrierFilter:
                     return False
         return True
 
-    def process_message(self, message: Any, msg_clock: Dict[str, int], sender_id: Optional[str] = None) -> List[Any]:
+    def process_message(
+        self, message: Any, msg_clock: Dict[str, int], sender_id: Optional[str] = None
+    ) -> List[Any]:
         """
         Process an incoming message with its vector clock.
         Returns a list of messages that are now ready for delivery (including this message
@@ -91,7 +97,9 @@ class CausalBarrierFilter:
                     # Specifically, for every node in clock, clock[node] <= local_frontier[node] + (1 if node is sender else 0)
                     is_ready = True
                     for node, ts in clock.items():
-                        allowed_max = self._local_frontier.get(node, 0) + (1 if node == sender_id else 0)
+                        allowed_max = self._local_frontier.get(node, 0) + (
+                            1 if node == sender_id else 0
+                        )
                         if ts > allowed_max:
                             # Also check if it's strictly within the general causal bound
                             if ts > self._local_frontier.get(node, 0):
