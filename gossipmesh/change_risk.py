@@ -1,6 +1,5 @@
-import re
 from enum import Enum
-from typing import List, Dict, Any, Set, Optional
+from typing import List
 from pydantic import BaseModel, Field
 
 
@@ -28,7 +27,9 @@ class ChangeDetails(BaseModel):
     has_tests: bool = False
     has_dependency_changes: bool = False
     has_infra_changes: bool = False
-    sensitive_dirs: List[str] = Field(default_factory=lambda: ["auth", "security", "crypto", "iam", "secrets"])
+    sensitive_dirs: List[str] = Field(
+        default_factory=lambda: ["auth", "security", "crypto", "iam", "secrets"]
+    )
 
 
 class ChangeRiskAssessment(BaseModel):
@@ -43,7 +44,12 @@ class ChangeRiskAssessment(BaseModel):
 class ChangeRiskClassifier:
     def __init__(self, max_allowed_risk: RiskLevel = RiskLevel.HIGH):
         self.max_allowed_risk = max_allowed_risk
-        self.risk_hierarchy = {RiskLevel.LOW: 1, RiskLevel.MEDIUM: 2, RiskLevel.HIGH: 3, RiskLevel.CRITICAL: 4}
+        self.risk_hierarchy = {
+            RiskLevel.LOW: 1,
+            RiskLevel.MEDIUM: 2,
+            RiskLevel.HIGH: 3,
+            RiskLevel.CRITICAL: 4,
+        }
 
     def classify(self, details: ChangeDetails) -> ChangeRiskAssessment:
         reasons = []
@@ -67,11 +73,15 @@ class ChangeRiskClassifier:
         is_critical = False
         if total_files > 50 or total_lines > 2000:
             is_critical = True
-            reasons.append(f"Massive change footprint: {total_files} files, {total_lines} lines.")
+            reasons.append(
+                f"Massive change footprint: {total_files} files, {total_lines} lines."
+            )
 
         if details.has_security_code and (details.has_auth_changes or in_sensitive_dir):
             is_critical = True
-            reasons.append("Critical security and authentication code modifications detected.")
+            reasons.append(
+                "Critical security and authentication code modifications detected."
+            )
 
         if is_critical:
             return ChangeRiskAssessment(
@@ -99,10 +109,15 @@ class ChangeRiskClassifier:
             reasons.append("Changes within sensitive system directories detected.")
         if total_files > 15 or total_lines > 500:
             is_high = True
-            reasons.append(f"Large change footprint: {total_files} files, {total_lines} lines.")
+            reasons.append(
+                f"Large change footprint: {total_files} files, {total_lines} lines."
+            )
 
         if is_high:
-            blocked_val = self.risk_hierarchy[RiskLevel.HIGH] > self.risk_hierarchy[self.max_allowed_risk]
+            blocked_val = (
+                self.risk_hierarchy[RiskLevel.HIGH]
+                > self.risk_hierarchy[self.max_allowed_risk]
+            )
             return ChangeRiskAssessment(
                 risk_level=RiskLevel.HIGH,
                 requires_approval=True,
@@ -122,10 +137,15 @@ class ChangeRiskClassifier:
             reasons.append("Shell script modifications detected.")
         if total_files > 5 or total_lines > 100:
             is_medium = True
-            reasons.append(f"Moderate change footprint: {total_files} files, {total_lines} lines.")
+            reasons.append(
+                f"Moderate change footprint: {total_files} files, {total_lines} lines."
+            )
 
         if is_medium:
-            blocked_val = self.risk_hierarchy[RiskLevel.MEDIUM] > self.risk_hierarchy[self.max_allowed_risk]
+            blocked_val = (
+                self.risk_hierarchy[RiskLevel.MEDIUM]
+                > self.risk_hierarchy[self.max_allowed_risk]
+            )
             return ChangeRiskAssessment(
                 risk_level=RiskLevel.MEDIUM,
                 requires_approval=True,

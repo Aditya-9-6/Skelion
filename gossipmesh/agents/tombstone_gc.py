@@ -1,6 +1,5 @@
 import threading
 from typing import Any, Dict, Set, Tuple
-from gossipmesh.core.clocks import VectorClock
 
 
 class TombstoneGarbageCollector:

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 import httpx
 
 
@@ -25,7 +24,9 @@ def run_staging_smoke_tests(base_url: str = "http://localhost:8000") -> bool:
     try:
         live_res = client.get("/health/live")
         if live_res.status_code != 200 or live_res.json().get("status") != "alive":
-            print(f"[!] FAILED: Liveness probe returned {live_res.status_code}: {live_res.text}")
+            print(
+                f"[!] FAILED: Liveness probe returned {live_res.status_code}: {live_res.text}"
+            )
             return False
         print("[+] PASS: Liveness probe is responsive.")
     except Exception as e:
@@ -36,7 +37,9 @@ def run_staging_smoke_tests(base_url: str = "http://localhost:8000") -> bool:
     try:
         ready_res = client.get("/health/ready")
         if ready_res.status_code != 200:
-            print(f"[!] FAILED: Readiness probe returned {ready_res.status_code}: {ready_res.text}")
+            print(
+                f"[!] FAILED: Readiness probe returned {ready_res.status_code}: {ready_res.text}"
+            )
             return False
         comps = ready_res.json().get("components", {})
         print(
@@ -49,15 +52,22 @@ def run_staging_smoke_tests(base_url: str = "http://localhost:8000") -> bool:
     # 3. Prometheus Metrics Endpoint
     try:
         metrics_res = client.get("/metrics")
-        if metrics_res.status_code != 200 or "gossipmesh_http_requests_total" not in metrics_res.text:
-            print(f"[!] FAILED: Metrics endpoint verification failed: {metrics_res.status_code}")
+        if (
+            metrics_res.status_code != 200
+            or "gossipmesh_http_requests_total" not in metrics_res.text
+        ):
+            print(
+                f"[!] FAILED: Metrics endpoint verification failed: {metrics_res.status_code}"
+            )
             return False
         print("[+] PASS: Prometheus metrics endpoint verified.")
     except Exception as e:
         print(f"[!] FAILED: Metrics probe error: {e}")
         return False
 
-    print("\n[🎉] ALL STAGING SMOKE TESTS PASSED SUCCESSFULLY! Ready for canary promotion.")
+    print(
+        "\n[🎉] ALL STAGING SMOKE TESTS PASSED SUCCESSFULLY! Ready for canary promotion."
+    )
     return True
 
 

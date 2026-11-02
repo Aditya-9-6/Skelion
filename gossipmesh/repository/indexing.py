@@ -4,7 +4,6 @@ Indexes changed files only, removes deleted files, tracks commit SHAs and conten
 versions index jobs, reports real-time progress, and supports retry and cancellation.
 """
 
-from datetime import datetime, timezone
 import hashlib
 import logging
 import traceback
@@ -75,7 +74,10 @@ class IncrementalIndexer:
     def cancel_job(self, job_id: str) -> bool:
         """Signals cancellation to an indexing job."""
         job = self.db.query(IndexJob).filter(IndexJob.id == job_id).first()
-        if job and job.status in (IndexJobStatus.PENDING.value, IndexJobStatus.RUNNING.value):
+        if job and job.status in (
+            IndexJobStatus.PENDING.value,
+            IndexJobStatus.RUNNING.value,
+        ):
             job.is_cancelled = True
             job.status = IndexJobStatus.CANCELLED.value
             self.db.commit()
@@ -85,7 +87,9 @@ class IncrementalIndexer:
     def is_cancelled(self, job_id: str) -> bool:
         """Checks if a job has been cancelled."""
         job = self.db.query(IndexJob).filter(IndexJob.id == job_id).first()
-        return bool(job and (job.is_cancelled or job.status == IndexJobStatus.CANCELLED.value))
+        return bool(
+            job and (job.is_cancelled or job.status == IndexJobStatus.CANCELLED.value)
+        )
 
     def sync_repository(
         self,
@@ -217,12 +221,16 @@ class IncrementalIndexer:
 
                 # Update progress
                 job.files_processed = idx
-                job.progress_pct = (idx / job.total_files) * 100.0 if job.total_files > 0 else 100.0
+                job.progress_pct = (
+                    (idx / job.total_files) * 100.0 if job.total_files > 0 else 100.0
+                )
                 self.db.commit()
 
                 if progress_callback:
                     try:
-                        progress_callback(idx, job.total_files, job.progress_pct, filepath)
+                        progress_callback(
+                            idx, job.total_files, job.progress_pct, filepath
+                        )
                     except Exception as cb_err:
                         logger.warning(f"Progress callback error: {cb_err}")
 

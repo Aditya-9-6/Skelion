@@ -4,7 +4,9 @@ from gossipmesh.consensus.checkpoint import StateCheckpoint
 
 
 class EpochCheckpointValidator:
-    def __init__(self, total_nodes: int, secret_keys: Optional[Dict[str, str]] = None) -> None:
+    def __init__(
+        self, total_nodes: int, secret_keys: Optional[Dict[str, str]] = None
+    ) -> None:
         self.total_nodes = total_nodes
         self.secret_keys = secret_keys or {}
         self._lock = threading.Lock()

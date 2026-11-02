@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Any, Set
+from typing import Dict, Set
 
 
 class VectorClock:

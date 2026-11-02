@@ -9,7 +9,6 @@ Produces a deterministic Infrastructure Score (0-100) and actionable
 remediation guidance.
 """
 
-import os
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -64,19 +63,25 @@ PATTERNS = {
     "INFRA-SEC-002": {
         "name": "Unrestricted Ingress Exposure (0.0.0.0/0)",
         "severity": "high",
-        "regex": re.compile(r"(?i)(?:cidr_blocks|cidr_ip|cidr)\s*=\s*\[?['\"]0\.0\.0\.0/0['\"]"),
+        "regex": re.compile(
+            r"(?i)(?:cidr_blocks|cidr_ip|cidr)\s*=\s*\[?['\"]0\.0\.0\.0/0['\"]"
+        ),
         "remediation": "Restrict CIDR blocks to specific corporate VPN or VPC subnets instead of wide-open internet 0.0.0.0/0.",
     },
     "INFRA-SEC-003": {
         "name": "Wildcard IAM Policy Permission",
         "severity": "high",
-        "regex": re.compile(r"(?i)['\"](?:Action|Resource)['\"]\s*:\s*(?:['\"]\*['\"]|\[\s*['\"]\*['\"])"),
+        "regex": re.compile(
+            r"(?i)['\"](?:Action|Resource)['\"]\s*:\s*(?:['\"]\*['\"]|\[\s*['\"]\*['\"])"
+        ),
         "remediation": "Follow principle of least privilege. Grant explicit action and resource ARNs instead of wildcards.",
     },
     "INFRA-DOCKER-001": {
         "name": "Docker Base Image Using ':latest' Tag or Untagged",
         "severity": "medium",
-        "regex": re.compile(r"(?i)^FROM\s+[a-zA-Z0-9_\/\-\.]+(?::latest|\s*$)", re.MULTILINE),
+        "regex": re.compile(
+            r"(?i)^FROM\s+[a-zA-Z0-9_\/\-\.]+(?::latest|\s*$)", re.MULTILINE
+        ),
         "remediation": "Pin base images to an immutable digest (sha256:...) or specific semantic version tag (e.g. :3.12-slim).",
     },
     "INFRA-DOCKER-002": {
@@ -88,7 +93,9 @@ PATTERNS = {
     "INFRA-CICD-001": {
         "name": "CI/CD Action Not Pinned to Commit SHA",
         "severity": "low",
-        "regex": re.compile(r"(?i)uses:\s+[a-zA-Z0-9_\-\.]+\/[a-zA-Z0-9_\-\.]+@(?:v\d+|main|master)"),
+        "regex": re.compile(
+            r"(?i)uses:\s+[a-zA-Z0-9_\-\.]+\/[a-zA-Z0-9_\-\.]+@(?:v\d+|main|master)"
+        ),
         "remediation": "Pin GitHub Actions to full 40-character commit SHAs to prevent supply chain poisoning.",
     },
     "INFRA-K8S-001": {
@@ -117,7 +124,11 @@ def scan_file(file_path: Path, repo_root: Path) -> List[InfrastructureFinding]:
         # 1. Hardcoded secret
         if PATTERNS["INFRA-SEC-001"]["regex"].search(line):
             # Exclude test files, documentation, or explicit placeholders
-            if "dummy" not in line.lower() and "placeholder" not in line.lower() and "test" not in rel_path.lower():
+            if (
+                "dummy" not in line.lower()
+                and "placeholder" not in line.lower()
+                and "test" not in rel_path.lower()
+            ):
                 findings.append(
                     InfrastructureFinding(
                         rule_id="INFRA-SEC-001",
@@ -252,7 +263,10 @@ def review(
             continue
         # Skip node_modules, .git, .venv
         rel_str = str(path).replace("\\", "/")
-        if any(skip in rel_str for skip in [".git/", ".venv/", "node_modules/", "__pycache__/"]):
+        if any(
+            skip in rel_str
+            for skip in [".git/", ".venv/", "node_modules/", "__pycache__/"]
+        ):
             continue
 
         if is_infrastructure_file(path):
@@ -296,7 +310,11 @@ def review(
 
 if __name__ == "__main__":
     result = review()
-    print(f"Infrastructure Security Score: {result['score']}/100 (Grade: {result['grade']})")
-    print(f"Scanned {result['files_scanned']} files. Total findings: {result['total_findings']}")
+    print(
+        f"Infrastructure Security Score: {result['score']}/100 (Grade: {result['grade']})"
+    )
+    print(
+        f"Scanned {result['files_scanned']} files. Total findings: {result['total_findings']}"
+    )
     for f in result["findings"]:
         print(f"  [{f['severity'].upper()}] {f['file']}:{f['line']} - {f['message']}")

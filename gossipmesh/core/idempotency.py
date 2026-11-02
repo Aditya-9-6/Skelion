@@ -17,7 +17,7 @@ from enum import Enum
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
-from gossipmesh.core.exceptions import ConflictError, AuthorizationError
+from gossipmesh.core.exceptions import ConflictError
 from gossipmesh.models.idempotency import IdempotencyRecord
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,9 @@ class IdempotencyEngine:
             canonical_bytes = payload.encode("utf-8")
         else:
             try:
-                canonical_bytes = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+                canonical_bytes = json.dumps(
+                    payload, sort_keys=True, default=str
+                ).encode("utf-8")
             except Exception:
                 canonical_bytes = str(payload).encode("utf-8")
         return hashlib.sha256(canonical_bytes).hexdigest()
@@ -81,7 +83,9 @@ class IdempotencyEngine:
         now = datetime.now(timezone.utc)
         request_hash = cls.compute_request_hash(payload)
 
-        record = db.query(IdempotencyRecord).filter(IdempotencyRecord.key == key).first()
+        record = (
+            db.query(IdempotencyRecord).filter(IdempotencyRecord.key == key).first()
+        )
 
         if record is not None:
             # 1. Payload mismatch check
@@ -98,7 +102,11 @@ class IdempotencyEngine:
 
             # 3. Already completed -> return cached response
             if record.status == "completed":
-                return IdempotencyStatus.COMPLETED, record.response_body, record.response_code
+                return (
+                    IdempotencyStatus.COMPLETED,
+                    record.response_body,
+                    record.response_code,
+                )
 
             # 4. In-progress check
             locked_until = record.locked_until
@@ -106,7 +114,9 @@ class IdempotencyEngine:
                 locked_until = locked_until.replace(tzinfo=timezone.utc)
 
             if locked_until and locked_until > now:
-                raise ConflictError(message=f"Concurrent operation in progress for idempotency key '{key}'.")
+                raise ConflictError(
+                    message=f"Concurrent operation in progress for idempotency key '{key}'."
+                )
 
             # Lock expired -> renew lock and re-acquire
             record.status = "in_progress"
@@ -137,18 +147,26 @@ class IdempotencyEngine:
         response_code: int = 200,
     ) -> None:
         """Marks the idempotency key as completed and persists the response for subsequent retries."""
-        record = db.query(IdempotencyRecord).filter(IdempotencyRecord.key == key).first()
+        record = (
+            db.query(IdempotencyRecord).filter(IdempotencyRecord.key == key).first()
+        )
         if record:
             record.status = "completed"
             record.response_code = response_code
-            record.response_body = response_body if isinstance(response_body, dict) else {"result": response_body}
+            record.response_body = (
+                response_body
+                if isinstance(response_body, dict)
+                else {"result": response_body}
+            )
             record.locked_until = None
             db.commit()
 
     @staticmethod
     def fail(db: Session, key: str, allow_retry: bool = True) -> None:
         """Releases the lock on failure, optionally allowing immediate retry or marking failed."""
-        record = db.query(IdempotencyRecord).filter(IdempotencyRecord.key == key).first()
+        record = (
+            db.query(IdempotencyRecord).filter(IdempotencyRecord.key == key).first()
+        )
         if record:
             if allow_retry:
                 # Delete or reset so subsequent attempt can retry immediately

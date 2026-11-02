@@ -5,11 +5,9 @@ evaluates precision/recall/false-positive rates per rule, and safely injects his
 into review prompts while strictly neutralizing prompt injection threats.
 """
 
-from datetime import datetime
 import logging
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from gossipmesh.models.finding_feedback import FindingFeedback, FeedbackType
 from gossipmesh.review.prompt_pipeline import (
@@ -55,7 +53,11 @@ class FeedbackLearningEngine:
             f_type = feedback_type.value
 
         # Sanitize comment against prompt injection attempts
-        sanitized_comment = PromptPipeline.sanitize_untrusted_text(user_comment or "") if user_comment else None
+        sanitized_comment = (
+            PromptPipeline.sanitize_untrusted_text(user_comment or "")
+            if user_comment
+            else None
+        )
 
         record = FindingFeedback(
             organization_id=organization_id,
@@ -87,7 +89,9 @@ class FeedbackLearningEngine:
         - Dismissal rate
         - Rule-level precision breakdown
         """
-        query = self.db.query(FindingFeedback).filter(FindingFeedback.organization_id == organization_id)
+        query = self.db.query(FindingFeedback).filter(
+            FindingFeedback.organization_id == organization_id
+        )
         if repository_id:
             query = query.filter(FindingFeedback.repository_id == repository_id)
 
@@ -114,7 +118,12 @@ class FeedbackLearningEngine:
 
             rule = item.rule_id or "GENERAL"
             if rule not in rule_stats:
-                rule_stats[rule] = {"accepted": 0, "false_positive": 0, "dismissed": 0, "total": 0}
+                rule_stats[rule] = {
+                    "accepted": 0,
+                    "false_positive": 0,
+                    "dismissed": 0,
+                    "total": 0,
+                }
 
             rule_stats[rule]["total"] += 1
             if t == FeedbackType.ACCEPTED.value:
@@ -129,7 +138,9 @@ class FeedbackLearningEngine:
         dismissed = counts.get(FeedbackType.DISMISSED.value, 0)
         negatives = false_positives + dismissed
 
-        precision = accepted / (accepted + negatives) if (accepted + negatives) > 0 else 1.0
+        precision = (
+            accepted / (accepted + negatives) if (accepted + negatives) > 0 else 1.0
+        )
         false_positive_rate = false_positives / total
         acceptance_rate = accepted / total
         dismissal_rate = dismissed / total
@@ -178,13 +189,18 @@ class FeedbackLearningEngine:
 
         results: List[HistoricalFindingFeedback] = []
         for r in records:
-            if r.feedback_type in (FeedbackType.DISMISSED.value, FeedbackType.FALSE_POSITIVE.value):
+            if r.feedback_type in (
+                FeedbackType.DISMISSED.value,
+                FeedbackType.FALSE_POSITIVE.value,
+            ):
                 status = FindingStatus.DISMISSED
             else:
                 status = FindingStatus.ACCEPTED
 
             reason = r.user_comment or (
-                "Marked false positive" if r.feedback_type == FeedbackType.FALSE_POSITIVE.value else None
+                "Marked false positive"
+                if r.feedback_type == FeedbackType.FALSE_POSITIVE.value
+                else None
             )
 
             results.append(

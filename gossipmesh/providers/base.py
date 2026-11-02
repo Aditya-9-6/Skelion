@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import AsyncGenerator
-from gossipmesh.providers.models import GenerationRequest, GenerationResponse, ProviderHealth
+from gossipmesh.providers.models import (
+    GenerationRequest,
+    GenerationResponse,
+    ProviderHealth,
+)
 
 
 class BaseProvider(ABC):
@@ -19,7 +23,9 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    async def generate_stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:
+    async def generate_stream(
+        self, request: GenerationRequest
+    ) -> AsyncGenerator[str, None]:
         """Stream a response."""
         pass
 
