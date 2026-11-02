@@ -65,7 +65,9 @@ class MerkleDAG:
     """SHA-256 Merkle-DAG supporting incremental state reconciliation and O(log N) diff traversal."""
 
     def __init__(self, state_map: Optional[Dict[str, Any]] = None):
-        self.state_map: Dict[str, Any] = dict(state_map) if state_map is not None else {}
+        self.state_map: Dict[str, Any] = (
+            dict(state_map) if state_map is not None else {}
+        )
         self.root: MerkleNode = self._build_tree(sorted(self.state_map.items()))
 
     def _build_tree(self, items: List[Tuple[str, Any]]) -> MerkleNode:
@@ -99,11 +101,18 @@ class MerkleDAG:
         return sorted(list(set(divergent_keys)))
 
     def _compare_nodes(
-        self, local_node: Optional[MerkleNode], remote_node: Optional[MerkleNode], divergent_keys: List[str]
+        self,
+        local_node: Optional[MerkleNode],
+        remote_node: Optional[MerkleNode],
+        divergent_keys: List[str],
     ) -> None:
         if local_node is None and remote_node is None:
             return
-        if local_node is not None and remote_node is not None and local_node.hash == remote_node.hash:
+        if (
+            local_node is not None
+            and remote_node is not None
+            and local_node.hash == remote_node.hash
+        ):
             return
 
         if local_node is not None and local_node.is_leaf:
@@ -130,7 +139,9 @@ class MerkleDAG:
         self._collect_proof(self.root, key, proof)
         return proof
 
-    def _collect_proof(self, node: Optional[MerkleNode], key: str, proof: List[Dict[str, str]]) -> bool:
+    def _collect_proof(
+        self, node: Optional[MerkleNode], key: str, proof: List[Dict[str, str]]
+    ) -> bool:
         if node is None:
             return False
         if node.is_leaf:

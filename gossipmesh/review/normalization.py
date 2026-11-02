@@ -5,7 +5,6 @@ category/severity normalization, evidence structuring, multi-source consolidatio
 and intra-run / cross-run deduplication.
 """
 
-from enum import Enum
 import hashlib
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -58,7 +57,11 @@ def canonicalize_severity(severity: Optional[Union[str, Severity]]) -> str:
     """Normalizes severity to one of CRITICAL, HIGH, MEDIUM, LOW, INFO."""
     if not severity:
         return "MEDIUM"
-    s = severity.value if isinstance(severity, Severity) else str(severity).strip().upper()
+    s = (
+        severity.value
+        if isinstance(severity, Severity)
+        else str(severity).strip().upper()
+    )
     return s if s in SEVERITY_RANKS else "MEDIUM"
 
 
@@ -77,7 +80,11 @@ def canonicalize_confidence(
             return Confidence.LOW, score
 
     if confidence is not None:
-        c_str = confidence.value if isinstance(confidence, Confidence) else str(confidence).strip().upper()
+        c_str = (
+            confidence.value
+            if isinstance(confidence, Confidence)
+            else str(confidence).strip().upper()
+        )
         if c_str == "HIGH":
             return Confidence.HIGH, 90
         elif c_str == "MEDIUM":
@@ -141,16 +148,21 @@ class FindingNormalizer:
 
         # 1. Path & Line coordinates
         file_path = canonicalize_path(
-            data.get("file_path") or (data.get("paths", [""])[0] if data.get("paths") else "")
+            data.get("file_path")
+            or (data.get("paths", [""])[0] if data.get("paths") else "")
         )
         line = max(1, int(data.get("line") or 1))
-        end_line = int(data.get("end_line")) if data.get("end_line") is not None else None
+        end_line = (
+            int(data.get("end_line")) if data.get("end_line") is not None else None
+        )
         if end_line is not None and end_line < line:
             end_line = line
 
         # 2. Category & Rule ID
         category = canonicalize_category(data.get("category"))
-        rule_id = data.get("rule_id") or data.get("rule") or data.get("cwe") or data.get("id")
+        rule_id = (
+            data.get("rule_id") or data.get("rule") or data.get("cwe") or data.get("id")
+        )
 
         # 3. Severity & Confidence
         severity = canonicalize_severity(data.get("severity"))
@@ -159,14 +171,22 @@ class FindingNormalizer:
         )
 
         # 4. Message & Explanation
-        message = data.get("message") or data.get("explanation") or data.get("description") or ""
+        message = (
+            data.get("message")
+            or data.get("explanation")
+            or data.get("description")
+            or ""
+        )
 
         # 5. Evidence & Structured Snippet
         snippet = ""
         evidence_structured = data.get("evidence_structured")
         if isinstance(evidence_structured, dict):
             snippet = evidence_structured.get("code_snippet", "")
-            citations = [Citation(**c) if isinstance(c, dict) else c for c in evidence_structured.get("citations", [])]
+            citations = [
+                Citation(**c) if isinstance(c, dict) else c
+                for c in evidence_structured.get("citations", [])
+            ]
             evidence_model = Evidence(
                 description=evidence_structured.get("description", message),
                 code_snippet=snippet or None,
@@ -229,7 +249,8 @@ class FindingNormalizer:
             category=category,
             rule_id=str(rule_id) if rule_id else None,
             message=message,
-            evidence=snippet or (evidence_model.description if evidence_model else None),
+            evidence=snippet
+            or (evidence_model.description if evidence_model else None),
             evidence_structured=evidence_model,
             confidence_score=confidence_score,
             confidence=confidence_enum,
@@ -248,7 +269,9 @@ class FindingNormalizer:
         default_source: str = "review_engine",
     ) -> List[SecurityFinding]:
         """Normalizes a list of findings."""
-        return [cls.normalize_finding(f, default_source=default_source) for f in findings]
+        return [
+            cls.normalize_finding(f, default_source=default_source) for f in findings
+        ]
 
     @classmethod
     def consolidate_findings(
@@ -271,7 +294,9 @@ class FindingNormalizer:
                     file_path=f.file_path,
                     category=f.category,
                     rule_id=f.rule_id,
-                    snippet=f.evidence_structured.code_snippet if f.evidence_structured else f.evidence,
+                    snippet=f.evidence_structured.code_snippet
+                    if f.evidence_structured
+                    else f.evidence,
                     line=f.line,
                     end_line=f.end_line,
                 )
@@ -291,12 +316,16 @@ class FindingNormalizer:
 
             # Merge multiple findings for the same fingerprint
             # 1. Highest severity
-            best_sev = max(group, key=lambda x: SEVERITY_RANKS.get(x.severity, 0)).severity
+            best_sev = max(
+                group, key=lambda x: SEVERITY_RANKS.get(x.severity, 0)
+            ).severity
 
             # 2. Highest confidence
             best_conf_finding = max(
                 group,
-                key=lambda x: CONFIDENCE_RANKS.get(x.confidence.value if x.confidence else "MEDIUM", 0),
+                key=lambda x: CONFIDENCE_RANKS.get(
+                    x.confidence.value if x.confidence else "MEDIUM", 0
+                ),
             )
             best_conf = best_conf_finding.confidence
             best_conf_score = best_conf_finding.confidence_score
@@ -309,9 +338,23 @@ class FindingNormalizer:
                         all_sources.append(s)
 
             # 4. Longest / richest explanation and evidence
-            best_msg = max((item.message for item in group if item.message), key=len, default=group[0].message)
-            best_evidence = next((item.evidence_structured for item in group if item.evidence_structured), None)
-            best_remediation = next((item.remediation for item in group if item.remediation), group[0].remediation)
+            best_msg = max(
+                (item.message for item in group if item.message),
+                key=len,
+                default=group[0].message,
+            )
+            best_evidence = next(
+                (
+                    item.evidence_structured
+                    for item in group
+                    if item.evidence_structured
+                ),
+                None,
+            )
+            best_remediation = next(
+                (item.remediation for item in group if item.remediation),
+                group[0].remediation,
+            )
 
             primary = group[0]
             merged = SecurityFinding(

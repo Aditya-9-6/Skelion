@@ -76,9 +76,13 @@ async def handle(request: Request):
     # ``start_new_session`` flag does the same. Here we rely on ``subprocess.Popen``
     # with ``close_fds=True`` which works cross‑platform for a background task.
     try:
-        subprocess.Popen(cmd, cwd=workspace, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(
+            cmd, cwd=workspace, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start autonomous loop: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start autonomous loop: {e}"
+        )
     return {"status": "autonomous loop started"}
 
 

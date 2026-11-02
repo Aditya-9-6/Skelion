@@ -9,7 +9,14 @@ from typing import List, Dict, Any
 
 
 class VulnerabilityProbe:
-    def __init__(self, category: str, severity: str, description: str, attack_vector: str, exploit_test_stub: str):
+    def __init__(
+        self,
+        category: str,
+        severity: str,
+        description: str,
+        attack_vector: str,
+        exploit_test_stub: str,
+    ):
         self.category = category
         self.severity = severity  # CRITICAL, HIGH, MEDIUM, LOW
         self.description = description
@@ -67,7 +74,9 @@ class RedTeamAuditor:
         },
     ]
 
-    def audit_diff(self, diff_content: str, language: str = "go") -> List[VulnerabilityProbe]:
+    def audit_diff(
+        self, diff_content: str, language: str = "go"
+    ) -> List[VulnerabilityProbe]:
         """Audits a code diff against adversarial rules and edge cases."""
         probes: List[VulnerabilityProbe] = []
 
