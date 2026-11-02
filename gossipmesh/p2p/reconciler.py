@@ -1,12 +1,15 @@
 import hashlib
-import json
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Optional
 from gossipmesh.p2p.vector_clock import VectorClock
 
 
 class MerkleNode:
     def __init__(
-        self, key: str, value_hash: str, left: Optional["MerkleNode"] = None, right: Optional["MerkleNode"] = None
+        self,
+        key: str,
+        value_hash: str,
+        left: Optional["MerkleNode"] = None,
+        right: Optional["MerkleNode"] = None,
     ):
         self.key = key
         self.value_hash = value_hash
@@ -70,7 +73,9 @@ class AntiEntropyReconciler:
                 diffs.append(k)
         return diffs
 
-    def reconcile(self, peer_id: str, peer_vc_dict: Dict[str, int], peer_root_hash: Optional[str]) -> str:
+    def reconcile(
+        self, peer_id: str, peer_vc_dict: Dict[str, int], peer_root_hash: Optional[str]
+    ) -> str:
         peer_vc = VectorClock.from_dict(peer_vc_dict)
         comparison = self.vector_clock.compare(peer_vc)
 

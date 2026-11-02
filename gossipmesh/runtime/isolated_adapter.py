@@ -17,10 +17,8 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
-import tempfile
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from gossipmesh.core.exceptions import SandboxError, SandboxSecurityError
 from gossipmesh.runtime.sandbox import CommandPolicyEngine
@@ -79,7 +77,14 @@ class RootlessContainerAdapter(BaseExecutionAdapter):
     with strict isolation flags, read-only root, no network, and resource quotas.
     """
 
-    PROHIBITED_MOUNTS = ["/var/run/docker.sock", "/var/run/podman.sock", "/etc", "/sys", "/proc", "/root"]
+    PROHIBITED_MOUNTS = [
+        "/var/run/docker.sock",
+        "/var/run/podman.sock",
+        "/etc",
+        "/sys",
+        "/proc",
+        "/root",
+    ]
 
     def __init__(self, runtime_binary: Optional[str] = None):
         self.runtime_binary = runtime_binary or self._detect_runtime()
@@ -159,7 +164,9 @@ class RootlessContainerAdapter(BaseExecutionAdapter):
         config: ExecutionConfig,
     ) -> ExecutionResult:
         if not self.runtime_binary:
-            raise SandboxError("No container runtime (podman or docker) detected on host system.")
+            raise SandboxError(
+                "No container runtime (podman or docker) detected on host system."
+            )
 
         container_argv = self.build_container_args(cmd, workspace_dir, config)
         start_time = time.time()
@@ -259,7 +266,9 @@ class ExecutionAdapterFactory:
         if choice == "container":
             runtime = RootlessContainerAdapter._detect_runtime()
             if not runtime:
-                raise SandboxError("Container adapter requested, but neither podman nor docker is installed.")
+                raise SandboxError(
+                    "Container adapter requested, but neither podman nor docker is installed."
+                )
             return RootlessContainerAdapter(runtime)
         elif choice == "process":
             return ProcessIsolatedAdapter()

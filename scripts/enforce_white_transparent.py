@@ -2,8 +2,10 @@ import os
 import resvg_py
 from PIL import Image
 
-EXT_MEDIA = r'g:\My Drive\helios\skelion_vscode_extension\media'
-ARTIFACT_DIR = r'C:\Users\adity\.gemini\antigravity\brain\eddfae2f-e0dc-4498-a908-e77d6173906d'
+EXT_MEDIA = r"g:\My Drive\helios\skelion_vscode_extension\media"
+ARTIFACT_DIR = (
+    r"C:\Users\adity\.gemini\antigravity\brain\eddfae2f-e0dc-4498-a908-e77d6173906d"
+)
 
 # 1. Update icon.svg to pure #FFFFFF
 icon_path = os.path.join(EXT_MEDIA, "icon.svg")
@@ -26,12 +28,18 @@ with open(white_svg_path, "r", encoding="utf-8") as f:
     white_svg_content = f.read()
 
 # Ensure it's in artifact dir
-with open(os.path.join(ARTIFACT_DIR, "skelion_logo_white.svg"), "w", encoding="utf-8") as f:
+with open(
+    os.path.join(ARTIFACT_DIR, "skelion_logo_white.svg"), "w", encoding="utf-8"
+) as f:
     f.write(white_svg_content)
 
 # Render PNG: pure white on transparent RGBA
-png_bytes_1024 = resvg_py.svg_to_bytes(svg_string=white_svg_content, width=1024, height=1024)
-png_bytes_512 = resvg_py.svg_to_bytes(svg_string=white_svg_content, width=512, height=512)
+png_bytes_1024 = resvg_py.svg_to_bytes(
+    svg_string=white_svg_content, width=1024, height=1024
+)
+png_bytes_512 = resvg_py.svg_to_bytes(
+    svg_string=white_svg_content, width=512, height=512
+)
 
 # Save 1024x1024 PNG
 for target_dir in [EXT_MEDIA, ARTIFACT_DIR]:
@@ -52,7 +60,11 @@ assert corner_pixel[3] == 0, "Corner pixel is not transparent!"
 # Check some non-transparent pixels to verify color is (255, 255, 255, 255)
 white_pixels = [p for p in img.getdata() if p[3] > 200]
 print(f"Sample white mark pixel: {white_pixels[0]}")
-assert white_pixels[0][0] == 255 and white_pixels[0][1] == 255 and white_pixels[0][2] == 255, "Logo pixel is not pure white!"
+assert (
+    white_pixels[0][0] == 255
+    and white_pixels[0][1] == 255
+    and white_pixels[0][2] == 255
+), "Logo pixel is not pure white!"
 
 # 3. Clean up non-white / non-transparent assets
 remove_files = [

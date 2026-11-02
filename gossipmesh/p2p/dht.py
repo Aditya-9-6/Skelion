@@ -41,7 +41,9 @@ class KBucket:
 
     def remove(self, node_id: str) -> None:
         with self._lock:
-            self.contacts = [(nid, addr) for nid, addr in self.contacts if nid != node_id]
+            self.contacts = [
+                (nid, addr) for nid, addr in self.contacts if nid != node_id
+            ]
 
     def get_contacts(self) -> List[Tuple[str, str]]:
         with self._lock:
@@ -95,7 +97,9 @@ class KademliaDHT:
                 parts = addr.split(":")
                 host = parts[0]
                 port = int(parts[1]) if len(parts) > 1 else 9000
-                unique_contacts.append(KademliaNode(node_id=nid, address=host, port=port))
+                unique_contacts.append(
+                    KademliaNode(node_id=nid, address=host, port=port)
+                )
 
         unique_contacts.sort(key=lambda node: xor_distance(node.node_id, target_id))
         return unique_contacts[:count]

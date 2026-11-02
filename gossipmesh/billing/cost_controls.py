@@ -12,7 +12,6 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from gossipmesh.models.audit import AuditEvent
-from gossipmesh.models.organization import Organization
 from gossipmesh.models.runtime import Budget, Job, Workflow
 
 
@@ -98,7 +97,10 @@ class CostControlsEngine:
 
         threshold = mean + (self.config.anomaly_multiplier * max(std_dev, 1.0))
 
-        if current_spend > threshold and current_spend >= self.config.min_anomaly_threshold_usd:
+        if (
+            current_spend > threshold
+            and current_spend >= self.config.min_anomaly_threshold_usd
+        ):
             msg = (
                 f"Cost anomaly detected: current spend (${current_spend:.2f}) exceeds baseline threshold "
                 f"(${threshold:.2f}, mean=${mean:.2f}, std_dev=${std_dev:.2f})"
@@ -134,7 +136,11 @@ class CostControlsEngine:
         job_stmt = (
             update(Job)
             .where(
-                Job.workflow_id.in_(select(Workflow.id).where(Workflow.organization_id == organization_id)),
+                Job.workflow_id.in_(
+                    select(Workflow.id).where(
+                        Workflow.organization_id == organization_id
+                    )
+                ),
                 Job.status.in_(["pending", "running"]),
             )
             .values(status="cancelled")

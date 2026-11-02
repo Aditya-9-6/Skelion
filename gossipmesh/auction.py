@@ -71,7 +71,9 @@ class TaskAuctioneer:
         bids = []
 
         for role, keywords in self.DOMAIN_KEYWORDS.items():
-            weighted_matches = sum(weight for kw, weight in keywords.items() if kw in text)
+            weighted_matches = sum(
+                weight for kw, weight in keywords.items() if kw in text
+            )
             score = min(100.0, 40.0 + (weighted_matches * 15.0))
             rationale = f"Matched weighted core domain keywords for {role}."
             bids.append(AgentBid(role, role, score, rationale))

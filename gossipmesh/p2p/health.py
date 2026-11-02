@@ -50,7 +50,9 @@ class SlidingWindowPeerHealthScorecard:
                 drop_val = 1.0 if dropped else 0.0
                 m.ewma_drop_rate = a_d * drop_val + (1.0 - a_d) * m.ewma_drop_rate
                 viot_val = 1.0 if violated else 0.0
-                m.ewma_violation_rate = a_v * viot_val + (1.0 - a_v) * m.ewma_violation_rate
+                m.ewma_violation_rate = (
+                    a_v * viot_val + (1.0 - a_v) * m.ewma_violation_rate
+                )
 
             # Score calculation: 100 base, penalized by latency, drops, and violations
             lat_penalty = min(50.0, (m.ewma_latency / 100.0) * 15.0)

@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
-from sqlalchemy.orm import relationship
 from gossipmesh.db.base import Base
 
 
