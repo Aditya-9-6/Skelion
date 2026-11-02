@@ -41,7 +41,9 @@ class CompressedBloomFilterDedup:
         encoded = item.encode("utf-8")
         h1 = zlib.crc32(encoded)
         h2 = zlib.adler32(encoded)
-        return [(h1 + i * h2 + i * i) % self._bits_size for i in range(self._num_hashes)]
+        return [
+            (h1 + i * h2 + i * i) % self._bits_size for i in range(self._num_hashes)
+        ]
 
     def add(self, message_id: str) -> bool:
         with self._lock:
@@ -86,7 +88,9 @@ class CountingBloomFilter:
     def __init__(self, capacity: int = 1000, error_rate: float = 0.01) -> None:
         self.capacity = capacity
         self.error_rate = error_rate
-        self.filter = CompressedBloomFilterDedup(capacity=capacity, error_rate=error_rate)
+        self.filter = CompressedBloomFilterDedup(
+            capacity=capacity, error_rate=error_rate
+        )
         self._items: Set[str] = set()
         self._lock = threading.Lock()
 

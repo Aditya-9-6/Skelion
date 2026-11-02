@@ -3,7 +3,7 @@ Billing and commercialization for GossipMesh.
 Milestone 9 Implementation.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List
 
 
 class StripeBillingEngine:
@@ -73,7 +73,9 @@ class MeteredUsageTracker:
     def record_usage(self, tenant_id: str, resource: str, amount: int) -> bool:
         if tenant_id not in self.usage:
             self.usage[tenant_id] = {}
-        self.usage[tenant_id][resource] = self.usage[tenant_id].get(resource, 0) + amount
+        self.usage[tenant_id][resource] = (
+            self.usage[tenant_id].get(resource, 0) + amount
+        )
         return True
 
     def get_usage(self, tenant_id: str) -> dict:

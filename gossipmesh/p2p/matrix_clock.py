@@ -25,7 +25,9 @@ class MatrixClock:
         with self._lock:
             if self.node_id not in self._matrix:
                 self._matrix[self.node_id] = {}
-            self._matrix[self.node_id][self.node_id] = self._matrix[self.node_id].get(self.node_id, 0) + 1
+            self._matrix[self.node_id][self.node_id] = (
+                self._matrix[self.node_id].get(self.node_id, 0) + 1
+            )
             return dict(self._matrix[self.node_id])
 
     def update(self, remote_node_id: str, remote_clock: Dict[str, int]) -> None:
@@ -53,7 +55,9 @@ class MatrixClock:
         with self._lock:
             return {k: dict(v) for k, v in self._matrix.items()}
 
-    def satisfies_causal_dependency(self, sender_id: str, message_vector: Dict[str, int]) -> bool:
+    def satisfies_causal_dependency(
+        self, sender_id: str, message_vector: Dict[str, int]
+    ) -> bool:
         """
         Checks whether causal preconditions are satisfied for a message from sender_id.
         A message's vector clock must be immediately successor to our current causal view.
@@ -65,7 +69,9 @@ class MatrixClock:
             recorded_seq = sender_clock.get(sender_id, 0)
 
             if msg_seq > recorded_seq + 1:
-                return False  # Missing intermediate messages (out of order / causal gap)
+                return (
+                    False  # Missing intermediate messages (out of order / causal gap)
+                )
 
             # Check all other components in message vector against our matrix view
             for node, ts in message_vector.items():
@@ -86,20 +92,29 @@ class BoundedMatrixClockReconstructionEngine:
     gossip payloads using a bounded circular buffer with stale state pruning.
     """
 
-    def __init__(self, node_id: str, max_buffer_size: int = 1000, max_stale_window_sec: float = 60.0):
+    def __init__(
+        self,
+        node_id: str,
+        max_buffer_size: int = 1000,
+        max_stale_window_sec: float = 60.0,
+    ):
         self.node_id = node_id
         self.max_buffer_size = max_buffer_size
         self.max_stale_window_sec = max_stale_window_sec
         self.matrix_clock = MatrixClock(node_id)
 
         # Circular buffer implemented via fixed/bounded list with pointer tracking
-        self._buffer: List[Optional[Tuple[float, str, Dict[str, int], Any]]] = [None] * max_buffer_size
+        self._buffer: List[Optional[Tuple[float, str, Dict[str, int], Any]]] = [
+            None
+        ] * max_buffer_size
         self._head = 0
         self._tail = 0
         self._size = 0
         self._lock = threading.Lock()
 
-    def ingest_payload(self, sender_id: str, message_vector: Dict[str, int], payload: Any) -> List[Any]:
+    def ingest_payload(
+        self, sender_id: str, message_vector: Dict[str, int], payload: Any
+    ) -> List[Any]:
         """
         Ingests a message payload. If causal dependencies are met, immediately returns it
         along with any buffered payloads that are now deliverable. If out of order, buffers it.
@@ -123,7 +138,9 @@ class BoundedMatrixClockReconstructionEngine:
 
             return delivered
 
-    def _push_to_buffer_locked(self, sender_id: str, message_vector: Dict[str, int], payload: Any) -> None:
+    def _push_to_buffer_locked(
+        self, sender_id: str, message_vector: Dict[str, int], payload: Any
+    ) -> None:
         if self._size >= self.max_buffer_size:
             # Evict oldest entry (ring buffer wrap-around / drop oldest stale)
             self._head = (self._head + 1) % self.max_buffer_size

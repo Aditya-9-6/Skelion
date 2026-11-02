@@ -23,12 +23,16 @@ class IssueIdempotencyManager:
     def is_event_processed(db: Session, event_id: str) -> bool:
         """Check if an external event ID has already been successfully processed."""
         existing = (
-            db.query(WebhookEvent).filter(WebhookEvent.id == event_id, WebhookEvent.status == "processed").first()
+            db.query(WebhookEvent)
+            .filter(WebhookEvent.id == event_id, WebhookEvent.status == "processed")
+            .first()
         )
         return existing is not None
 
     @staticmethod
-    def check_existing_pr_or_branch(db: Session, repo_full_name: str, issue_number: int) -> Dict[str, Any]:
+    def check_existing_pr_or_branch(
+        db: Session, repo_full_name: str, issue_number: int
+    ) -> Dict[str, Any]:
         """
         Checks active runs, existing PRs, prior attempts, branch state,
         and generated commit identity for a given issue number and repository.
@@ -71,7 +75,10 @@ class IssueIdempotencyManager:
         if details:
             event_details.update(details)
 
-        audit_kwargs: Dict[str, Any] = {"action": "issue_solver_completed", "details": event_details}
+        audit_kwargs: Dict[str, Any] = {
+            "action": "issue_solver_completed",
+            "details": event_details,
+        }
         if actor_id is not None:
             if hasattr(AuditEvent, "user_id"):
                 audit_kwargs["user_id"] = actor_id

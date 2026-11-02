@@ -13,7 +13,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,9 @@ SECRET_RULES: Dict[str, Dict[str, Any]] = {
         "description": "AWS Access Key ID",
     },
     "GM-SEC-AWS-SECRET": {
-        "pattern": re.compile(r"(?:^|[^A-Za-z0-9/+=])([A-Za-z0-9/+=]{40})(?:[^A-Za-z0-9/+=]|$)"),
+        "pattern": re.compile(
+            r"(?:^|[^A-Za-z0-9/+=])([A-Za-z0-9/+=]{40})(?:[^A-Za-z0-9/+=]|$)"
+        ),
         "severity": "CRITICAL",
         "description": "Potential AWS Secret Access Key detected",
     },
@@ -79,7 +81,9 @@ SECRET_RULES: Dict[str, Dict[str, Any]] = {
         "description": "Slack Token / Credential",
     },
     "GM-SEC-PRIVATE-KEY": {
-        "pattern": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
+        "pattern": re.compile(
+            r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
+        ),
         "severity": "CRITICAL",
         "description": "Private cryptographic key detected",
     },
@@ -140,7 +144,11 @@ class SecretScannerEngine:
             for rule_id, rule_info in self.rules.items():
                 pattern = rule_info["pattern"]
                 for match in pattern.finditer(line):
-                    matched_val = match.group(1) if match.groups() and match.group(1) is not None else match.group(0)
+                    matched_val = (
+                        match.group(1)
+                        if match.groups() and match.group(1) is not None
+                        else match.group(0)
+                    )
                     if not self.is_whitelisted(matched_val):
                         findings.append(
                             {
@@ -162,7 +170,9 @@ class SecretScannerEngine:
         """Scans a unified diff string for secret leaks."""
         return self.scan_text(diff_text, source_identifier="git-diff")
 
-    def scan_content(self, content: str, file_path: Optional[str] = "inline") -> List[SecretFinding]:
+    def scan_content(
+        self, content: str, file_path: Optional[str] = "inline"
+    ) -> List[SecretFinding]:
         """Scans a text payload line-by-line for secret patterns returning SecretFinding objects."""
         raw_findings = self.scan_text(content, filename=file_path)
         results = []
@@ -210,8 +220,17 @@ class SecretScannerEngine:
             logger.error(f"Failed to run git diff on {repo_path}: {e}")
             return []
 
-    def scan_directory(self, dir_path: Path | str, exclude_dirs: Optional[List[str]] = None) -> List[SecretFinding]:
-        exclude_dirs = exclude_dirs or [".git", "node_modules", "venv", "__pycache__", "dist", "build"]
+    def scan_directory(
+        self, dir_path: Path | str, exclude_dirs: Optional[List[str]] = None
+    ) -> List[SecretFinding]:
+        exclude_dirs = exclude_dirs or [
+            ".git",
+            "node_modules",
+            "venv",
+            "__pycache__",
+            "dist",
+            "build",
+        ]
         findings: List[SecretFinding] = []
         d_path = Path(dir_path)
         if not d_path.is_dir():

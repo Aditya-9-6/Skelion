@@ -66,7 +66,9 @@ class JournalingLedger:
             actual_size = self.initial_size
 
         self._capacity = actual_size
-        self._mmap_obj = mmap.mmap(self._file_obj.fileno(), self._capacity, access=mmap.ACCESS_WRITE)
+        self._mmap_obj = mmap.mmap(
+            self._file_obj.fileno(), self._capacity, access=mmap.ACCESS_WRITE
+        )
 
         # Scan to find current write offset based on valid frames
         self._current_offset = self._scan_valid_offset()
@@ -80,7 +82,9 @@ class JournalingLedger:
             header_bytes = m[offset : offset + self.HEADER_SIZE]
             if len(header_bytes) < self.HEADER_SIZE:
                 break
-            magic, payload_len, stored_crc = struct.unpack(self.HEADER_FORMAT, header_bytes)
+            magic, payload_len, stored_crc = struct.unpack(
+                self.HEADER_FORMAT, header_bytes
+            )
 
             if magic != self.MAGIC:
                 break
@@ -116,7 +120,9 @@ class JournalingLedger:
         self._file_obj.flush()
 
         self._capacity = new_capacity
-        self._mmap_obj = mmap.mmap(self._file_obj.fileno(), self._capacity, access=mmap.ACCESS_WRITE)
+        self._mmap_obj = mmap.mmap(
+            self._file_obj.fileno(), self._capacity, access=mmap.ACCESS_WRITE
+        )
 
     def append(self, payload: bytes) -> int:
         """
@@ -148,13 +154,17 @@ class JournalingLedger:
 
             while offset + self.HEADER_SIZE <= length:
                 header_bytes = m[offset : offset + self.HEADER_SIZE]
-                magic, payload_len, stored_crc = struct.unpack(self.HEADER_FORMAT, header_bytes)
+                magic, payload_len, stored_crc = struct.unpack(
+                    self.HEADER_FORMAT, header_bytes
+                )
 
                 if magic != self.MAGIC:
                     break
 
                 total_frame_size = self.HEADER_SIZE + payload_len
-                payload_slice = memoryview(m)[offset + self.HEADER_SIZE : offset + total_frame_size]
+                payload_slice = memoryview(m)[
+                    offset + self.HEADER_SIZE : offset + total_frame_size
+                ]
                 payload_bytes = bytes(payload_slice)
 
                 calc_crc = zlib.crc32(payload_bytes) & 0xFFFFFFFF

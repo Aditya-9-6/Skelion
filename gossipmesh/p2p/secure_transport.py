@@ -1,12 +1,15 @@
 import os
-from typing import Tuple
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from gossipmesh.crypto.ratchet import DoubleRatchetState, RatchetMessage
 
 
 class SecureMeshTransport:
-    def __init__(self, shared_secret: bytes, is_initiator: bool, peer_public_bytes: bytes = None):
-        self.ratchet = DoubleRatchetState(shared_secret, is_initiator, peer_public_bytes)
+    def __init__(
+        self, shared_secret: bytes, is_initiator: bool, peer_public_bytes: bytes = None
+    ):
+        self.ratchet = DoubleRatchetState(
+            shared_secret, is_initiator, peer_public_bytes
+        )
         self.aesgcm = None
 
     def encrypt(self, plaintext: bytes) -> RatchetMessage:

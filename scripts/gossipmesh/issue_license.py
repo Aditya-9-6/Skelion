@@ -19,7 +19,7 @@ import argparse
 import json
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
@@ -29,11 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from enterprise.pricing import (
     MODEL_BUNDLES,
-    PLAN_TERMS,
-    DEFAULT_TASK_MODEL_MAP,
-    CORE_TASKS,
     calculate_price,
-    get_bundle,
 )
 
 
@@ -95,7 +91,9 @@ def load_private_key(key_input: Optional[str] = None):
             "or set LICENSE_PRIVATE_KEY_PATH."
         )
 
-    return serialization.load_pem_private_key(pem_bytes, password=None, backend=default_backend())
+    return serialization.load_pem_private_key(
+        pem_bytes, password=None, backend=default_backend()
+    )
 
 
 def parse_task_map(map_str: Optional[str]) -> Optional[Dict[str, str]]:
@@ -136,7 +134,9 @@ def issue_license(
     normalized_bundles = [b.lower().strip() for b in bundle_ids]
     for b in normalized_bundles:
         if b not in MODEL_BUNDLES:
-            raise ValueError(f"Invalid bundle: {b}. Supported: {list(MODEL_BUNDLES.keys())}")
+            raise ValueError(
+                f"Invalid bundle: {b}. Supported: {list(MODEL_BUNDLES.keys())}"
+            )
 
     # Determine validity duration
     if validity_days is None:
@@ -172,8 +172,12 @@ def issue_license(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Issue offline RSA-4096 signed JWT enterprise license tokens.")
-    parser.add_argument("--customer-id", required=True, help="Customer ID (e.g., acme-fintech-corp)")
+    parser = argparse.ArgumentParser(
+        description="Issue offline RSA-4096 signed JWT enterprise license tokens."
+    )
+    parser.add_argument(
+        "--customer-id", required=True, help="Customer ID (e.g., acme-fintech-corp)"
+    )
     parser.add_argument(
         "--bundle",
         action="append",

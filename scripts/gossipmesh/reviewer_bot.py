@@ -46,7 +46,9 @@ def load_master_plan_keywords():
         if plan_file.exists():
             text = plan_file.read_text(encoding="utf-8", errors="ignore")
             # Extract task names and section keywords
-            tasks = re.findall(r"(?:Task\s+\d+|Phase\s+\d+|[A-Za-z0-9_-]+(?:\.py)?)", text)
+            tasks = re.findall(
+                r"(?:Task\s+\d+|Phase\s+\d+|[A-Za-z0-9_-]+(?:\.py)?)", text
+            )
             for t in tasks:
                 if len(t) > 3:
                     keywords.add(t.lower())
@@ -78,7 +80,10 @@ def evaluate_pr_against_master_plan(pr_number):
     matched_aspects = []
 
     # Check for direct task or phase references (e.g., Task 12, Phase 1, #180)
-    task_match = re.search(r"(?:task\s*#?\d+|phase\s*#?\d+|resolve\s*#?\d+|feat\([a-z0-9_-]+\))", combined_text)
+    task_match = re.search(
+        r"(?:task\s*#?\d+|phase\s*#?\d+|resolve\s*#?\d+|feat\([a-z0-9_-]+\))",
+        combined_text,
+    )
     if task_match:
         plan_score += 25
         matched_aspects.append(f"Explicit roadmap link: `{task_match.group(0)}`")
@@ -86,11 +91,17 @@ def evaluate_pr_against_master_plan(pr_number):
 
     # Check for core architectural paths outlined in Master Implementation Plan
     core_paths = [
-        f for f in files if f.startswith("gossipmesh/") or f.startswith("worker/") or f.startswith("scripts/")
+        f
+        for f in files
+        if f.startswith("gossipmesh/")
+        or f.startswith("worker/")
+        or f.startswith("scripts/")
     ]
     if core_paths:
         plan_score += 15
-        matched_aspects.append(f"Touches {len(core_paths)} core Master Plan subsystem files")
+        matched_aspects.append(
+            f"Touches {len(core_paths)} core Master Plan subsystem files"
+        )
     else:
         plan_score += 5
 
@@ -99,7 +110,9 @@ def evaluate_pr_against_master_plan(pr_number):
     test_score = 0
     if test_files:
         test_score = 30
-        matched_aspects.append(f"Comprehensive test coverage included ({len(test_files)} test files)")
+        matched_aspects.append(
+            f"Comprehensive test coverage included ({len(test_files)} test files)"
+        )
     else:
         # Penalize PRs without tests according to Master Plan rules
         test_score = 5
@@ -122,7 +135,9 @@ def evaluate_pr_against_master_plan(pr_number):
     # Construct review report
     status_icon = "🟢" if total_score > 90 else ("🟡" if total_score >= 70 else "🔴")
     verdict = (
-        "APPROVED (Ready for Gate)" if total_score > 90 else ("ACTION_REQUIRED" if total_score >= 70 else "REJECTED")
+        "APPROVED (Ready for Gate)"
+        if total_score > 90
+        else ("ACTION_REQUIRED" if total_score >= 70 else "REJECTED")
     )
 
     comment = f"""### {status_icon} GossipMesh AI Reviewer Gate: Master Implementation Plan Audit
@@ -158,19 +173,30 @@ def main():
 
     # Check if comprehensive ai_pr_reviewer can be run with multi-provider keys
     has_keys = any(
-        os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENROUTER_API_KEY", "NVIDIA_API_KEY", "GROQ_API_KEY")
+        os.environ.get(k)
+        for k in (
+            "GEMINI_API_KEY",
+            "OPENROUTER_API_KEY",
+            "NVIDIA_API_KEY",
+            "GROQ_API_KEY",
+        )
     )
     score = 0
     comment = ""
 
     if has_keys:
-        print(f"Running full AI PR Reviewer with multi-provider LLM on PR #{pr_number}...")
+        print(
+            f"Running full AI PR Reviewer with multi-provider LLM on PR #{pr_number}..."
+        )
         try:
             res = run_cmd(f"python scripts/ai_pr_reviewer.py --pr-number {pr_number}")
             # If successfully run, ai_pr_reviewer posts its own comment
             print(res)
         except Exception as e:
-            print(f"ai_pr_reviewer failed, falling back to Master Plan auditor: {e}", file=sys.stderr)
+            print(
+                f"ai_pr_reviewer failed, falling back to Master Plan auditor: {e}",
+                file=sys.stderr,
+            )
 
     # Evaluate against Master Implementation Plan
     score, comment = evaluate_pr_against_master_plan(pr_number)
@@ -179,13 +205,15 @@ def main():
     run_cmd(f'gh pr comment {pr_number} --body "{comment}"')
 
     # Add labels
-    run_cmd(f"gh label create reviewed --force")
+    run_cmd("gh label create reviewed --force")
     run_cmd(f"gh label create score-{score} --force")
     run_cmd(f"gh pr edit {pr_number} --add-label reviewed --add-label score-{score}")
     if score > 90:
-        run_cmd(f"gh label create ready-to-merge --force")
+        run_cmd("gh label create ready-to-merge --force")
         run_cmd(f"gh pr edit {pr_number} --add-label ready-to-merge")
-    print(f"Reviewed PR #{pr_number} against Master Implementation Plan. Score: {score}")
+    print(
+        f"Reviewed PR #{pr_number} against Master Implementation Plan. Score: {score}"
+    )
 
 
 if __name__ == "__main__":

@@ -7,17 +7,17 @@ REST Endpoints for Skelion's Autonomous Loop:
 - POST /v1/autonomous/generate-issue: Synthesize a new advancement issue on GitHub.
 """
 
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
 
-from skelion_agent.database import get_db
 from skelion_agent.models import Organization
 from skelion_agent.auth_routes import get_org_from_jwt
 from skelion_agent.autonomous_engine import autonomous_engine
 
-router = APIRouter(prefix="/v1/autonomous", tags=["Autonomous Loop & Self-Healing Engine"])
+router = APIRouter(
+    prefix="/v1/autonomous", tags=["Autonomous Loop & Self-Healing Engine"]
+)
 
 
 class TriggerLoopRequest(BaseModel):
@@ -41,14 +41,14 @@ def get_loop_status(org: Organization = Depends(get_org_from_jwt)):
         "is_running": autonomous_engine.is_running,
         "repo": autonomous_engine.repo,
         "autofix_tokens_remaining": remaining_tokens,
-        "activity_log": autonomous_engine.activity_log[-20:]
+        "activity_log": autonomous_engine.activity_log[-20:],
     }
 
 
 @router.post("/trigger")
 async def trigger_loop_cycle(
     req: Optional[TriggerLoopRequest] = None,
-    org: Organization = Depends(get_org_from_jwt)
+    org: Organization = Depends(get_org_from_jwt),
 ):
     """
     Triggers an autonomous cycle:
@@ -64,14 +64,13 @@ async def trigger_loop_cycle(
         "ok": True,
         "cycle_result": result,
         "last_status": autonomous_engine.last_status,
-        "recent_activity": autonomous_engine.activity_log[-5:]
+        "recent_activity": autonomous_engine.activity_log[-5:],
     }
 
 
 @router.post("/accept")
 async def accept_and_solve_issue(
-    req: AcceptIssueRequest,
-    org: Organization = Depends(get_org_from_jwt)
+    req: AcceptIssueRequest, org: Organization = Depends(get_org_from_jwt)
 ):
     """
     Accepts an issue directly from the dashboard:
@@ -81,24 +80,28 @@ async def accept_and_solve_issue(
     4. Auto-monitors till merge.
     """
     title = req.title or f"Autonomous resolution for Issue #{req.issue_number}"
-    
+
     # 1. Deduct tokens
-    ok, rem, msg = autonomous_engine.deduct_task_tokens(org_id=org.id, token_cost=250, task_id=f"issue_{req.issue_number}")
+    ok, rem, msg = autonomous_engine.deduct_task_tokens(
+        org_id=org.id, token_cost=250, task_id=f"issue_{req.issue_number}"
+    )
     if not ok:
         raise HTTPException(
             status_code=402,
-            detail=f"Insufficient Skelion tokens: {rem} remaining. Please top up your tokens."
+            detail=f"Insufficient Skelion tokens: {rem} remaining. Please top up your tokens.",
         )
 
     # 2. Solve issue & create PR
     pr_data = autonomous_engine.solve_issue_and_create_pr(
         issue_number=req.issue_number,
         title=title,
-        target_path=req.target_path or "skelion_agent/core/advancement.py"
+        target_path=req.target_path or "skelion_agent/core/advancement.py",
     )
 
     if not pr_data:
-        raise HTTPException(status_code=500, detail="Failed to synthesize and open Pull Request.")
+        raise HTTPException(
+            status_code=500, detail="Failed to synthesize and open Pull Request."
+        )
 
     # 3. Monitor PR
     monitor_res = autonomous_engine.monitor_and_auto_merge_pr(pr_data["pr_number"])
@@ -109,19 +112,14 @@ async def accept_and_solve_issue(
         "tokens_deducted": 250,
         "tokens_remaining": rem,
         "pull_request": pr_data,
-        "monitor_result": monitor_res
+        "monitor_result": monitor_res,
     }
 
 
 @router.post("/generate-issue")
-def generate_issue(
-    org: Organization = Depends(get_org_from_jwt)
-):
+def generate_issue(org: Organization = Depends(get_org_from_jwt)):
     """Generate a new architectural advancement issue on GitHub."""
     issue = autonomous_engine.generate_advancement_issue()
     if not issue:
         raise HTTPException(status_code=500, detail="Failed to create GitHub issue.")
-    return {
-        "ok": True,
-        "generated_issue": issue
-    }
+    return {"ok": True, "generated_issue": issue}

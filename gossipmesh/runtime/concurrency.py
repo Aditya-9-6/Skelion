@@ -11,9 +11,7 @@ per organization, enforcing fairness and priority-based scheduling.
 
 import time
 import uuid
-import heapq
 import threading
-from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -49,7 +47,9 @@ class TenantConcurrencyLimiter:
         # (org_id, slot_type) -> custom limit override int
         self._custom_limits: Dict[Tuple[int, str], int] = {}
         # (org_id, slot_type) -> list of waiting requests [( -priority, timestamp, waiter_event )]
-        self._waiters: Dict[Tuple[int, str], List[Tuple[int, float, threading.Event]]] = {}
+        self._waiters: Dict[
+            Tuple[int, str], List[Tuple[int, float, threading.Event]]
+        ] = {}
 
     def get_limit(self, organization_id: int, slot_type: str) -> int:
         """Returns the configured slot limit for an organization."""
@@ -75,7 +75,9 @@ class TenantConcurrencyLimiter:
             counts = {}
             for st in ConcurrencySlotType:
                 self._reap_stale_leases_locked(organization_id, st.value)
-                counts[st.value] = len(self._active_leases.get((organization_id, st.value), {}))
+                counts[st.value] = len(
+                    self._active_leases.get((organization_id, st.value), {})
+                )
             return counts
 
     def _reap_stale_leases_locked(self, organization_id: int, slot_type: str) -> None:
@@ -83,7 +85,11 @@ class TenantConcurrencyLimiter:
         now = time.time()
         key = (organization_id, slot_type)
         leases = self._active_leases.get(key, {})
-        stale_ids = [lid for lid, info in leases.items() if (now - info["acquired_at"]) > self.stale_lease_seconds]
+        stale_ids = [
+            lid
+            for lid, info in leases.items()
+            if (now - info["acquired_at"]) > self.stale_lease_seconds
+        ]
         for lid in stale_ids:
             del leases[lid]
 
@@ -115,17 +121,22 @@ class TenantConcurrencyLimiter:
         with self._lock:
             while True:
                 self._reap_stale_leases_locked(organization_id, slot_type)
-                self._reap_stale_leases_locked(organization_id, ConcurrencySlotType.WORKER_CAPACITY.value)
+                self._reap_stale_leases_locked(
+                    organization_id, ConcurrencySlotType.WORKER_CAPACITY.value
+                )
 
                 limit = self.get_limit(organization_id, slot_type)
-                global_limit = self.get_limit(organization_id, ConcurrencySlotType.WORKER_CAPACITY.value)
+                global_limit = self.get_limit(
+                    organization_id, ConcurrencySlotType.WORKER_CAPACITY.value
+                )
 
                 current_slot_count = len(self._active_leases.get(key, {}))
                 current_global_count = len(self._active_leases.get(global_key, {}))
 
                 # Check both slot limit and overall worker capacity
                 if current_slot_count < limit and (
-                    slot_type == ConcurrencySlotType.WORKER_CAPACITY.value or current_global_count < global_limit
+                    slot_type == ConcurrencySlotType.WORKER_CAPACITY.value
+                    or current_global_count < global_limit
                 ):
                     lease_id = str(uuid.uuid4())
                     now = time.time()
@@ -173,7 +184,10 @@ class TenantConcurrencyLimiter:
                 del self._active_leases[key][lease_id]
 
             if slot_type != ConcurrencySlotType.WORKER_CAPACITY.value:
-                if global_key in self._active_leases and lease_id in self._active_leases[global_key]:
+                if (
+                    global_key in self._active_leases
+                    and lease_id in self._active_leases[global_key]
+                ):
                     del self._active_leases[global_key][lease_id]
 
             self._cv.notify_all()

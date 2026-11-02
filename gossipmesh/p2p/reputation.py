@@ -45,7 +45,10 @@ class AdaptivePeerReputationEngine:
         if elapsed > 0.0 and self.config.half_life_seconds > 0:
             decay_factor = 0.5 ** (elapsed / self.config.half_life_seconds)
             # Pull score gradually towards initial baseline under decay
-            score = self.config.initial_score + (score - self.config.initial_score) * decay_factor
+            score = (
+                self.config.initial_score
+                + (score - self.config.initial_score) * decay_factor
+            )
         self._last_updated[peer_id] = now
         self._scores[peer_id] = score
         return score
@@ -66,7 +69,9 @@ class AdaptivePeerReputationEngine:
             delta = 0.0
             if violated:
                 delta -= self.config.violation_penalty
-                self._violation_counts[peer_id] = self._violation_counts.get(peer_id, 0) + 1
+                self._violation_counts[peer_id] = (
+                    self._violation_counts.get(peer_id, 0) + 1
+                )
             if dropped:
                 delta -= self.config.drop_penalty
 
@@ -84,9 +89,13 @@ class AdaptivePeerReputationEngine:
 
             if gossip_contributed:
                 delta += 5.0
-                self._contribution_counts[peer_id] = self._contribution_counts.get(peer_id, 0) + 1
+                self._contribution_counts[peer_id] = (
+                    self._contribution_counts.get(peer_id, 0) + 1
+                )
 
-            score = max(self.config.min_score, min(self.config.max_score, score + delta))
+            score = max(
+                self.config.min_score, min(self.config.max_score, score + delta)
+            )
             self._scores[peer_id] = score
             return score
 
