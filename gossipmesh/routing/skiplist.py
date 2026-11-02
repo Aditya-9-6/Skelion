@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import random
 import threading
-from typing import Any, List, Optional, Tuple, Dict
+from typing import Any, List, Optional, Tuple
 
 
 class SkipListNode:
     __slots__ = ("key", "value", "score", "latency", "forward")
 
-    def __init__(self, key: str, value: Any, level: int, score: float = 0.0, latency: float = 0.0) -> None:
+    def __init__(
+        self, key: str, value: Any, level: int, score: float = 0.0, latency: float = 0.0
+    ) -> None:
         self.key = key
         self.value = value
         self.score = score
@@ -22,7 +24,10 @@ class SkipList:
     synchronization primitives to maintain dynamic P2P peer routing tables with deterministic
     O(log N) lookup, insertion, and deletion guarantees.
     """
-    def __init__(self, capacity: int = 10000, max_level: int = 16, p: float = 0.5) -> None:
+
+    def __init__(
+        self, capacity: int = 10000, max_level: int = 16, p: float = 0.5
+    ) -> None:
         self.capacity = capacity
         self.max_level = max_level
         self.p = p
@@ -50,7 +55,9 @@ class SkipList:
                 return current.value
             return None
 
-    def insert(self, key: str, value: Any = None, score: float = 0.0, latency: float = 0.0) -> None:
+    def insert(
+        self, key: str, value: Any = None, score: float = 0.0, latency: float = 0.0
+    ) -> None:
         with self._lock:
             update: List[Optional[SkipListNode]] = [None] * self.max_level
             curr: Optional[SkipListNode] = self.header

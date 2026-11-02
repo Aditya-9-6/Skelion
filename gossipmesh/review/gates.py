@@ -11,18 +11,15 @@ Core Invariant: Critical deterministic findings cannot be overridden by AI appro
 """
 
 import ast
-import json
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Tuple
 
 from gossipmesh.models.pr_review import (
     Confidence,
     Evidence,
-    RemediationModel,
     SecurityFinding,
-    Severity,
     TestResult,
     Verdict,
 )
@@ -92,7 +89,9 @@ class SecretScanner:
         findings = []
         content = file.patch or ""
         lines = content.splitlines()
-        is_diff = any(l.strip().startswith("@@") or l.strip().startswith("+++") for l in lines)
+        is_diff = any(
+            l.strip().startswith("@@") or l.strip().startswith("+++") for l in lines
+        )
 
         for line_idx, line_text in enumerate(lines, start=1):
             stripped = line_text.strip()
@@ -146,12 +145,18 @@ class SecretScanner:
 # -----------------------------------------------------------------------------
 
 BANNED_PACKAGES = {
-    "telnetlib3": ("CRITICAL", "Unencrypted protocol library telnetlib3 is banned in enterprise code."),
+    "telnetlib3": (
+        "CRITICAL",
+        "Unencrypted protocol library telnetlib3 is banned in enterprise code.",
+    ),
     "pycrypto": (
         "HIGH",
         "pycrypto is unmaintained and contains multiple known vulnerabilities. Use pycryptodome or cryptography.",
     ),
-    "pickle5": ("HIGH", "pickle5 introduces arbitrary code execution risks during deserialization."),
+    "pickle5": (
+        "HIGH",
+        "pickle5 introduces arbitrary code execution risks during deserialization.",
+    ),
 }
 
 
@@ -162,7 +167,10 @@ class DependencyScanner:
     def scan(cls, file: ChangedFileContext) -> List[SecurityFinding]:
         findings = []
         norm_path = canonicalize_path(file.path).lower()
-        if not (norm_path.endswith("requirements.txt") or norm_path.endswith("pyproject.toml")):
+        if not (
+            norm_path.endswith("requirements.txt")
+            or norm_path.endswith("pyproject.toml")
+        ):
             return findings
 
         content = file.patch or ""
@@ -220,7 +228,9 @@ class ASTSecurityVisitor(ast.NodeVisitor):
 
         # 1. Code execution: eval / exec (B102)
         if func_name in ("eval", "exec"):
-            fp = compute_stable_fingerprint(self.file_path, "AST_SECURITY", "B102", line=node.lineno)
+            fp = compute_stable_fingerprint(
+                self.file_path, "AST_SECURITY", "B102", line=node.lineno
+            )
             self.findings.append(
                 SecurityFinding(
                     id=f"AST-{fp[:8]}",
@@ -242,8 +252,14 @@ class ASTSecurityVisitor(ast.NodeVisitor):
 
         # 2. Deserialization: pickle.loads / pickle.load (B301)
         if func_name in ("loads", "load") and isinstance(node.func, ast.Attribute):
-            if isinstance(node.func.value, ast.Name) and node.func.value.id in ("pickle", "_pickle", "cPickle"):
-                fp = compute_stable_fingerprint(self.file_path, "AST_SECURITY", "B301", line=node.lineno)
+            if isinstance(node.func.value, ast.Name) and node.func.value.id in (
+                "pickle",
+                "_pickle",
+                "cPickle",
+            ):
+                fp = compute_stable_fingerprint(
+                    self.file_path, "AST_SECURITY", "B301", line=node.lineno
+                )
                 self.findings.append(
                     SecurityFinding(
                         id=f"AST-{fp[:8]}",
@@ -266,8 +282,14 @@ class ASTSecurityVisitor(ast.NodeVisitor):
         # 3. Shell injection: subprocess with shell=True (B602)
         if func_name in ("Popen", "call", "run", "check_call", "check_output"):
             for keyword in node.keywords:
-                if keyword.arg == "shell" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True:
-                    fp = compute_stable_fingerprint(self.file_path, "AST_SECURITY", "B602", line=node.lineno)
+                if (
+                    keyword.arg == "shell"
+                    and isinstance(keyword.value, ast.Constant)
+                    and keyword.value.value is True
+                ):
+                    fp = compute_stable_fingerprint(
+                        self.file_path, "AST_SECURITY", "B602", line=node.lineno
+                    )
                     self.findings.append(
                         SecurityFinding(
                             id=f"AST-{fp[:8]}",
@@ -289,8 +311,13 @@ class ASTSecurityVisitor(ast.NodeVisitor):
 
         # 4. Weak cryptography: hashlib.md5 or hashlib.sha1 (B303)
         if func_name in ("md5", "sha1") and isinstance(node.func, ast.Attribute):
-            if isinstance(node.func.value, ast.Name) and node.func.value.id == "hashlib":
-                fp = compute_stable_fingerprint(self.file_path, "AST_SECURITY", "B303", line=node.lineno)
+            if (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "hashlib"
+            ):
+                fp = compute_stable_fingerprint(
+                    self.file_path, "AST_SECURITY", "B303", line=node.lineno
+                )
                 self.findings.append(
                     SecurityFinding(
                         id=f"AST-{fp[:8]}",
@@ -328,7 +355,9 @@ class ASTSecurityScanner:
             visitor.visit(tree)
             return visitor.findings
         except SyntaxError as e:
-            fp = compute_stable_fingerprint(file_path, "SYNTAX_ERROR", "PY-SYNTAX", line=e.lineno or 1)
+            fp = compute_stable_fingerprint(
+                file_path, "SYNTAX_ERROR", "PY-SYNTAX", line=e.lineno or 1
+            )
             return [
                 SecurityFinding(
                     id=f"SYNTAX-{fp[:8]}",
@@ -351,7 +380,15 @@ class ASTSecurityScanner:
 # 4. Changed File Policies
 # -----------------------------------------------------------------------------
 
-BLOCKED_FILE_EXTENSIONS = {".pem", ".key", ".pfx", ".p12", ".env", ".credentials", ".id_rsa"}
+BLOCKED_FILE_EXTENSIONS = {
+    ".pem",
+    ".key",
+    ".pfx",
+    ".p12",
+    ".env",
+    ".credentials",
+    ".id_rsa",
+}
 PROTECTED_PATHS = [".github/workflows/", ".circleci/", "alembic/versions/"]
 
 
@@ -365,8 +402,13 @@ class ChangedFilePolicyScanner:
         ext = os.path.splitext(path)[1].lower()
 
         # 1. Blocked private key or credentials files
-        if ext in BLOCKED_FILE_EXTENSIONS or os.path.basename(path).lower() in (".env", "id_rsa"):
-            fp = compute_stable_fingerprint(path, "POLICY_VIOLATION", "FILE-BLOCKED-EXT", line=1)
+        if ext in BLOCKED_FILE_EXTENSIONS or os.path.basename(path).lower() in (
+            ".env",
+            "id_rsa",
+        ):
+            fp = compute_stable_fingerprint(
+                path, "POLICY_VIOLATION", "FILE-BLOCKED-EXT", line=1
+            )
             findings.append(
                 SecurityFinding(
                     id=f"POL-{fp[:8]}",
@@ -388,7 +430,9 @@ class ChangedFilePolicyScanner:
         if any(path.startswith(p) for p in [".github/workflows/"]):
             # Check if workflow patch modifies external actions without SHA pinning
             if "@v" in file.patch and "uses:" in file.patch:
-                fp = compute_stable_fingerprint(path, "POLICY_VIOLATION", "WF-UNPINNED-ACTION", line=1)
+                fp = compute_stable_fingerprint(
+                    path, "POLICY_VIOLATION", "WF-UNPINNED-ACTION", line=1
+                )
                 findings.append(
                     SecurityFinding(
                         id=f"POL-{fp[:8]}",
@@ -440,11 +484,15 @@ class DeterministicReviewGates:
             if f.patch and f.path.endswith(".py"):
                 # Extract added lines or parse snippet
                 added_lines = [
-                    line[1:] for line in f.patch.splitlines() if line.startswith("+") and not line.startswith("+++")
+                    line[1:]
+                    for line in f.patch.splitlines()
+                    if line.startswith("+") and not line.startswith("+++")
                 ]
                 if added_lines:
                     source_chunk = "\n".join(added_lines)
-                    all_findings.extend(ASTSecurityScanner.scan_code(f.path, source_chunk))
+                    all_findings.extend(
+                        ASTSecurityScanner.scan_code(f.path, source_chunk)
+                    )
 
         # Normalize and consolidate findings
         return FindingNormalizer.consolidate_findings(all_findings)
@@ -460,7 +508,9 @@ class DeterministicReviewGates:
         Enforces non-overridable gate invariants.
         CRITICAL RULE: Critical deterministic findings cannot be overridden by AI approval.
         """
-        critical_findings = [f for f in deterministic_findings if f.severity == "CRITICAL"]
+        critical_findings = [
+            f for f in deterministic_findings if f.severity == "CRITICAL"
+        ]
         high_findings = [f for f in deterministic_findings if f.severity == "HIGH"]
 
         # Gate 1: Test failures block approval

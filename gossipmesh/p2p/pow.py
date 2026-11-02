@@ -1,5 +1,4 @@
 import hashlib
-import time
 from typing import Tuple
 
 
@@ -16,11 +15,15 @@ def verify_pow(public_key: str, nonce: int, difficulty: int) -> bool:
     return h.startswith(target_prefix)
 
 
-def mine_pow(public_key: str, difficulty: int, max_iterations: int = 10000000) -> Tuple[int, str]:
+def mine_pow(
+    public_key: str, difficulty: int, max_iterations: int = 10000000
+) -> Tuple[int, str]:
     """Mines a nonce such that the SHA-256 hash meets the target difficulty."""
     target_prefix = "0" * difficulty
     for nonce in range(max_iterations):
         h = calculate_pow_hash(public_key, nonce)
         if h.startswith(target_prefix):
             return nonce, h
-    raise ValueError(f"Failed to mine PoW with difficulty {difficulty} within {max_iterations} iterations")
+    raise ValueError(
+        f"Failed to mine PoW with difficulty {difficulty} within {max_iterations} iterations"
+    )

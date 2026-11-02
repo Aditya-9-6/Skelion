@@ -14,7 +14,6 @@ import argparse
 import urllib.request
 import urllib.error
 import subprocess
-import time
 import re
 from pathlib import Path
 
@@ -83,24 +82,39 @@ Respond with ONLY a valid JSON object and nothing else:
 
 def get_git_files(workspace_root: Path) -> list:
     try:
-        out = subprocess.check_output(["git", "ls-files"], cwd=workspace_root, text=True, stderr=subprocess.DEVNULL)
-        return [line.strip().replace("\\", "/") for line in out.splitlines() if line.strip()]
+        out = subprocess.check_output(
+            ["git", "ls-files"],
+            cwd=workspace_root,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        return [
+            line.strip().replace("\\", "/") for line in out.splitlines() if line.strip()
+        ]
     except Exception:
         files = []
         for root, dirs, filenames in os.walk(workspace_root):
-            dirs[:] = [d for d in dirs if d not in [".git", "vendor", "node_modules", "bin"]]
+            dirs[:] = [
+                d for d in dirs if d not in [".git", "vendor", "node_modules", "bin"]
+            ]
             for f in filenames:
-                rel = os.path.relpath(os.path.join(root, f), workspace_root).replace("\\", "/")
+                rel = os.path.relpath(os.path.join(root, f), workspace_root).replace(
+                    "\\", "/"
+                )
                 files.append(rel)
         return files
 
 
-def get_repo_overview(workspace_root: Path, all_files: list, max_files: int = 60) -> str:
+def get_repo_overview(
+    workspace_root: Path, all_files: list, max_files: int = 60
+) -> str:
     overview = []
     is_go = (workspace_root / "go.mod").exists()
     if is_go:
         try:
-            overview.append(f"=== Root go.mod ===\n{(workspace_root / 'go.mod').read_text(encoding='utf-8')[:1500]}")
+            overview.append(
+                f"=== Root go.mod ===\n{(workspace_root / 'go.mod').read_text(encoding='utf-8')[:1500]}"
+            )
         except Exception:
             pass
         exts = (".go", ".mod", ".md", ".yaml", ".yml")
@@ -108,7 +122,9 @@ def get_repo_overview(workspace_root: Path, all_files: list, max_files: int = 60
         go_mod = workspace_root / "pyproject.toml"
         if go_mod.exists():
             try:
-                overview.append(f"=== Root pyproject.toml ===\n{go_mod.read_text(encoding='utf-8')[:1500]}")
+                overview.append(
+                    f"=== Root pyproject.toml ===\n{go_mod.read_text(encoding='utf-8')[:1500]}"
+                )
             except Exception:
                 pass
         exts = (".py", ".txt", ".md", ".yaml", ".yml")
@@ -170,7 +186,12 @@ def load_gemini_keys() -> list[str]:
         val = os.environ.get(var, "").strip()
         if val and val not in keys:
             keys.append(val)
-    for check_dir in (Path("."), Path(__file__).resolve().parent, Path(__file__).resolve().parent.parent, Path.home()):
+    for check_dir in (
+        Path("."),
+        Path(__file__).resolve().parent,
+        Path(__file__).resolve().parent.parent,
+        Path.home(),
+    ):
         kf = check_dir / ".gemini_keys"
         if kf.exists():
             try:
@@ -194,7 +215,10 @@ def call_gemini(api_key: str, prompt: str, system_prompt: str) -> dict:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={current_key}"
             payload = {
                 "contents": [{"parts": [{"text": system_prompt}, {"text": prompt}]}],
-                "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
+                "generationConfig": {
+                    "temperature": 0.2,
+                    "responseMimeType": "application/json",
+                },
             }
             req = urllib.request.Request(
                 url,
@@ -211,7 +235,10 @@ def call_gemini(api_key: str, prompt: str, system_prompt: str) -> dict:
                         return res_dict
             except urllib.error.HTTPError as e:
                 err_body = e.read().decode("utf-8", errors="replace")
-                print(f"[!] [Gemini] Model {model} HTTP {e.code}: {err_body[:120]}", file=sys.stderr)
+                print(
+                    f"[!] [Gemini] Model {model} HTTP {e.code}: {err_body[:120]}",
+                    file=sys.stderr,
+                )
                 last_err = err_body
                 if e.code in (401, 403):
                     break
@@ -238,14 +265,20 @@ def call_openrouter(prompt: str, system_prompt: str) -> dict:
     for model in models:
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -258,7 +291,10 @@ def call_openrouter(prompt: str, system_prompt: str) -> dict:
 
 
 def call_nvidia(prompt: str, system_prompt: str) -> dict:
-    key = os.environ.get("NVIDIA_API_KEY", "").strip() or os.environ.get("NVIDIA_API_KEY_2", "").strip()
+    key = (
+        os.environ.get("NVIDIA_API_KEY", "").strip()
+        or os.environ.get("NVIDIA_API_KEY_2", "").strip()
+    )
     if not key:
         raise ValueError("Missing NVIDIA_API_KEY")
     url = "https://integrate.api.nvidia.com/v1/chat/completions"
@@ -281,7 +317,10 @@ def call_nvidia(prompt: str, system_prompt: str) -> dict:
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -311,7 +350,10 @@ def call_cohere(prompt: str, system_prompt: str) -> dict:
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -324,14 +366,20 @@ def call_cohere(prompt: str, system_prompt: str) -> dict:
 
 
 def request_llm_solution(prompt: str, system_prompt: str) -> dict:
-    primary_gemini = os.environ.get("GEMINI_SOLVER_KEY", "").strip() or os.environ.get("GEMINI_API_KEY", "").strip()
+    primary_gemini = (
+        os.environ.get("GEMINI_SOLVER_KEY", "").strip()
+        or os.environ.get("GEMINI_API_KEY", "").strip()
+    )
     try:
         print("[*] Requesting solution from Gemini AI...", flush=True)
         res = call_gemini(primary_gemini, prompt, system_prompt)
         if res and isinstance(res, dict) and "files" in res:
             return res
     except Exception as ge:
-        print(f"[!] Gemini failed: {ge}. Initiating multi-provider failover...", file=sys.stderr)
+        print(
+            f"[!] Gemini failed: {ge}. Initiating multi-provider failover...",
+            file=sys.stderr,
+        )
 
     try:
         print("[*] Requesting solution from OpenRouter...", flush=True)
@@ -373,7 +421,9 @@ def main():
     system_prompt = GO_SYSTEM_PROMPT if is_go else PYTHON_SYSTEM_PROMPT
 
     print(f"[*] Solving Issue #{args.issue_number}: {args.issue_title}")
-    print(f"[*] Target Architecture: {'Go (DevProxy)' if is_go else 'Python (GossipMesh)'}")
+    print(
+        f"[*] Target Architecture: {'Go (DevProxy)' if is_go else 'Python (GossipMesh)'}"
+    )
 
     print("[*] Inspecting repository context...")
     all_files = get_git_files(workspace_root)
@@ -404,10 +454,15 @@ Instructions:
     result = request_llm_solution(prompt, system_prompt)
 
     if not result or not isinstance(result, dict) or "files" not in result:
-        print("[!] No file changes could be synthesized by any AI provider.", file=sys.stderr)
+        print(
+            "[!] No file changes could be synthesized by any AI provider.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
-    summary = result.get("summary", f"Automated resolution for Issue #{args.issue_number}.")
+    summary = result.get(
+        "summary", f"Automated resolution for Issue #{args.issue_number}."
+    )
     files = result.get("files", [])
 
     if not files:
@@ -431,7 +486,9 @@ Instructions:
     print("[*] Running local compile/vet verification before finalizing...", flush=True)
     compile_err = ""
     if is_go:
-        vet_res = subprocess.run(["go", "vet", "./..."], cwd=workspace_root, capture_output=True, text=True)
+        vet_res = subprocess.run(
+            ["go", "vet", "./..."], cwd=workspace_root, capture_output=True, text=True
+        )
         if vet_res.returncode != 0 and "go: command not found" not in vet_res.stderr:
             compile_err = vet_res.stderr.strip()
     else:

@@ -61,7 +61,9 @@ class MerkleDAG:
     """Blake3 Merkle-DAG supporting incremental state reconciliation and O(log N) diff traversal."""
 
     def __init__(self, state_map: Optional[Dict[str, Any]] = None):
-        self.state_map: Dict[str, Any] = dict(state_map) if state_map is not None else {}
+        self.state_map: Dict[str, Any] = (
+            dict(state_map) if state_map is not None else {}
+        )
         self.root: MerkleNode = self._build_tree(sorted(self.state_map.items()))
 
     def _build_tree(self, items: List[Tuple[str, Any]]) -> MerkleNode:
@@ -95,7 +97,10 @@ class MerkleDAG:
         return sorted(list(set(divergent_keys)))
 
     def _compare_nodes(
-        self, local: Optional[MerkleNode], remote: Optional[MerkleNode], divergent_keys: List[str]
+        self,
+        local: Optional[MerkleNode],
+        remote: Optional[MerkleNode],
+        divergent_keys: List[str],
     ) -> None:
         if local is None or remote is None:
             return

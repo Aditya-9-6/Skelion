@@ -24,7 +24,9 @@ class MerkleNode:
             right_hash = self.right.hash if self.right else ""
             hasher.update(f"{left_hash}:{right_hash}".encode("utf-8"))
         else:
-            val_str = json.dumps(self.value, sort_keys=True) if self.value is not None else ""
+            val_str = (
+                json.dumps(self.value, sort_keys=True) if self.value is not None else ""
+            )
             hasher.update(f"{self.key}:{val_str}".encode("utf-8"))
         return hasher.hexdigest()
 
