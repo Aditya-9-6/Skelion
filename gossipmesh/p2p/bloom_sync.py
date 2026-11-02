@@ -1,15 +1,14 @@
-import math
-import hashlib
-import base64
 import threading
-from typing import Set, List, Dict, Any, Optional
+from typing import List, Dict, Any
 from gossipmesh.p2p.digest import BloomFilterDigest
 
 
 class HierarchicalBloomFilterDigest:
     """Hierarchical multi-tiered Bloom-filter digest synchronization tree for efficient P2P anti-entropy reconciliations."""
 
-    def __init__(self, capacity: int = 10000, error_rate: float = 0.01, levels: int = 3) -> None:
+    def __init__(
+        self, capacity: int = 10000, error_rate: float = 0.01, levels: int = 3
+    ) -> None:
         self.capacity = max(1, capacity)
         self.error_rate = min(max(0.0001, error_rate), 0.5)
         self.levels = max(1, min(levels, 8))
@@ -21,7 +20,9 @@ class HierarchicalBloomFilterDigest:
         for i in range(self.levels):
             # Each higher level scales capacity logarithmically or broadens acceptance
             lvl_capacity = max(100, curr_capacity // (2**i))
-            self.filters.append(BloomFilterDigest(capacity=lvl_capacity, error_rate=self.error_rate))
+            self.filters.append(
+                BloomFilterDigest(capacity=lvl_capacity, error_rate=self.error_rate)
+            )
 
     @property
     def tier_count(self) -> int:
@@ -43,7 +44,9 @@ class HierarchicalBloomFilterDigest:
                     return False
             return True
 
-    def compare_digest(self, other_digest: "HierarchicalBloomFilterDigest") -> List[int]:
+    def compare_digest(
+        self, other_digest: "HierarchicalBloomFilterDigest"
+    ) -> List[int]:
         """Compares hierarchical tiers and returns mismatched level indices."""
         mismatches: List[int] = []
         with self._lock:
@@ -67,7 +70,9 @@ class HierarchicalBloomFilterDigest:
     @classmethod
     def deserialize(cls, data: Dict[str, Any]) -> "HierarchicalBloomFilterDigest":
         instance = cls(
-            capacity=data.get("capacity", 10000), error_rate=data.get("error_rate", 0.01), levels=data.get("levels", 3)
+            capacity=data.get("capacity", 10000),
+            error_rate=data.get("error_rate", 0.01),
+            levels=data.get("levels", 3),
         )
         tiers_data = data.get("tiers", [])
         if tiers_data:

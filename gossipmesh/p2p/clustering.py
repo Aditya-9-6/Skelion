@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import threading
 from typing import Dict, List, Tuple, Optional
-import numpy as np
 
 from gossipmesh.p2p.minhash import MinHashSketch
 
@@ -30,7 +29,9 @@ class PeerTopologyClustering:
     def compute_similarity(self, peer_a: str, peer_b: str) -> float:
         with self._lock:
             if peer_a not in self._sketches or peer_b not in self._sketches:
-                raise KeyError(f"One or both peers not found in clustering registry: {peer_a}, {peer_b}")
+                raise KeyError(
+                    f"One or both peers not found in clustering registry: {peer_a}, {peer_b}"
+                )
             return self._sketches[peer_a].jaccard(self._sketches[peer_b])
 
     def cluster_peers(self) -> List[List[str]]:
@@ -81,7 +82,9 @@ class PeerTopologyClustering:
 
             return list(clusters_map.values())
 
-    def find_nearest_cluster_centroid(self, query_sketch: MinHashSketch) -> Tuple[Optional[str], float]:
+    def find_nearest_cluster_centroid(
+        self, query_sketch: MinHashSketch
+    ) -> Tuple[Optional[str], float]:
         """Finds the peer with the highest Jaccard similarity to the query sketch."""
         with self._lock:
             best_peer = None

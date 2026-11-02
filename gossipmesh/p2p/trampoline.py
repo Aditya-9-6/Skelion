@@ -3,7 +3,7 @@ import logging
 import random
 import time
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 logger = logging.getLogger(__name__)
 

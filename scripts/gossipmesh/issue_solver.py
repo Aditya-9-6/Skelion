@@ -16,7 +16,10 @@ The script is intended to be run in a CI job (GitHub Actions) after the
 PR‑review step.
 """
 
-import re, json, subprocess, sys, os
+import re
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -27,9 +30,18 @@ PLAN_FILES = [
 
 
 def run_cmd(cmd):
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="ignore")
+    result = subprocess.run(
+        cmd,
+        shell=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="ignore",
+    )
     if result.returncode != 0:
-        print(f"Cmd failed ({result.returncode}): {cmd}\n{result.stderr}", file=sys.stderr)
+        print(
+            f"Cmd failed ({result.returncode}): {cmd}\n{result.stderr}", file=sys.stderr
+        )
         return ""
     return result.stdout.strip()
 
@@ -50,7 +62,9 @@ def main():
     all_tasks = set()
     for pf in PLAN_FILES:
         if pf.exists():
-            all_tasks.update(extract_tasks(pf.read_text(encoding="utf-8", errors="ignore")))
+            all_tasks.update(
+                extract_tasks(pf.read_text(encoding="utf-8", errors="ignore"))
+            )
     print(f"Found {len(all_tasks)} tasks in plan files.")
 
     # Existing open issues
@@ -64,20 +78,26 @@ def main():
             continue
         # Create issue
         print(f"Creating issue for task: {task}")
-        issue_body = f"Auto‑generated from implementation plan.\n\nTask reference: **{task}**"
+        issue_body = (
+            f"Auto‑generated from implementation plan.\n\nTask reference: **{task}**"
+        )
         run_cmd(f'gh issue create --title "{task}" --body "{issue_body}"')
 
         # Scaffold PR
         branch = f"task/{slugify(task)}"
         run_cmd(f"git checkout -b {branch}")
         placeholder_path = REPO_ROOT / f"TODO_{slugify(task)}.md"
-        placeholder_path.write_text(f"# TODO: {task}\n\n{issue_body}\n", encoding="utf-8")
+        placeholder_path.write_text(
+            f"# TODO: {task}\n\n{issue_body}\n", encoding="utf-8"
+        )
         run_cmd(f"git add {placeholder_path}")
         run_cmd(f'git commit -m "Add placeholder for {task}"')
         run_cmd(f"git push origin {branch}")
         pr_title = f"[Task] {task} – scaffold"
         pr_body = f"This PR adds a scaffold for task **{task}** extracted from the Master Implementation Plan.\n\nOnce the actual implementation is ready, replace the placeholder file with real code."
-        run_cmd(f'gh pr create --title "{pr_title}" --body "{pr_body}" --head {branch} --base main')
+        run_cmd(
+            f'gh pr create --title "{pr_title}" --body "{pr_body}" --head {branch} --base main'
+        )
         # Add initial labels (reviewed, score-0) – the reviewer bot will later update
         # We fetch the PR number just created (gh pr view --json number -q .number)
         pr_num = run_cmd(f"gh pr list --head {branch} --json number -q '.[0].number'")

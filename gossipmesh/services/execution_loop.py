@@ -1,8 +1,6 @@
-import os
 import subprocess
 import sys
 import threading
-import time
 import traceback
 from collections import defaultdict
 from pathlib import Path
@@ -74,13 +72,21 @@ class CreditLedger:
         return self.get_balance(org)
 
     def has_credits(self, org: str, amount_or_action: int | str) -> bool:
-        amount = self.ACTION_COSTS.get(amount_or_action, 2) if isinstance(amount_or_action, str) else amount_or_action
+        amount = (
+            self.ACTION_COSTS.get(amount_or_action, 2)
+            if isinstance(amount_or_action, str)
+            else amount_or_action
+        )
         with self.lock:
             return self.balances[org] >= amount
 
     def charge(self, org: str = "default", amount_or_action: int | str = 2) -> bool:
         """Deduct credits upfront. Returns True on success, False if insufficient."""
-        amount = self.ACTION_COSTS.get(amount_or_action, 2) if isinstance(amount_or_action, str) else amount_or_action
+        amount = (
+            self.ACTION_COSTS.get(amount_or_action, 2)
+            if isinstance(amount_or_action, str)
+            else amount_or_action
+        )
         with self.lock:
             current = self.balances[org]
             if current < amount:
@@ -135,7 +141,11 @@ class ExecutionLoop:
             return None
 
         # Determine credit cost
-        cost = self.ledger.ACTION_COSTS.get(action, 2) if isinstance(action, str) else int(action)
+        cost = (
+            self.ledger.ACTION_COSTS.get(action, 2)
+            if isinstance(action, str)
+            else int(action)
+        )
 
         if not self.ledger.charge(org, cost):
             raise InsufficientCreditsError(
@@ -144,7 +154,10 @@ class ExecutionLoop:
 
         # Mid-run cancellation check (0 refund if cancelled mid-run)
         if is_cancelled and is_cancelled():
-            print("[ExecutionLoop] Task cancelled mid-run. Refunding 0 credits.", flush=True)
+            print(
+                "[ExecutionLoop] Task cancelled mid-run. Refunding 0 credits.",
+                flush=True,
+            )
             return None
 
         # Loop 3 & Loop 5: LLM Execution wrapped in Watchdog and Key Pool Router
@@ -184,7 +197,11 @@ class ExecutionLoop:
                 timeout=120,
             )
             if res.returncode != 0:
-                print(f"[Sandbox Verification Failure]:\n{res.stderr or res.stdout}", file=sys.stderr, flush=True)
+                print(
+                    f"[Sandbox Verification Failure]:\n{res.stderr or res.stdout}",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 return False
             return True
         except Exception as e:
@@ -192,7 +209,9 @@ class ExecutionLoop:
             traceback.print_exc(file=sys.stderr)
             return False
 
-    def handle_verification_failure(self, org: str = "default", action: str = "combo_fix"):
+    def handle_verification_failure(
+        self, org: str = "default", action: str = "combo_fix"
+    ):
         """If a 3-credit combo_fix fails verification after 3 attempts, refund 1 credit
         (charging the 2-credit issue scan rate).
         """

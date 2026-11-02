@@ -50,7 +50,10 @@ class MerkleTree:
 
     def _rebuild(self) -> None:
         sorted_keys = sorted(self.items.keys())
-        nodes: List[MerkleNode] = [MerkleNode(hash_value=hash_data(k + self.items[k]), key=k) for k in sorted_keys]
+        nodes: List[MerkleNode] = [
+            MerkleNode(hash_value=hash_data(k + self.items[k]), key=k)
+            for k in sorted_keys
+        ]
         if not nodes:
             self.root = None
             return

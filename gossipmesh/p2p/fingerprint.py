@@ -1,7 +1,7 @@
 import mmh3
 import math
 import threading
-from typing import List, Union, Optional
+from typing import List, Union
 
 
 class BitsetFingerprint:
@@ -20,7 +20,10 @@ class BitsetFingerprint:
 
     def _get_hash_indices(self, data: bytes) -> List[int]:
         # Use MurmurHash3 with 128-bit output split into two 64-bit values for double hashing (Kirsch-Mitzenmacher)
-        h1, h2 = mmh3.hash128(data, signed=False), mmh3.hash128(data, seed=0x12345678, signed=False)
+        h1, h2 = (
+            mmh3.hash128(data, signed=False),
+            mmh3.hash128(data, seed=0x12345678, signed=False),
+        )
         indices = []
         for i in range(self.k):
             combined = (h1 + i * h2) % self.m
@@ -54,10 +57,14 @@ class BitsetFingerprint:
             return bytes(self._bitset)
 
     @classmethod
-    def from_bytes(cls, capacity: int, fp_rate: float, buffer: bytes) -> "BitsetFingerprint":
+    def from_bytes(
+        cls, capacity: int, fp_rate: float, buffer: bytes
+    ) -> "BitsetFingerprint":
         filter_obj = cls(capacity, fp_rate)
         if len(buffer) != filter_obj._bytes_len:
-            raise ValueError(f"Buffer length {len(buffer)} does not match expected size {filter_obj._bytes_len}")
+            raise ValueError(
+                f"Buffer length {len(buffer)} does not match expected size {filter_obj._bytes_len}"
+            )
         filter_obj._bitset = bytearray(buffer)
         return filter_obj
 

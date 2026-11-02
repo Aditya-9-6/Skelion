@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import math
 import threading
 from typing import Dict, List, Optional, Tuple, Any
+
 
 class RoutingVectorIndex:
     """
@@ -14,7 +14,9 @@ class RoutingVectorIndex:
 
     def __init__(self, dimensions: int = 64) -> None:
         self.dimensions = dimensions
-        self._vectors: Dict[str, int] = {}  # peer_id -> bit-packed integer representation
+        self._vectors: Dict[
+            str, int
+        ] = {}  # peer_id -> bit-packed integer representation
         self._metadata: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.RLock()
 
@@ -27,7 +29,7 @@ class RoutingVectorIndex:
         packed = 0
         for i, val in enumerate(vector):
             if val >= 0.0:
-                packed |= (1 << i)
+                packed |= 1 << i
         return packed
 
     @staticmethod
@@ -52,7 +54,12 @@ class RoutingVectorIndex:
         """
         return cls.popcount(packed_a ^ packed_b)
 
-    def upsert_peer(self, peer_id: str, vector: List[float], metadata: Optional[Dict[str, Any]] = None) -> None:
+    def upsert_peer(
+        self,
+        peer_id: str,
+        vector: List[float],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
         Inserts or updates a peer's routing vector thread-safely.
         """
@@ -69,7 +76,9 @@ class RoutingVectorIndex:
             self._vectors.pop(peer_id, None)
             self._metadata.pop(peer_id, None)
 
-    def query_nearest(self, query_vector: List[float], top_k: int = 5) -> List[Tuple[str, int, Dict[str, Any]]]:
+    def query_nearest(
+        self, query_vector: List[float], top_k: int = 5
+    ) -> List[Tuple[str, int, Dict[str, Any]]]:
         """
         Performs high-speed proximity search using bit-packed Hamming distances.
         Returns a list of tuples: (peer_id, hamming_distance, metadata).

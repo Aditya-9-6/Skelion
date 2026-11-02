@@ -1,8 +1,7 @@
 import struct
 import threading
-import time
 from multiprocessing import shared_memory
-from typing import Optional, Tuple, Generator, List
+from typing import Optional, Tuple, List
 
 
 class AsyncLockFreeRingBufferPacketAggregator:
@@ -16,7 +15,13 @@ class AsyncLockFreeRingBufferPacketAggregator:
     HEADER_FORMAT = "=QQQQQ"  # head, tail, capacity, max_msg_size, batch_count
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-    def __init__(self, name: Optional[str] = None, capacity: int = 2048, max_msg_size: int = 4096, create: bool = True):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        capacity: int = 2048,
+        max_msg_size: int = 4096,
+        create: bool = True,
+    ):
         self.capacity = capacity
         self.max_msg_size = max_msg_size
         # Each slot holds: [4 bytes length prefix][max_msg_size payload]
@@ -29,7 +34,9 @@ class AsyncLockFreeRingBufferPacketAggregator:
 
         if create:
             try:
-                self._shm = shared_memory.SharedMemory(name=name, create=True, size=self.total_size)
+                self._shm = shared_memory.SharedMemory(
+                    name=name, create=True, size=self.total_size
+                )
                 self._init_header()
             except FileExistsError:
                 self._shm = shared_memory.SharedMemory(name=name, create=False)
@@ -44,17 +51,28 @@ class AsyncLockFreeRingBufferPacketAggregator:
 
     def _init_header(self) -> None:
         assert self._shm is not None
-        header_data = struct.pack(self.HEADER_FORMAT, 0, 0, self.capacity, self.max_msg_size, 0)
+        header_data = struct.pack(
+            self.HEADER_FORMAT, 0, 0, self.capacity, self.max_msg_size, 0
+        )
         self._shm.buf[: self.HEADER_SIZE] = header_data
 
     def _read_header(self) -> Tuple[int, int, int, int, int]:
         assert self._shm is not None
-        head, tail, cap, max_sz, batch_count = struct.unpack_from(self.HEADER_FORMAT, self._shm.buf, 0)
+        head, tail, cap, max_sz, batch_count = struct.unpack_from(
+            self.HEADER_FORMAT, self._shm.buf, 0
+        )
         return head, tail, cap, max_sz, batch_count
 
     def _write_header(self, head: int, tail: int, batch_count: int) -> None:
         assert self._shm is not None
-        header_data = struct.pack(self.HEADER_FORMAT, head, tail, self.capacity, self.max_msg_size, batch_count)
+        header_data = struct.pack(
+            self.HEADER_FORMAT,
+            head,
+            tail,
+            self.capacity,
+            self.max_msg_size,
+            batch_count,
+        )
         self._shm.buf[: self.HEADER_SIZE] = header_data
 
     def push(self, data: bytes) -> bool:
@@ -63,7 +81,9 @@ class AsyncLockFreeRingBufferPacketAggregator:
         False if the buffer is full.
         """
         if len(data) > self.max_msg_size:
-            raise ValueError(f"Payload size {len(data)} exceeds max_msg_size {self.max_msg_size}")
+            raise ValueError(
+                f"Payload size {len(data)} exceeds max_msg_size {self.max_msg_size}"
+            )
 
         with self._lock:
             head, tail, cap, _, batch_count = self._read_header()

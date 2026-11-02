@@ -25,4 +25,8 @@ def is_epoch_valid(
     """Validates if a given epoch falls within the acceptable drift window."""
     if allowed_drift_past < 0 or allowed_drift_future < 0:
         raise ValueError("Drift tolerances must be non-negative.")
-    return (current_epoch - allowed_drift_past) <= epoch <= (current_epoch + allowed_drift_future)
+    return (
+        (current_epoch - allowed_drift_past)
+        <= epoch
+        <= (current_epoch + allowed_drift_future)
+    )

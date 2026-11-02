@@ -21,7 +21,10 @@ from gossipmesh.api.routers import (
     runs,
     approvals,
 )
-from gossipmesh.middleware.correlation import CorrelationIdMiddleware, get_correlation_id
+from gossipmesh.middleware.correlation import (
+    CorrelationIdMiddleware,
+    get_correlation_id,
+)
 from gossipmesh.core.logging import setup_logging
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -38,7 +41,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     import os
 
-    if os.getenv("TESTING", "").lower() in ("true", "1") or "sqlite" in str(settings.DATABASE_URL):
+    if os.getenv("TESTING", "").lower() in ("true", "1") or "sqlite" in str(
+        settings.DATABASE_URL
+    ):
         yield
         return
 
@@ -101,20 +106,47 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception")
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "correlation_id": get_correlation_id()},
+        content={
+            "detail": "Internal server error",
+            "correlation_id": get_correlation_id(),
+        },
     )
 
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
-app.include_router(organizations.router, prefix=f"{settings.API_V1_STR}/organizations", tags=["organizations"])
-app.include_router(providers.router, prefix=f"{settings.API_V1_STR}/providers", tags=["providers"])
-app.include_router(repositories.router, prefix=f"{settings.API_V1_STR}/repositories", tags=["repositories"])
-app.include_router(runtime.router, prefix=f"{settings.API_V1_STR}/runtime", tags=["runtime"])
-app.include_router(artifacts.router, prefix=f"{settings.API_V1_STR}/artifacts", tags=["artifacts"])
-app.include_router(enterprise.router, prefix=f"{settings.API_V1_STR}/enterprise", tags=["enterprise"])
-app.include_router(vector_search.router, prefix=f"{settings.API_V1_STR}/vector_search", tags=["vector_search"])
-app.include_router(service_accounts.router, prefix=f"{settings.API_V1_STR}/service-accounts", tags=["service-accounts"])
+app.include_router(
+    organizations.router,
+    prefix=f"{settings.API_V1_STR}/organizations",
+    tags=["organizations"],
+)
+app.include_router(
+    providers.router, prefix=f"{settings.API_V1_STR}/providers", tags=["providers"]
+)
+app.include_router(
+    repositories.router,
+    prefix=f"{settings.API_V1_STR}/repositories",
+    tags=["repositories"],
+)
+app.include_router(
+    runtime.router, prefix=f"{settings.API_V1_STR}/runtime", tags=["runtime"]
+)
+app.include_router(
+    artifacts.router, prefix=f"{settings.API_V1_STR}/artifacts", tags=["artifacts"]
+)
+app.include_router(
+    enterprise.router, prefix=f"{settings.API_V1_STR}/enterprise", tags=["enterprise"]
+)
+app.include_router(
+    vector_search.router,
+    prefix=f"{settings.API_V1_STR}/vector_search",
+    tags=["vector_search"],
+)
+app.include_router(
+    service_accounts.router,
+    prefix=f"{settings.API_V1_STR}/service-accounts",
+    tags=["service-accounts"],
+)
 app.include_router(sso.router, prefix=f"{settings.API_V1_STR}/sso", tags=["sso"])
 app.include_router(scim.router, prefix=f"{settings.API_V1_STR}/scim/v2", tags=["scim"])
 app.include_router(runs.router, prefix=f"{settings.API_V1_STR}")
@@ -132,6 +164,9 @@ def health_check():
 @app.get("/metrics")
 def prometheus_metrics():
     from fastapi import Response
-    from gossipmesh.observability.metrics import CONTENT_TYPE_LATEST, generate_latest_metrics
+    from gossipmesh.observability.metrics import (
+        CONTENT_TYPE_LATEST,
+        generate_latest_metrics,
+    )
 
     return Response(content=generate_latest_metrics(), media_type=CONTENT_TYPE_LATEST)

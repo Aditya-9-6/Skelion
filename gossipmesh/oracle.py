@@ -4,11 +4,18 @@ Tracks time-series benchmark metrics and vetoes regressions on hot paths.
 """
 
 import time
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Tuple, Any
 
 
 class BenchmarkRecord:
-    def __init__(self, metric_name: str, ns_per_op: float, bytes_per_op: int, allocs_per_op: int, commit: str = ""):
+    def __init__(
+        self,
+        metric_name: str,
+        ns_per_op: float,
+        bytes_per_op: int,
+        allocs_per_op: int,
+        commit: str = "",
+    ):
         self.metric_name = metric_name
         self.ns_per_op = ns_per_op
         self.bytes_per_op = bytes_per_op
@@ -34,15 +41,24 @@ class PerformanceOracle:
         self.history: Dict[str, List[BenchmarkRecord]] = {}
 
     def record(
-        self, metric_name: str, ns_per_op: float, bytes_per_op: int, allocs_per_op: int, commit: str = ""
+        self,
+        metric_name: str,
+        ns_per_op: float,
+        bytes_per_op: int,
+        allocs_per_op: int,
+        commit: str = "",
     ) -> BenchmarkRecord:
-        rec = BenchmarkRecord(metric_name, ns_per_op, bytes_per_op, allocs_per_op, commit)
+        rec = BenchmarkRecord(
+            metric_name, ns_per_op, bytes_per_op, allocs_per_op, commit
+        )
         if metric_name not in self.history:
             self.history[metric_name] = []
         self.history[metric_name].append(rec)
         return rec
 
-    def evaluate_regression(self, metric_name: str, current_allocs: int, current_bytes: int) -> Tuple[bool, str]:
+    def evaluate_regression(
+        self, metric_name: str, current_allocs: int, current_bytes: int
+    ) -> Tuple[bool, str]:
         """
         Enforces Zero-Allocation Invariants:
         Returns (is_regressed: bool, explanation: str).

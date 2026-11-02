@@ -1,10 +1,9 @@
-""P2P transport layer integrating compressed Bloom filter deduplication and Fountain Fragment Integration for Resilient Gossip Broadcast."""
+"""P2P transport layer integrating compressed Bloom filter deduplication and Fountain Fragment Integration for Resilient Gossip Broadcast."""
 
-from __main__ import *
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 import logging
 
-from gossipmesh.p2p.fountain import FountainEncoder, FountainDecoder, FountainFragmentConfig, FountainFragment
+from gossipmesh.p2p.fountain import FountainDecoder, FountainFragmentConfig
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +11,9 @@ logger = logging.getLogger(__name__)
 class P2PTransport:
     """Resilient transport layer supporting incremental fountain fragment broadcast and duplicate filtering."""
 
-    def __init__(self, node_id: str, config: Optional[FountainFragmentConfig] = None) -> None:
+    def __init__(
+        self, node_id: str, config: Optional[FountainFragmentConfig] = None
+    ) -> None:
         self.node_id = node_id
         self.config = config or FountainFragmentConfig()
         self.active_decoders: Dict[str, FountainDecoder] = {}

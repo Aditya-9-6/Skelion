@@ -10,7 +10,7 @@ Tracks and enforces per-repository and per-organization daily ceilings for:
 
 import datetime
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 
@@ -92,13 +92,22 @@ class DailyVolumeLimiter:
             org_usage = self._get_usage_record("org", org_id)
 
             if org_usage.runs + 1 > org_quota.max_runs:
-                return False, f"Daily limit exceeded for org '{org_id}': max runs ({org_quota.max_runs}) reached."
+                return (
+                    False,
+                    f"Daily limit exceeded for org '{org_id}': max runs ({org_quota.max_runs}) reached.",
+                )
 
             if is_pr and (org_usage.prs + 1 > org_quota.max_prs):
-                return False, f"Daily limit exceeded for org '{org_id}': max PRs ({org_quota.max_prs}) reached."
+                return (
+                    False,
+                    f"Daily limit exceeded for org '{org_id}': max PRs ({org_quota.max_prs}) reached.",
+                )
 
             if org_usage.tokens + tokens_est > org_quota.max_tokens:
-                return False, f"Daily limit exceeded for org '{org_id}': token quota ({org_quota.max_tokens}) reached."
+                return (
+                    False,
+                    f"Daily limit exceeded for org '{org_id}': token quota ({org_quota.max_tokens}) reached.",
+                )
 
             if org_usage.cost_usd + cost_est > org_quota.max_cost_usd:
                 return (
@@ -112,7 +121,10 @@ class DailyVolumeLimiter:
                     f"Daily limit exceeded for org '{org_id}': changed lines limit ({org_quota.max_changed_lines}) reached.",
                 )
 
-            if org_usage.sandbox_minutes + sandbox_minutes_est > org_quota.max_sandbox_minutes:
+            if (
+                org_usage.sandbox_minutes + sandbox_minutes_est
+                > org_quota.max_sandbox_minutes
+            ):
                 return (
                     False,
                     f"Daily limit exceeded for org '{org_id}': sandbox minutes limit ({org_quota.max_sandbox_minutes}m) reached.",
@@ -130,7 +142,10 @@ class DailyVolumeLimiter:
                     )
 
                 if is_pr and (repo_usage.prs + 1 > repo_quota.max_prs):
-                    return False, f"Daily limit exceeded for repo '{repo_id}': max PRs ({repo_quota.max_prs}) reached."
+                    return (
+                        False,
+                        f"Daily limit exceeded for repo '{repo_id}': max PRs ({repo_quota.max_prs}) reached.",
+                    )
 
                 if repo_usage.tokens + tokens_est > repo_quota.max_tokens:
                     return (
@@ -150,7 +165,10 @@ class DailyVolumeLimiter:
                         f"Daily limit exceeded for repo '{repo_id}': changed lines limit ({repo_quota.max_changed_lines}) reached.",
                     )
 
-                if repo_usage.sandbox_minutes + sandbox_minutes_est > repo_quota.max_sandbox_minutes:
+                if (
+                    repo_usage.sandbox_minutes + sandbox_minutes_est
+                    > repo_quota.max_sandbox_minutes
+                ):
                     return (
                         False,
                         f"Daily limit exceeded for repo '{repo_id}': sandbox minutes limit ({repo_quota.max_sandbox_minutes}m) reached.",

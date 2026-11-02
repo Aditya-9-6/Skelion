@@ -6,7 +6,9 @@ class GossipProtocolHandler:
     """Protocol handler integrating retransmission caching and backpressure telemetry."""
 
     def __init__(self, capacity: int = 1000, max_memory_bytes: int = 16 * 1024 * 1024):
-        self.retransmit_cache = RetransmissionCache(capacity=capacity, max_memory_bytes=max_memory_bytes)
+        self.retransmit_cache = RetransmissionCache(
+            capacity=capacity, max_memory_bytes=max_memory_bytes
+        )
 
     def handle_broadcast(self, message_id: str, payload: Dict[str, Any]) -> bool:
         """Buffers broadcasted message and signals backpressure if threshold reached."""

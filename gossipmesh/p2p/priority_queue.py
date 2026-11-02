@@ -58,7 +58,9 @@ class WeightedPriorityQueue:
 
     def __init__(self, config: Optional[PriorityQueueConfig] = None) -> None:
         self.config = config or PriorityQueueConfig()
-        self._levels: Dict[int, collections.deque] = {p.value: collections.deque() for p in MessagePriority}
+        self._levels: Dict[int, collections.deque] = {
+            p.value: collections.deque() for p in MessagePriority
+        }
         self._deficits: Dict[int, int] = {p.value: 0 for p in MessagePriority}
         self._total_size: int = 0
         self._total_enqueued: int = 0
@@ -146,7 +148,9 @@ class WeightedPriorityQueue:
                 "total_dequeued": self._total_dequeued,
                 "total_promotions": self._total_promotions,
                 "total_dropped": self._total_dropped,
-                "level_counts": {MessagePriority(lvl).name: len(q) for lvl, q in self._levels.items()},
+                "level_counts": {
+                    MessagePriority(lvl).name: len(q) for lvl, q in self._levels.items()
+                },
             }
 
     def _schedule_next_locked(self) -> Optional[PrioritizedMessage]:
@@ -165,7 +169,11 @@ class WeightedPriorityQueue:
             if not bucket:
                 continue
 
-            weight = self.config.level_weights.get(level, 1) if self.config.level_weights else 1
+            weight = (
+                self.config.level_weights.get(level, 1)
+                if self.config.level_weights
+                else 1
+            )
             self._deficits[level] += weight
             if self._deficits[level] > 0:
                 self._deficits[level] -= 1
@@ -184,7 +192,9 @@ class WeightedPriorityQueue:
     def _apply_aging_locked(self, timestamp: float) -> int:
         interval = self.config.aging_interval_sec
         promotions_count = 0
-        newly_promoted: Dict[int, collections.deque] = {p.value: collections.deque() for p in MessagePriority}
+        newly_promoted: Dict[int, collections.deque] = {
+            p.value: collections.deque() for p in MessagePriority
+        }
 
         for level in [
             MessagePriority.LOW.value,

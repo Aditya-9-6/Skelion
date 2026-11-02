@@ -84,16 +84,18 @@ class CommandPolicyEngine:
             )
 
         if not isinstance(cmd, (list, tuple)) or len(cmd) == 0:
-            raise SandboxSecurityError("Command must be a non-empty list of string arguments.")
+            raise SandboxSecurityError(
+                "Command must be a non-empty list of string arguments."
+            )
 
         cmd_list = [str(arg) for arg in cmd]
         raw_binary = cmd_list[0]
         binary = cls.get_canonical_binary_name(raw_binary)
 
         # Allow current python executable
-        is_current_python = raw_binary == sys.executable or os.path.abspath(raw_binary) == os.path.abspath(
-            sys.executable
-        )
+        is_current_python = raw_binary == sys.executable or os.path.abspath(
+            raw_binary
+        ) == os.path.abspath(sys.executable)
 
         if not is_current_python and binary not in cls.APPROVED_BINARIES:
             raise SandboxSecurityError(
@@ -106,7 +108,13 @@ class CommandPolicyEngine:
                 c_idx = cmd_list.index("-c")
                 if c_idx + 1 < len(cmd_list):
                     code = cmd_list[c_idx + 1]
-                    dangerous_tokens = ["os.system", "subprocess", "socket", "pty", "shutil.rmtree(/"]
+                    dangerous_tokens = [
+                        "os.system",
+                        "subprocess",
+                        "socket",
+                        "pty",
+                        "shutil.rmtree(/",
+                    ]
                     for dt in dangerous_tokens:
                         if dt in code:
                             raise SandboxSecurityError(
@@ -115,7 +123,11 @@ class CommandPolicyEngine:
 
         args_to_check = []
         for i, arg in enumerate(cmd_list[1:], start=1):
-            if (binary in ("python", "python3") or is_current_python) and i > 1 and cmd_list[i - 1] == "-c":
+            if (
+                (binary in ("python", "python3") or is_current_python)
+                and i > 1
+                and cmd_list[i - 1] == "-c"
+            ):
                 continue
             args_to_check.append(arg)
 
@@ -137,12 +149,16 @@ class CommandPolicyEngine:
         return cmd_list
 
     @classmethod
-    def sanitize_environment(cls, base_env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    def sanitize_environment(
+        cls, base_env: Optional[Dict[str, str]] = None
+    ) -> Dict[str, str]:
         """Creates a scrubbed environment stripped of credentials and API keys."""
         source_env = base_env or os.environ
         scrubbed = {}
         for k, v in source_env.items():
-            if any(k.upper().startswith(prefix) for prefix in cls.SENSITIVE_ENV_PREFIXES):
+            if any(
+                k.upper().startswith(prefix) for prefix in cls.SENSITIVE_ENV_PREFIXES
+            ):
                 continue
             if "TOKEN" in k.upper() or "KEY" in k.upper() or "PASSWORD" in k.upper():
                 continue
@@ -170,7 +186,10 @@ class SandboxEnvironment:
             shutil.rmtree(self.workspace_dir)
 
     def run_command(
-        self, cmd: Union[str, List[str]], timeout: int = 30, workflow_id: Optional[Union[str, int]] = None
+        self,
+        cmd: Union[str, List[str]],
+        timeout: int = 30,
+        workflow_id: Optional[Union[str, int]] = None,
     ) -> Tuple[int, str, str]:
         """Runs a command within the sandbox workspace."""
         if not self.workspace_dir:
@@ -185,13 +204,22 @@ class SandboxEnvironment:
         cmd = CommandPolicyEngine.validate_command(cmd, workflow_id=effective_wf)
 
         if os.name == "nt" and cmd and cmd[0].lower() == "echo":
-            cmd = [sys.executable, "-c", "import sys; print(' '.join(sys.argv[1:]))"] + cmd[1:]
+            cmd = [
+                sys.executable,
+                "-c",
+                "import sys; print(' '.join(sys.argv[1:]))",
+            ] + cmd[1:]
 
         env = CommandPolicyEngine.sanitize_environment()
 
         start_time = time.time()
         process = subprocess.Popen(
-            cmd, cwd=self.workspace_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env
+            cmd,
+            cwd=self.workspace_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
         )
         try:
             stdout, stderr = process.communicate(timeout=effective_timeout)
@@ -200,13 +228,17 @@ class SandboxEnvironment:
             process.kill()
             stdout, stderr = process.communicate()
             duration = time.time() - start_time
-            logger.error(f"[AUDIT:SANDBOX_EXEC_TIMEOUT] workflow_id={effective_wf} killed after {duration:.2f}s")
+            logger.error(
+                f"[AUDIT:SANDBOX_EXEC_TIMEOUT] workflow_id={effective_wf} killed after {duration:.2f}s"
+            )
             raise SandboxError(
                 message=f"Command timed out after {effective_timeout}s",
                 details={"stderr": stderr, "workflow_id": effective_wf},
             )
         except Exception as e:
-            logger.error(f"[AUDIT:SANDBOX_EXEC_ERROR] workflow_id={effective_wf} error={e}")
+            logger.error(
+                f"[AUDIT:SANDBOX_EXEC_ERROR] workflow_id={effective_wf} error={e}"
+            )
             raise
 
     def write_file(self, filepath: str, content: str):

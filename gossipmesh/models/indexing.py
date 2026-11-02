@@ -1,8 +1,7 @@
 """SQLAlchemy Models for Incremental Indexing Jobs and File Tracking (Task 76)."""
 
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text, func
 from gossipmesh.models.base import Base
 
@@ -26,7 +25,9 @@ class IndexJob(Base):
     branch = Column(String(256), default="main", nullable=False)
     commit_sha = Column(String(64), nullable=False)
 
-    status = Column(String(32), default=IndexJobStatus.PENDING.value, index=True, nullable=False)
+    status = Column(
+        String(32), default=IndexJobStatus.PENDING.value, index=True, nullable=False
+    )
     progress_pct = Column(Float, default=0.0, nullable=False)
     total_files = Column(Integer, default=0, nullable=False)
     files_processed = Column(Integer, default=0, nullable=False)
@@ -39,8 +40,15 @@ class IndexJob(Base):
     is_cancelled = Column(Boolean, default=False, nullable=False)
     error_message = Column(Text, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -76,4 +84,9 @@ class FileIndexRecord(Base):
     filepath = Column(String(1024), index=True, nullable=False)
     file_hash = Column(String(64), index=True, nullable=False)
     commit_sha = Column(String(64), nullable=False)
-    last_indexed_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    last_indexed_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

@@ -1,10 +1,14 @@
 from __future__ import annotations
-import time
 from typing import Optional
 
 
 class RTOEstimator:
-    def __init__(self, alpha: float = 0.125, beta: float = 0.25, initial_rto: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        alpha: float = 0.125,
+        beta: float = 0.25,
+        initial_rto: Optional[float] = None,
+    ) -> None:
         self.alpha = alpha
         self.beta = beta
         self.srtt: Optional[float] = None

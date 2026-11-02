@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 from gossipmesh.p2p.digest import HyperLogLogDigest
 
 
@@ -18,7 +18,11 @@ class GossipDigestCompactor:
         return self.hll.serialize()
 
     @classmethod
-    def reconcile(cls, local_compactor: "GossipDigestCompactor", remote_digest_data: Dict[str, Any]) -> float:
+    def reconcile(
+        cls,
+        local_compactor: "GossipDigestCompactor",
+        remote_digest_data: Dict[str, Any],
+    ) -> float:
         """Reconcile local state with remote HLL digest data, returning estimated union cardinality."""
         remote_hll = HyperLogLogDigest.deserialize(remote_digest_data)
         local_compactor.hll.merge(remote_hll)

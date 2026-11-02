@@ -6,7 +6,9 @@ from typing import Any, List, Optional, Tuple, Dict
 
 
 class SkipListNode:
-    def __init__(self, key: str, value: Any, level: int, score: float = 0.0, latency: float = 0.0):
+    def __init__(
+        self, key: str, value: Any, level: int, score: float = 0.0, latency: float = 0.0
+    ):
         self.key = key
         self.value = value
         self.score = score
@@ -43,7 +45,9 @@ class SkipList:
                 return current.value
             return None
 
-    def insert(self, key: str, value: Any = None, score: float = 0.0, latency: float = 0.0) -> None:
+    def insert(
+        self, key: str, value: Any = None, score: float = 0.0, latency: float = 0.0
+    ) -> None:
         with self._global_lock:
             update: List[Optional[SkipListNode]] = [None] * self.max_level
             curr: Optional[SkipListNode] = self.header
@@ -114,7 +118,14 @@ class SkipList:
             res: List[Dict[str, Any]] = []
             curr = self.header.forward[0]
             while curr and len(res) < limit:
-                res.append({"key": curr.key, "score": curr.score, "latency": curr.latency, "value": curr.value})
+                res.append(
+                    {
+                        "key": curr.key,
+                        "score": curr.score,
+                        "latency": curr.latency,
+                        "value": curr.value,
+                    }
+                )
                 curr = curr.forward[0]
             return res
 

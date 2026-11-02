@@ -41,7 +41,9 @@ class MVCCStateStash:
         with self._lock:
             return self._current_epoch, {}
 
-    def validate_and_commit(self, read_set: Dict[str, int], write_set: Dict[str, Any]) -> int:
+    def validate_and_commit(
+        self, read_set: Dict[str, int], write_set: Dict[str, Any]
+    ) -> int:
         """Validates that read-set versions match committed versions and commits writes atomically."""
         with self._lock:
             for key, read_epoch in read_set.items():

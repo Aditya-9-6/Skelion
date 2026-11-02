@@ -2,7 +2,7 @@ import mmap
 import os
 import struct
 import threading
-from typing import Optional, Tuple
+from typing import Optional
 
 
 class MMapCircularRingBuffer:
@@ -13,7 +13,9 @@ class MMapCircularRingBuffer:
 
     HEADER_SIZE = 16  # read_ptr (qword) + write_ptr (qword)
 
-    def __init__(self, capacity_bytes: int = 1024 * 1024, backing_file: Optional[str] = None) -> None:
+    def __init__(
+        self, capacity_bytes: int = 1024 * 1024, backing_file: Optional[str] = None
+    ) -> None:
         self.capacity = capacity_bytes
         self.total_size = self.HEADER_SIZE + self.capacity
         self._lock = threading.Lock()

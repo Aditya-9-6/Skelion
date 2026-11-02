@@ -7,7 +7,7 @@ from __future__ import annotations
 import time
 import threading
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from gossipmesh.consensus.backoff import AdaptiveBackoffCalculator
 
@@ -83,7 +83,9 @@ class AdaptiveHeartbeatManager:
             state.record_failure()
             if state.consecutive_failures >= self.partition_failure_threshold:
                 state.is_partitioned = True
-                logger.warning(f"Node {node_id} marked partitioned after {state.consecutive_failures} failures.")
+                logger.warning(
+                    f"Node {node_id} marked partitioned after {state.consecutive_failures} failures."
+                )
 
     def get_next_interval(self, node_id: str) -> float:
         state = self.get_or_create_state(node_id)
@@ -101,6 +103,8 @@ class AdaptiveHeartbeatManager:
             if state.is_partitioned:
                 state.is_partitioned = False
                 state.consecutive_failures = 0
-                logger.info(f"Mesh healing detected for node {node_id}. Resetting backoff interval.")
+                logger.info(
+                    f"Mesh healing detected for node {node_id}. Resetting backoff interval."
+                )
                 return True
             return False

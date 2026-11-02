@@ -15,8 +15,7 @@ import hashlib
 import logging
 import mimetypes
 import os
-import shutil
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 from sqlalchemy.orm import Session
 
 from gossipmesh.core.exceptions import AuthorizationError, ValidationError
@@ -27,7 +26,9 @@ from gossipmesh.models.user import User
 logger = logging.getLogger(__name__)
 
 # Standard EICAR antivirus test signature
-EICAR_SIGNATURE = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+EICAR_SIGNATURE = (
+    b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+)
 
 # Executable magic byte headers forbidden in test/report artifacts
 EXECUTABLE_HEADERS = [
@@ -72,7 +73,12 @@ BLOCKED_EXTENSIONS: Set[str] = {
 
 
 class MalwareScanResult:
-    def __init__(self, is_infected: bool, signature: Optional[str] = None, details: Optional[str] = None):
+    def __init__(
+        self,
+        is_infected: bool,
+        signature: Optional[str] = None,
+        details: Optional[str] = None,
+    ):
         self.is_infected = is_infected
         self.signature = signature
         self.details = details or ("Infected file" if is_infected else "Clean file")
@@ -94,7 +100,9 @@ class MalwareScanner:
         # 1. EICAR test signature
         if EICAR_SIGNATURE in content:
             return MalwareScanResult(
-                is_infected=True, signature="EICAR_TEST_VIRUS", details="Standard EICAR test file detected"
+                is_infected=True,
+                signature="EICAR_TEST_VIRUS",
+                details="Standard EICAR test file detected",
             )
 
         # 2. Executable magic headers
@@ -115,7 +123,9 @@ class MalwareScanner:
                 details="Embedded shell script detected in artifact",
             )
 
-        return MalwareScanResult(is_infected=False, details="No malware signatures detected")
+        return MalwareScanResult(
+            is_infected=False, details="No malware signatures detected"
+        )
 
 
 class ArtifactQuarantineManager:
@@ -152,7 +162,9 @@ class ArtifactQuarantineManager:
         # 2. Type & Extension Validation
         ext = os.path.splitext(name)[1].lower()
         if ext in BLOCKED_EXTENSIONS or (ext and ext not in ALLOWED_EXTENSIONS):
-            raise ValidationError(message=f"Artifact extension '{ext}' is forbidden by sandbox security policy.")
+            raise ValidationError(
+                message=f"Artifact extension '{ext}' is forbidden by sandbox security policy."
+            )
 
         content_type, _ = mimetypes.guess_type(name)
         content_type = content_type or "application/octet-stream"
@@ -173,7 +185,9 @@ class ArtifactQuarantineManager:
         # 5. Tenant-Isolated Storage Hierarchy
         # <base>/org_<id>/job_<id>/<sha256>_<sanitized_name>
         safe_filename = "".join(c for c in name if c.isalnum() or c in "._-")
-        tenant_dir = os.path.join(self.base_storage_dir, f"org_{organization_id}", f"job_{job_id}")
+        tenant_dir = os.path.join(
+            self.base_storage_dir, f"org_{organization_id}", f"job_{job_id}"
+        )
         os.makedirs(tenant_dir, exist_ok=True)
 
         storage_path = os.path.join(tenant_dir, f"{sha256[:12]}_{safe_filename}")
@@ -212,7 +226,11 @@ class ArtifactQuarantineManager:
         Authorizes user membership and verifies clean quarantine status before delivering content.
         Emits structured audit log for every download.
         """
-        artifact = db.query(Artifact).filter(Artifact.id == artifact_id, Artifact.deleted_at.is_(None)).first()
+        artifact = (
+            db.query(Artifact)
+            .filter(Artifact.id == artifact_id, Artifact.deleted_at.is_(None))
+            .first()
+        )
         if not artifact:
             raise ValidationError(message="Artifact not found")
 
@@ -227,7 +245,9 @@ class ArtifactQuarantineManager:
                 .first()
             )
             if not membership:
-                raise AuthorizationError(message="Not authorized to access this organization's artifacts")
+                raise AuthorizationError(
+                    message="Not authorized to access this organization's artifacts"
+                )
 
         # 2. Quarantine Status Enforcement
         if artifact.quarantine_status != "CLEAN":
@@ -237,7 +257,9 @@ class ArtifactQuarantineManager:
 
         # 3. Read file content
         if not os.path.exists(artifact.storage_path):
-            raise ValidationError(message="Artifact file missing from storage partition")
+            raise ValidationError(
+                message="Artifact file missing from storage partition"
+            )
 
         with open(artifact.storage_path, "rb") as f:
             content = f.read()
@@ -272,7 +294,9 @@ class ArtifactQuarantineManager:
                 try:
                     os.remove(art.storage_path)
                 except Exception as e:
-                    logger.warning(f"Error removing expired artifact file {art.storage_path}: {e}")
+                    logger.warning(
+                        f"Error removing expired artifact file {art.storage_path}: {e}"
+                    )
             art.deleted_at = now
             art.quarantine_status = "EXPIRED"
             count += 1

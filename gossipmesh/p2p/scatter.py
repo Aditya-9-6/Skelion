@@ -1,4 +1,3 @@
-import time
 import os
 import logging
 
@@ -64,8 +63,12 @@ class AdaptiveScatterGovernor:
             raw_cpu, raw_mem = self.sample_metrics()
 
             # Low-pass filter smoothing: smoothed = alpha * raw + (1 - alpha) * smoothed
-            self._smoothed_cpu = self.alpha * raw_cpu + (1.0 - self.alpha) * self._smoothed_cpu
-            self._smoothed_mem = self.alpha * raw_mem + (1.0 - self.alpha) * self._smoothed_mem
+            self._smoothed_cpu = (
+                self.alpha * raw_cpu + (1.0 - self.alpha) * self._smoothed_cpu
+            )
+            self._smoothed_mem = (
+                self.alpha * raw_mem + (1.0 - self.alpha) * self._smoothed_mem
+            )
 
             # Determine penalty scaling factor based on thresholds
             cpu_load_ratio = self._smoothed_cpu / max(self.cpu_threshold, 1.0)
@@ -80,10 +83,14 @@ class AdaptiveScatterGovernor:
                 target_scatter = float(self.base_scatter)
 
             # Clamp scatter width between min_scatter and base_scatter
-            clamped = max(float(self.min_scatter), min(float(self.base_scatter), target_scatter))
+            clamped = max(
+                float(self.min_scatter), min(float(self.base_scatter), target_scatter)
+            )
 
             # Smooth scatter transitions as well
-            self._current_scatter = self.alpha * clamped + (1.0 - self.alpha) * self._current_scatter
+            self._current_scatter = (
+                self.alpha * clamped + (1.0 - self.alpha) * self._current_scatter
+            )
 
             return max(self.min_scatter, round(self._current_scatter))
 

@@ -3,15 +3,21 @@ from sqlalchemy.orm import Mapped, mapped_column, Session, with_loader_criteria
 from sqlalchemy.sql import func
 from datetime import datetime
 from gossipmesh.models.audit import AuditEvent
-from gossipmesh.models.base import Base
 
 
 class SoftDeleteMixin:
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     deleted_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
     retention_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    def soft_delete(self, session: Session, actor_id: int | None = None, retention_days: int | None = None):
+    def soft_delete(
+        self,
+        session: Session,
+        actor_id: int | None = None,
+        retention_days: int | None = None,
+    ):
         """
         Safely mark the record as deleted instead of physically removing it.
         Generates an audit record for the deletion.

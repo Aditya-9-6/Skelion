@@ -139,7 +139,9 @@ class BM25Scorer:
                     q_df = df[q]
                     idf = math.log(1.0 + (N - q_df + 0.5) / (q_df + 0.5))
                     term_tf = tf[q]
-                    denom = term_tf + self.k1 * (1.0 - self.b + self.b * (doc_len / avgdl))
+                    denom = term_tf + self.k1 * (
+                        1.0 - self.b + self.b * (doc_len / avgdl)
+                    )
                     term_score = idf * ((term_tf * (self.k1 + 1.0)) / denom)
                     doc_score += term_score
 
@@ -210,14 +212,17 @@ class HybridSearchEngine:
         if self.embedding_model and hasattr(self.embedding_model, "embed"):
             query_vec = self.embedding_model.embed(query)
 
-        vector_results = self.vector_store.search(vector=query_vec, filter=base_filter, top_k=candidate_k)
+        vector_results = self.vector_store.search(
+            vector=query_vec, filter=base_filter, top_k=candidate_k
+        )
 
         # Also retrieve any lexical keyword candidates from DB
         raw_chunks = (
             db.query(DocumentChunk)
             .filter(
                 DocumentChunk.organization_id == str(repo.organization_id),
-                (DocumentChunk.repo_id == repo_id) | (DocumentChunk.repository_id == repo_id),
+                (DocumentChunk.repo_id == repo_id)
+                | (DocumentChunk.repository_id == repo_id),
                 DocumentChunk.branch == branch,
                 DocumentChunk.is_deleted.is_(False),
             )
@@ -226,7 +231,9 @@ class HybridSearchEngine:
         )
 
         all_candidates: Dict[str, DocumentChunk] = {c.id: c for c in raw_chunks}
-        vector_scores: Dict[str, float] = {r["id"]: r.get("score", 0.0) for r in vector_results}
+        vector_scores: Dict[str, float] = {
+            r["id"]: r.get("score", 0.0) for r in vector_results
+        }
 
         # 3. Apply Metadata Filtering
         filter_meta = metadata_filter or {}
@@ -258,11 +265,17 @@ class HybridSearchEngine:
 
         # Normalize lexical scores to [0, 1]
         max_lex = max(lexical_scores.values()) if lexical_scores else 0.0
-        norm_lexical = {cid: (lexical_scores.get(cid, 0.0) / max_lex if max_lex > 0 else 0.0) for cid in lexical_scores}
+        norm_lexical = {
+            cid: (lexical_scores.get(cid, 0.0) / max_lex if max_lex > 0 else 0.0)
+            for cid in lexical_scores
+        }
 
         # Normalize vector scores to [0, 1]
         max_vec = max(vector_scores.values()) if vector_scores else 0.0
-        norm_vector = {cid: (vector_scores.get(cid, 0.0) / max_vec if max_vec > 0 else 0.0) for cid in all_candidates}
+        norm_vector = {
+            cid: (vector_scores.get(cid, 0.0) / max_vec if max_vec > 0 else 0.0)
+            for cid in all_candidates
+        }
 
         # 5. Hybrid Score Fusion & Reranking
         scored_results: List[SearchResult] = []
@@ -319,7 +332,9 @@ class HybridSearchEngine:
 
         # 7. Deterministic Ordering with strict tie-breaking
         # (score DESC, filepath ASC, chunk_index ASC, id ASC)
-        deduped_results.sort(key=lambda x: (-round(x.score, 6), x.filepath, x.chunk_index, x.id))
+        deduped_results.sort(
+            key=lambda x: (-round(x.score, 6), x.filepath, x.chunk_index, x.id)
+        )
 
         # 8. Context length limit enforcement
         budget_constrained: List[SearchResult] = []

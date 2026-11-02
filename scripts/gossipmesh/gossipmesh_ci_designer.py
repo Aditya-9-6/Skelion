@@ -1,8 +1,6 @@
 import os
 import sys
-import json
 import subprocess
-from pathlib import Path
 
 # Simple CI designer for GossipMesh PRs.
 # It inspects the changed files in the PR and decides which CI labels to apply.

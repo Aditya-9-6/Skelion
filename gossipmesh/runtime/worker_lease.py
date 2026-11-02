@@ -6,13 +6,12 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from sqlalchemy import select, update, and_
+from sqlalchemy import select, and_
 from sqlalchemy.orm import Session
 
 from gossipmesh.models.runtime import Job
-from gossipmesh.core.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,9 @@ logger = logging.getLogger(__name__)
 class WorkerLeaseManager:
     """Manages distributed worker job leases, heartbeats, and stale re-queuing."""
 
-    def __init__(self, lease_duration_seconds: int = 60, heartbeat_timeout_seconds: int = 30):
+    def __init__(
+        self, lease_duration_seconds: int = 60, heartbeat_timeout_seconds: int = 30
+    ):
         self.lease_duration_seconds = lease_duration_seconds
         self.heartbeat_timeout_seconds = heartbeat_timeout_seconds
 
@@ -165,7 +166,9 @@ class WorkerLeaseManager:
         for job in stale_jobs:
             if (job.attempts or 0) >= 3:
                 job.status = "failed"
-                job.error_message = "Max retry attempts exceeded via stale lease reclaim"
+                job.error_message = (
+                    "Max retry attempts exceeded via stale lease reclaim"
+                )
             else:
                 job.status = "pending"
 

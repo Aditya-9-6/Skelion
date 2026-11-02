@@ -26,7 +26,7 @@ def probe_database(db: Session) -> Dict[str, Any]:
         db.execute(text("SELECT 1")).scalar()
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         return {"status": "healthy", "latency_ms": latency_ms}
-    except Exception as e:
+    except Exception:
         return {"status": "unhealthy", "error": "Database connectivity failed"}
 
 
@@ -83,10 +83,14 @@ def probe_providers() -> Dict[str, Any]:
     import os
 
     has_gemini = bool(
-        os.getenv("GEMINI_KEY_POOL") or os.getenv("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", None)
+        os.getenv("GEMINI_KEY_POOL")
+        or os.getenv("GEMINI_API_KEY")
+        or getattr(settings, "GEMINI_API_KEY", None)
     )
     has_openai = bool(
-        os.getenv("OPENAI_API_KEYS") or os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
+        os.getenv("OPENAI_API_KEYS")
+        or os.getenv("OPENAI_API_KEY")
+        or getattr(settings, "OPENAI_API_KEY", None)
     )
 
     providers_status = {
@@ -135,7 +139,9 @@ def readiness_probe(
     }
 
     # Evaluate critical dependencies
-    all_healthy = db_health["status"] == "healthy" and redis_health["status"] == "healthy"
+    all_healthy = (
+        db_health["status"] == "healthy" and redis_health["status"] == "healthy"
+    )
 
     if not all_healthy:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

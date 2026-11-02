@@ -5,10 +5,7 @@ Dynamically adjusts ping intervals based on rolling network latency and partitio
 
 from __future__ import annotations
 
-import math
-import time
 import logging
-from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +48,16 @@ class AdaptiveBackoffCalculator:
                 self.min_interval,
                 min(
                     self.base_interval,
-                    rolling_avg_latency * 2.0 if rolling_avg_latency > 0 else self.base_interval,
+                    rolling_avg_latency * 2.0
+                    if rolling_avg_latency > 0
+                    else self.base_interval,
                 ),
             )
         else:
             # Exponential backoff with failures
-            interval = self.base_interval * (self.backoff_multiplier**consecutive_failures)
+            interval = self.base_interval * (
+                self.backoff_multiplier**consecutive_failures
+            )
             interval = min(self.max_interval, max(self.min_interval, interval))
 
         return float(interval)

@@ -25,7 +25,9 @@ class ProviderManager:
         }
         self._instances: Dict[str, BaseProvider] = {}
 
-    def register_provider(self, name: str, api_key: str | None = None, **kwargs: Any) -> BaseProvider:
+    def register_provider(
+        self, name: str, api_key: str | None = None, **kwargs: Any
+    ) -> BaseProvider:
         if name not in self._providers:
             raise ValueError(f"Unknown provider: {name}")
 
@@ -40,16 +42,22 @@ class ProviderManager:
             api_version = kwargs.get("api_version")
             if not endpoint or not api_version:
                 raise ValueError("endpoint and api_version required for azure_openai")
-            instance = provider_class(api_key=api_key, endpoint=endpoint, api_version=api_version)  # type: ignore
+            instance = provider_class(
+                api_key=api_key, endpoint=endpoint, api_version=api_version
+            )  # type: ignore
         elif name == "bedrock":
             if not api_key:
-                raise ValueError("aws_access_key_id (passed as api_key) required for bedrock")
+                raise ValueError(
+                    "aws_access_key_id (passed as api_key) required for bedrock"
+                )
             aws_secret_access_key = kwargs.get("aws_secret_access_key")
             region_name = kwargs.get("region_name", "us-east-1")
             if not aws_secret_access_key:
                 raise ValueError("aws_secret_access_key required for bedrock")
             instance = provider_class(
-                aws_access_key_id=api_key, aws_secret_access_key=aws_secret_access_key, region_name=region_name
+                aws_access_key_id=api_key,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name=region_name,
             )  # type: ignore
         elif name == "vertex_ai":
             project_id = kwargs.get("project_id")
@@ -67,7 +75,9 @@ class ProviderManager:
 
     def get_provider(self, name: str) -> BaseProvider:
         if name not in self._instances:
-            raise ValueError(f"Provider {name} not registered. Call register_provider first.")
+            raise ValueError(
+                f"Provider {name} not registered. Call register_provider first."
+            )
         return self._instances[name]
 
     async def check_all_health(self) -> Dict[str, ProviderHealth]:

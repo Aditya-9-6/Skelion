@@ -1,8 +1,6 @@
 """SQLAlchemy Model for Human Feedback Learning on Review Findings (Task 74)."""
 
-from datetime import datetime
 from enum import Enum
-from typing import Optional
 from sqlalchemy import Column, DateTime, Integer, String, Text, func
 from gossipmesh.models.base import Base
 
@@ -28,7 +26,9 @@ class FindingFeedback(Base):
     repository_id = Column(String(128), nullable=False, index=True)
     finding_fingerprint = Column(String(64), nullable=False, index=True)
 
-    feedback_type = Column(String(32), nullable=False, default=FeedbackType.ACCEPTED.value, index=True)
+    feedback_type = Column(
+        String(32), nullable=False, default=FeedbackType.ACCEPTED.value, index=True
+    )
     user_id = Column(String(128), nullable=True)
     user_comment = Column(Text, nullable=True)
 
@@ -37,8 +37,15 @@ class FindingFeedback(Base):
     file_path = Column(String(512), nullable=True)
     rule_id = Column(String(128), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     def to_dict(self):
         return {

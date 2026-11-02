@@ -1,8 +1,6 @@
 import math
-import hashlib
-import base64
 import threading
-from typing import Set, List, Dict, Any, Optional
+from typing import List, Dict, Any
 from gossipmesh.p2p.digest import BloomFilterDigest
 
 
@@ -14,11 +12,15 @@ class DynamicBloomDigestSync:
     based on peer population metrics.
     """
 
-    def __init__(self, initial_capacity: int = 1000, base_error_rate: float = 0.01) -> None:
+    def __init__(
+        self, initial_capacity: int = 1000, base_error_rate: float = 0.01
+    ) -> None:
         self.capacity = max(1, initial_capacity)
         self.base_error_rate = min(max(0.0001, base_error_rate), 0.5)
         self._lock = threading.Lock()
-        self._digest = BloomFilterDigest(capacity=self.capacity, error_rate=self.base_error_rate)
+        self._digest = BloomFilterDigest(
+            capacity=self.capacity, error_rate=self.base_error_rate
+        )
         self._peer_population = 1
 
     @property
@@ -39,11 +41,16 @@ class DynamicBloomDigestSync:
         with self._lock:
             self._peer_population = max(1, peer_count)
             # Scale error rate logarithmically with peer population for optimal bandwidth efficiency
-            adjusted_error = max(0.00001, self.base_error_rate / (1.0 + math.log10(self._peer_population)))
+            adjusted_error = max(
+                0.00001,
+                self.base_error_rate / (1.0 + math.log10(self._peer_population)),
+            )
             if abs(adjusted_error - self._digest.error_rate) > 1e-6:
                 # Re-initialize digest with tuned error rate while retaining current items if feasible
                 current_items = getattr(self, "_item_cache", set())
-                self._digest = BloomFilterDigest(capacity=self.capacity, error_rate=adjusted_error)
+                self._digest = BloomFilterDigest(
+                    capacity=self.capacity, error_rate=adjusted_error
+                )
                 if not hasattr(self, "_item_cache"):
                     self._item_cache = set()
                 for item in self._item_cache:
@@ -57,7 +64,9 @@ class DynamicBloomDigestSync:
             # Check if dynamic capacity expansion is required
             if self._digest.element_count >= self.capacity:
                 self.capacity = int(self.capacity * 2)
-                new_digest = BloomFilterDigest(capacity=self.capacity, error_rate=self._digest.error_rate)
+                new_digest = BloomFilterDigest(
+                    capacity=self.capacity, error_rate=self._digest.error_rate
+                )
                 for cached_item in self._item_cache:
                     new_digest.add(cached_item)
                 self._digest = new_digest

@@ -93,7 +93,11 @@ def _load_raw_keys() -> List[str]:
                 pass
 
     if not keys:
-        is_test_env = bool(os.getenv("PYTEST_CURRENT_TEST") or os.getenv("TEST_MODE") or "pytest" in sys.modules)
+        is_test_env = bool(
+            os.getenv("PYTEST_CURRENT_TEST")
+            or os.getenv("TEST_MODE")
+            or "pytest" in sys.modules
+        )
         if is_test_env:
             keys = ["dummy-test-key-1", "dummy-test-key-2"]
         else:
@@ -161,7 +165,9 @@ class KeyPoolRouter:
 
     def __init__(self, initial_keys: List[str] | None = None):
         self.lock = threading.Lock()
-        self.keys: List[str] = list(initial_keys) if initial_keys is not None else _load_raw_keys()
+        self.keys: List[str] = (
+            list(initial_keys) if initial_keys is not None else _load_raw_keys()
+        )
         self.metrics: dict[str, KeyMetrics] = {k: KeyMetrics() for k in self.keys}
         self.cooldowns: dict[str, float] = {}
         self.idx: int = 0
@@ -236,7 +242,9 @@ KeyRouter = KeyPoolRouter
 router = KeyPoolRouter()
 
 
-def track_error_rate(fn: Callable | None = None, *, router_instance: KeyPoolRouter | None = None):
+def track_error_rate(
+    fn: Callable | None = None, *, router_instance: KeyPoolRouter | None = None
+):
     """Decorator that wraps a function with automatic key rotation and error rate tracking.
 
     If the wrapped function fails:
@@ -278,7 +286,14 @@ def track_error_rate(fn: Callable | None = None, *, router_instance: KeyPoolRout
                     last_exception = e
                     err_msg = str(e).lower()
                     is_immediate = any(
-                        term in err_msg for term in ("429", "503", "quota", "rate limit", "resourceexhausted")
+                        term in err_msg
+                        for term in (
+                            "429",
+                            "503",
+                            "quota",
+                            "rate limit",
+                            "resourceexhausted",
+                        )
                     )
                     active_router.record(key, is_error=True, immediate=is_immediate)
 

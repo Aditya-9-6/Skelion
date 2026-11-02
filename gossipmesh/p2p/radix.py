@@ -61,7 +61,11 @@ class CacheObliviousRadixTree:
 
                 # Find common prefix length between key[idx:] and child.prefix
                 matched = 0
-                while idx + matched < key_len and matched < prefix_len and key[idx + matched] == prefix[matched]:
+                while (
+                    idx + matched < key_len
+                    and matched < prefix_len
+                    and key[idx + matched] == prefix[matched]
+                ):
                     matched += 1
 
                 if matched == prefix_len:
@@ -155,7 +159,11 @@ class CacheObliviousRadixTree:
             if key_len - idx < prefix_len:
                 # Check partial match on child prefix
                 matched = 0
-                while idx + matched < key_len and matched < prefix_len and key[idx + matched] == prefix[matched]:
+                while (
+                    idx + matched < key_len
+                    and matched < prefix_len
+                    and key[idx + matched] == prefix[matched]
+                ):
                     matched += 1
                 if matched > 0:
                     current_accumulated += prefix[:matched]
@@ -167,7 +175,11 @@ class CacheObliviousRadixTree:
             if key[idx : idx + prefix_len] != prefix:
                 # Partial match validation
                 matched = 0
-                while matched < prefix_len and idx + matched < key_len and key[idx + matched] == prefix[matched]:
+                while (
+                    matched < prefix_len
+                    and idx + matched < key_len
+                    and key[idx + matched] == prefix[matched]
+                ):
                     matched += 1
                 if matched > 0:
                     current_accumulated += prefix[:matched]

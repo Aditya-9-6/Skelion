@@ -8,9 +8,8 @@ against local state in O(1) amortized time.
 import ctypes
 import hashlib
 import math
-import os
 import threading
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 
 class GossipDigestArena:
@@ -22,9 +21,13 @@ class GossipDigestArena:
         self._size = 0
 
         # Calculate optimal bit array size and number of hash functions
-        self._bit_array_size = int(-self.capacity * math.log(self.error_rate) / (math.log(2) ** 2))
+        self._bit_array_size = int(
+            -self.capacity * math.log(self.error_rate) / (math.log(2) ** 2)
+        )
         self._bit_array_size = max(512, (self._bit_array_size + 63) // 64 * 64)
-        self._num_hashes = int(max(1, round((self._bit_array_size / self.capacity) * math.log(2))))
+        self._num_hashes = int(
+            max(1, round((self._bit_array_size / self.capacity) * math.log(2)))
+        )
 
         # Number of 64-bit words
         self._num_words = self._bit_array_size // 64
@@ -56,7 +59,10 @@ class GossipDigestArena:
     def _get_hashes(self, item: str) -> List[int]:
         digest1 = int(hashlib.sha256(item.encode("utf-8")).hexdigest(), 16)
         digest2 = int(hashlib.md5(item.encode("utf-8")).hexdigest(), 16)
-        return [(digest1 + i * digest2) % self._bit_array_size for i in range(self._num_hashes)]
+        return [
+            (digest1 + i * digest2) % self._bit_array_size
+            for i in range(self._num_hashes)
+        ]
 
     def add(self, item: str) -> None:
         """Adds an item to the arena using vectorized bit-setting."""
@@ -144,5 +150,7 @@ class GossipDigestArena:
         for i in range(0, len(decoded), 8):
             word_idx = i // 8
             if word_idx < instance._num_words:
-                instance._arena_buffer[word_idx] = int.from_bytes(decoded[i : i + 8], byteorder="big", signed=False)
+                instance._arena_buffer[word_idx] = int.from_bytes(
+                    decoded[i : i + 8], byteorder="big", signed=False
+                )
         return instance

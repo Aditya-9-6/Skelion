@@ -15,7 +15,13 @@ class EpidemicReachabilityMatrix:
         # peer_id -> {"success_prob": float, "avg_latency": float, "stratum": str, "last_updated": float}
         self._peers: Dict[str, Dict[str, Any]] = {}
 
-    def record_ack(self, peer_id: str, success: bool, latency: float = 0.0, stratum: str = "default") -> None:
+    def record_ack(
+        self,
+        peer_id: str,
+        success: bool,
+        latency: float = 0.0,
+        stratum: str = "default",
+    ) -> None:
         with self._lock:
             now = time.time()
             if peer_id not in self._peers:
@@ -29,9 +35,13 @@ class EpidemicReachabilityMatrix:
             else:
                 p = self._peers[peer_id]
                 target_val = 1.0 if success else 0.0
-                p["success_prob"] = (1.0 - self.alpha) * p["success_prob"] + self.alpha * target_val
+                p["success_prob"] = (1.0 - self.alpha) * p[
+                    "success_prob"
+                ] + self.alpha * target_val
                 if success and latency > 0:
-                    p["avg_latency"] = (1.0 - self.alpha) * p["avg_latency"] + self.alpha * latency
+                    p["avg_latency"] = (1.0 - self.alpha) * p[
+                        "avg_latency"
+                    ] + self.alpha * latency
                 p["stratum"] = stratum
                 p["last_updated"] = now
                 p["sample_count"] += 1

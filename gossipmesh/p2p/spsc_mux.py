@@ -1,5 +1,4 @@
 import time
-import threading
 from typing import Optional, Tuple
 
 
@@ -16,8 +15,12 @@ class SpscAtoMicRingBufferMultiplexer:
 
         self.capacity = capacity
         self.max_payload_size = max_payload_size
-        self.cell_size = 8 + 4 + max_payload_size  # timestamp (8 bytes) + length (4 bytes) + payload
-        self.total_size = 16 + (capacity * self.cell_size)  # head (8) + tail (8) + cells
+        self.cell_size = (
+            8 + 4 + max_payload_size
+        )  # timestamp (8 bytes) + length (4 bytes) + payload
+        self.total_size = 16 + (
+            capacity * self.cell_size
+        )  # head (8) + tail (8) + cells
 
         # Pre-allocate backing bytearray for zero-allocation hot path
         self._buffer = bytearray(self.total_size)
@@ -32,16 +35,28 @@ class SpscAtoMicRingBufferMultiplexer:
         self._set_tail(0)
 
     def _get_head(self) -> int:
-        return int.from_bytes(self._buffer[self._head_offset : self._head_offset + 8], byteorder="little", signed=False)
+        return int.from_bytes(
+            self._buffer[self._head_offset : self._head_offset + 8],
+            byteorder="little",
+            signed=False,
+        )
 
     def _set_head(self, val: int) -> None:
-        self._buffer[self._head_offset : self._head_offset + 8] = val.to_bytes(8, byteorder="little", signed=False)
+        self._buffer[self._head_offset : self._head_offset + 8] = val.to_bytes(
+            8, byteorder="little", signed=False
+        )
 
     def _get_tail(self) -> int:
-        return int.from_bytes(self._buffer[self._tail_offset : self._tail_offset + 8], byteorder="little", signed=False)
+        return int.from_bytes(
+            self._buffer[self._tail_offset : self._tail_offset + 8],
+            byteorder="little",
+            signed=False,
+        )
 
     def _set_tail(self, val: int) -> None:
-        self._buffer[self._tail_offset : self._tail_offset + 8] = val.to_bytes(8, byteorder="little", signed=False)
+        self._buffer[self._tail_offset : self._tail_offset + 8] = val.to_bytes(
+            8, byteorder="little", signed=False
+        )
 
     def push(self, payload: bytes) -> bool:
         """
@@ -50,7 +65,9 @@ class SpscAtoMicRingBufferMultiplexer:
         """
         length = len(payload)
         if length > self.max_payload_size:
-            raise ValueError(f"Payload size {length} exceeds max_payload_size {self.max_payload_size}")
+            raise ValueError(
+                f"Payload size {length} exceeds max_payload_size {self.max_payload_size}"
+            )
 
         head = self._get_head()
         tail = self._get_tail()
@@ -64,8 +81,12 @@ class SpscAtoMicRingBufferMultiplexer:
         ts = int(time.time() * 1000)
 
         # Write directly into pre-allocated memory view slice
-        self._buffer[cell_offset : cell_offset + 8] = ts.to_bytes(8, byteorder="little", signed=False)
-        self._buffer[cell_offset + 8 : cell_offset + 12] = length.to_bytes(4, byteorder="little", signed=False)
+        self._buffer[cell_offset : cell_offset + 8] = ts.to_bytes(
+            8, byteorder="little", signed=False
+        )
+        self._buffer[cell_offset + 8 : cell_offset + 12] = length.to_bytes(
+            4, byteorder="little", signed=False
+        )
         self._buffer[cell_offset + 12 : cell_offset + 12 + length] = payload
 
         # Zero out trailing padding in cell slot for hygiene/security
@@ -92,8 +113,16 @@ class SpscAtoMicRingBufferMultiplexer:
         cell_idx = tail & (self.capacity - 1)
         cell_offset = self._data_offset + (cell_idx * self.cell_size)
 
-        ts = int.from_bytes(self._buffer[cell_offset : cell_offset + 8], byteorder="little", signed=False)
-        length = int.from_bytes(self._buffer[cell_offset + 8 : cell_offset + 12], byteorder="little", signed=False)
+        ts = int.from_bytes(
+            self._buffer[cell_offset : cell_offset + 8],
+            byteorder="little",
+            signed=False,
+        )
+        length = int.from_bytes(
+            self._buffer[cell_offset + 8 : cell_offset + 12],
+            byteorder="little",
+            signed=False,
+        )
 
         # Extract exact payload slice without allocation overhead outside the required bytes
         payload = bytes(self._buffer[cell_offset + 12 : cell_offset + 12 + length])

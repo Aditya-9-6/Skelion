@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import os
-import math
 import threading
 import time
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Optional
 
 
 class KademliaNode:
@@ -135,7 +133,11 @@ class KademliaRoutingTable:
             evicted = bucket.add_node(node)
 
             # If bucket overflow and can split (covers local node ID prefix)
-            if len(bucket.nodes) > self.k and idx == len(self.buckets) - 1 and len(self.buckets) < 256:
+            if (
+                len(bucket.nodes) > self.k
+                and idx == len(self.buckets) - 1
+                and len(self.buckets) < 256
+            ):
                 self._split_bucket(idx)
 
     def _split_bucket(self, idx: int) -> None:
@@ -159,7 +161,9 @@ class KademliaRoutingTable:
         self.buckets[idx] = new_bucket_1
         self.buckets.append(new_bucket_2)
 
-    def find_close_nodes(self, target_id: bytes | str, count: Optional[int] = None) -> List[KademliaNode]:
+    def find_close_nodes(
+        self, target_id: bytes | str, count: Optional[int] = None
+    ) -> List[KademliaNode]:
         if isinstance(target_id, str):
             target_bytes = target_id.encode("utf-8").ljust(32, b"\x00")[:32]
         else:

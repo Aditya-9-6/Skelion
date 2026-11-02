@@ -27,7 +27,9 @@ class CircuitBreaker:
         self.last_failure_time = time.time()
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
-            logger.warning(f"Circuit breaker opened after {self.failure_count} failures.")
+            logger.warning(
+                f"Circuit breaker opened after {self.failure_count} failures."
+            )
 
     def record_success(self):
         if self.state == "HALF_OPEN":
@@ -58,9 +60,13 @@ def with_retry_and_circuit_breaker(
         if inspect.isasyncgenfunction(func):
 
             @wraps(func)
-            async def async_gen_wrapper(*args: Any, **kwargs: Any) -> AsyncGenerator[Any, None]:
+            async def async_gen_wrapper(
+                *args: Any, **kwargs: Any
+            ) -> AsyncGenerator[Any, None]:
                 if circuit_breaker and not circuit_breaker.check_state():
-                    raise CircuitBreakerOpenError(f"Circuit breaker is open for {func.__name__}")
+                    raise CircuitBreakerOpenError(
+                        f"Circuit breaker is open for {func.__name__}"
+                    )
 
                 current_delay = delay
                 for attempt in range(retries):
@@ -89,7 +95,9 @@ def with_retry_and_circuit_breaker(
             @wraps(func)
             async def wrapper(*args: Any, **kwargs: Any) -> Any:
                 if circuit_breaker and not circuit_breaker.check_state():
-                    raise CircuitBreakerOpenError(f"Circuit breaker is open for {func.__name__}")
+                    raise CircuitBreakerOpenError(
+                        f"Circuit breaker is open for {func.__name__}"
+                    )
 
                 current_delay = delay
                 for attempt in range(retries):

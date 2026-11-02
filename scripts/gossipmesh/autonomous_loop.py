@@ -28,7 +28,11 @@ try:
 except Exception:
     pass
 
-REPO = os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY") or "Aditya-9-6/GossipMesh"
+REPO = (
+    os.environ.get("GH_REPO")
+    or os.environ.get("GITHUB_REPOSITORY")
+    or "Aditya-9-6/GossipMesh"
+)
 USER_NAME = os.environ.get("GIT_AUTHOR_NAME") or "Dahale Aditya Dnyaneshwar"
 USER_EMAIL = os.environ.get("GIT_AUTHOR_EMAIL") or "adityadahale96@gmail.com"
 
@@ -70,7 +74,12 @@ execution_loop = GLOBAL_EXECUTION_LOOP
 
 def load_multi_provider_keys():
     """Loads auxiliary LLM keys (OpenRouter, NVIDIA, Cohere, HuggingFace) from .llm_keys files."""
-    for check_dir in (Path("."), Path(__file__).resolve().parent, Path(__file__).resolve().parent.parent, Path.home()):
+    for check_dir in (
+        Path("."),
+        Path(__file__).resolve().parent,
+        Path(__file__).resolve().parent.parent,
+        Path.home(),
+    ):
         llm_file = check_dir / ".llm_keys"
         if llm_file.exists():
             try:
@@ -96,7 +105,12 @@ class KeyPool:
         pool_env = os.environ.get("GEMINI_KEY_POOL", "")
         extra_keys = [k.strip() for k in pool_env.split(",") if k.strip()]
 
-        for var in ("GEMINI_API_KEY", "GEMINI_ISSUE_KEY", "GEMINI_REVIEWER_KEY", "GEMINI_SOLVER_KEY"):
+        for var in (
+            "GEMINI_API_KEY",
+            "GEMINI_ISSUE_KEY",
+            "GEMINI_REVIEWER_KEY",
+            "GEMINI_SOLVER_KEY",
+        ):
             val = os.environ.get(var, "").strip()
             if val and val not in extra_keys:
                 extra_keys.append(val)
@@ -129,7 +143,10 @@ class KeyPool:
             clean = k.strip()
             if clean and clean not in self.keys:
                 self.keys.append(clean)
-                print(f"[KeyPool] Added new API key to active rotation pool (Total: {len(self.keys)})", flush=True)
+                print(
+                    f"[KeyPool] Added new API key to active rotation pool (Total: {len(self.keys)})",
+                    flush=True,
+                )
 
     def next_key(self) -> str:
         if not self.keys:
@@ -163,10 +180,16 @@ def run_cmd(cmd, cwd=None, check=False, timeout=60):
             timeout=timeout,
         )
         if check and res.returncode != 0:
-            raise RuntimeError(f"Command failed ({res.returncode}): {cmd}\nStderr: {res.stderr}\nStdout: {res.stdout}")
+            raise RuntimeError(
+                f"Command failed ({res.returncode}): {cmd}\nStderr: {res.stderr}\nStdout: {res.stdout}"
+            )
         return res.stdout.strip()
     except subprocess.TimeoutExpired:
-        print(f"[Timeout] Command timed out after {timeout}s: {cmd}", file=sys.stderr, flush=True)
+        print(
+            f"[Timeout] Command timed out after {timeout}s: {cmd}",
+            file=sys.stderr,
+            flush=True,
+        )
         return ""
     except FileNotFoundError:
         return ""
@@ -214,11 +237,21 @@ def verify_and_auto_fix_preflight(workspace: Path) -> tuple[bool, str]:
     # Pass 1: Deterministic auto-fix
     try:
         ruff_fix_cmd = (
-            [ruff_bin, "check", "--fix", "."] if ruff_bin != "ruff" else [py_bin, "-m", "ruff", "check", "--fix", "."]
+            [ruff_bin, "check", "--fix", "."]
+            if ruff_bin != "ruff"
+            else [py_bin, "-m", "ruff", "check", "--fix", "."]
         )
-        subprocess.run(ruff_fix_cmd, cwd=workspace, capture_output=True, text=True, timeout=20)
-        ruff_fmt_cmd = [ruff_bin, "format", "."] if ruff_bin != "ruff" else [py_bin, "-m", "ruff", "format", "."]
-        subprocess.run(ruff_fmt_cmd, cwd=workspace, capture_output=True, text=True, timeout=20)
+        subprocess.run(
+            ruff_fix_cmd, cwd=workspace, capture_output=True, text=True, timeout=20
+        )
+        ruff_fmt_cmd = (
+            [ruff_bin, "format", "."]
+            if ruff_bin != "ruff"
+            else [py_bin, "-m", "ruff", "format", "."]
+        )
+        subprocess.run(
+            ruff_fmt_cmd, cwd=workspace, capture_output=True, text=True, timeout=20
+        )
     except Exception:
         pass
 
@@ -226,7 +259,17 @@ def verify_and_auto_fix_preflight(workspace: Path) -> tuple[bool, str]:
 
     # Pass 2: Syntax compilation check
     comp_res = subprocess.run(
-        [py_bin, "-m", "compileall", "-q", "-x", r"(\.venv|\.git|tests/fixtures)", "gossipmesh", "tests", "scripts"],
+        [
+            py_bin,
+            "-m",
+            "compileall",
+            "-q",
+            "-x",
+            r"(\.venv|\.git|tests/fixtures)",
+            "gossipmesh",
+            "tests",
+            "scripts",
+        ],
         cwd=workspace,
         capture_output=True,
         text=True,
@@ -235,15 +278,29 @@ def verify_and_auto_fix_preflight(workspace: Path) -> tuple[bool, str]:
         timeout=120,
     )
     if comp_res.returncode != 0:
-        errors.append(f"Syntax/Compilation Failure:\n{comp_res.stderr.strip() or comp_res.stdout.strip()}")
+        errors.append(
+            f"Syntax/Compilation Failure:\n{comp_res.stderr.strip() or comp_res.stdout.strip()}"
+        )
 
     # Pass 3: Strict Ruff Lint Check
-    ruff_check_cmd = [ruff_bin, "check", "."] if ruff_bin != "ruff" else [py_bin, "-m", "ruff", "check", "."]
+    ruff_check_cmd = (
+        [ruff_bin, "check", "."]
+        if ruff_bin != "ruff"
+        else [py_bin, "-m", "ruff", "check", "."]
+    )
     ruff_res = subprocess.run(
-        ruff_check_cmd, cwd=workspace, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120
+        ruff_check_cmd,
+        cwd=workspace,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
     )
     if ruff_res.returncode != 0:
-        errors.append(f"Ruff Lint Failure:\n{ruff_res.stdout.strip() or ruff_res.stderr.strip()}")
+        errors.append(
+            f"Ruff Lint Failure:\n{ruff_res.stdout.strip() or ruff_res.stderr.strip()}"
+        )
 
     # Pass 4: Pytest Unit Tests
     test_res = subprocess.run(
@@ -317,17 +374,22 @@ def get_open_advancement_issues(workspace: Path):
 
         # Also inspect remote branches to prevent race conditions among parallel workers
         remote_branches_out = run_cmd(
-            ["git", "ls-remote", "--heads", "origin", "refs/heads/ai/solve-issue-*"], cwd=workspace
+            ["git", "ls-remote", "--heads", "origin", "refs/heads/ai/solve-issue-*"],
+            cwd=workspace,
         )
         for line in remote_branches_out.splitlines():
             if "refs/heads/ai/solve-issue-" in line:
                 try:
-                    cand = int(line.split("refs/heads/ai/solve-issue-")[-1].split("-")[0])
+                    cand = int(
+                        line.split("refs/heads/ai/solve-issue-")[-1].split("-")[0]
+                    )
                     active_issue_nums.add(cand)
                 except Exception:
                     pass
 
-        valid_issues = [iss for iss in all_issues if iss.get("number") not in active_issue_nums]
+        valid_issues = [
+            iss for iss in all_issues if iss.get("number") not in active_issue_nums
+        ]
         return valid_issues
     except Exception as e:
         print(f"[Warning] Failed to fetch issues: {e}", file=sys.stderr, flush=True)
@@ -340,12 +402,21 @@ def generate_new_issue(workspace: Path):
     PRIORITY 1: Master Implementation Plan (docs/ENTERPRISE_SAAS_IMPLEMENTATION_PLAN.md).
     FALLBACK: Architecture advancement catalog & AI generator.
     """
-    print("[*] Checking Master Implementation Plan for next actionable task...", flush=True)
+    print(
+        "[*] Checking Master Implementation Plan for next actionable task...",
+        flush=True,
+    )
     plan_script = workspace / "scripts" / "plan_advancement_engine.py"
     if plan_script.is_file():
         try:
             plan_res = subprocess.run(
-                [sys.executable, str(plan_script), "--create-next", "--workspace", str(workspace)],
+                [
+                    sys.executable,
+                    str(plan_script),
+                    "--create-next",
+                    "--workspace",
+                    str(workspace),
+                ],
                 cwd=workspace,
                 capture_output=True,
                 text=True,
@@ -355,7 +426,8 @@ def generate_new_issue(workspace: Path):
             )
             print(plan_res.stdout, flush=True)
             if plan_res.returncode == 0 and (
-                "Successfully created GitHub Issue" in plan_res.stdout or "Created issue" in plan_res.stdout
+                "Successfully created GitHub Issue" in plan_res.stdout
+                or "Created issue" in plan_res.stdout
             ):
                 return
         except Exception as e:
@@ -387,10 +459,13 @@ def generate_new_issue(workspace: Path):
 def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: str):
     """Solves an issue, creates PR, reviews, and merges."""
     solver_key = GLOBAL_POOL.next_key()
-    print(f"\n=======================================================", flush=True)
+    print("\n=======================================================", flush=True)
     print(f"[*] Solving Issue #{issue_num}: {issue_title}", flush=True)
-    print(f"[*] Active Solver API Key: ...{solver_key[-6:] if len(solver_key) > 6 else 'key'}", flush=True)
-    print(f"=======================================================", flush=True)
+    print(
+        f"[*] Active Solver API Key: ...{solver_key[-6:] if len(solver_key) > 6 else 'key'}",
+        flush=True,
+    )
+    print("=======================================================", flush=True)
 
     env = os.environ.copy()
     env["GEMINI_API_KEY"] = solver_key
@@ -409,7 +484,13 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
         str(workspace),
     ]
     res = subprocess.run(
-        solver_cmd, cwd=workspace, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        solver_cmd,
+        cwd=workspace,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     try:
         print(res.stdout, flush=True)
@@ -420,14 +501,23 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
         return False
 
     # Pre-commit Hard Quality Assurance Gate & Self-Healing Loop
-    print(f"[*] Running Pre-Flight Quality Gate (deterministic auto-fix, compileall, ruff, pytest)...", flush=True)
+    print(
+        "[*] Running Pre-Flight Quality Gate (deterministic auto-fix, compileall, ruff, pytest)...",
+        flush=True,
+    )
     is_green, err_report = verify_and_auto_fix_preflight(workspace)
 
     if not is_green:
-        print(f"[!] Pre-flight checks failed. Entering self-healing loop (up to 3 passes)...", flush=True)
+        print(
+            "[!] Pre-flight checks failed. Entering self-healing loop (up to 3 passes)...",
+            flush=True,
+        )
         max_fix_passes = 3
         for fix_pass in range(1, max_fix_passes + 1):
-            print(f"[*] Self-healing pass {fix_pass}/{max_fix_passes} for Issue #{issue_num}...", flush=True)
+            print(
+                f"[*] Self-healing pass {fix_pass}/{max_fix_passes} for Issue #{issue_num}...",
+                flush=True,
+            )
             ci_fixer_cmd = [
                 sys.executable,
                 "scripts/ai_ci_fixer.py",
@@ -437,12 +527,21 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
                 str(workspace),
             ]
             subprocess.run(
-                ci_fixer_cmd, cwd=workspace, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace"
+                ci_fixer_cmd,
+                cwd=workspace,
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
             )
 
             is_green, err_report = verify_and_auto_fix_preflight(workspace)
             if is_green:
-                print(f"[SUCCESS] Code repaired and 100% green on pass {fix_pass}!", flush=True)
+                print(
+                    f"[SUCCESS] Code repaired and 100% green on pass {fix_pass}!",
+                    flush=True,
+                )
                 break
             else:
                 print(f"[!] Code still failing after pass {fix_pass}.", flush=True)
@@ -464,13 +563,23 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
     run_cmd(["git", "config", "user.email", USER_EMAIL], cwd=workspace)
 
     run_cmd(
-        "git rm --cached -f ai_pr_*.md ai_review_*.json ci_fix_*.md 2>/dev/null || true", cwd=workspace, check=False
+        "git rm --cached -f ai_pr_*.md ai_review_*.json ci_fix_*.md 2>/dev/null || true",
+        cwd=workspace,
+        check=False,
     )
     run_cmd(["git", "add", "-A"], cwd=workspace)
-    run_cmd("git reset -- ai_pr_*.md ai_review_*.json ci_fix_*.md 2>/dev/null || true", cwd=workspace, check=False)
+    run_cmd(
+        "git reset -- ai_pr_*.md ai_review_*.json ci_fix_*.md 2>/dev/null || true",
+        cwd=workspace,
+        check=False,
+    )
 
     commit_msg = f"feat: automated resolution for issue #{issue_num} ({issue_title})"
-    run_cmd(["git", "commit", "--author", f"{USER_NAME} <{USER_EMAIL}>", "-m", commit_msg], cwd=workspace, check=False)
+    run_cmd(
+        ["git", "commit", "--author", f"{USER_NAME} <{USER_EMAIL}>", "-m", commit_msg],
+        cwd=workspace,
+        check=False,
+    )
 
     print(f"[*] Pushing branch {branch_name} to origin...", flush=True)
     run_cmd(["git", "push", "origin", branch_name, "--force"], cwd=workspace)
@@ -482,14 +591,28 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
         if summary_file.exists()
         else f"Automated resolution for Issue #{issue_num}."
     )
-    if f"Closes #{issue_num}" not in body_content and f"Fixes #{issue_num}" not in body_content:
+    if (
+        f"Closes #{issue_num}" not in body_content
+        and f"Fixes #{issue_num}" not in body_content
+    ):
         body_content += f"\n\nCloses #{issue_num}"
 
     pr_url = ""
     pr_num = None
     try:
         existing = run_cmd(
-            ["gh", "pr", "list", "--repo", REPO, "--head", branch_name, "--json", "number,url"], cwd=workspace
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                REPO,
+                "--head",
+                branch_name,
+                "--json",
+                "number,url",
+            ],
+            cwd=workspace,
         )
         prs = json.loads(existing) if existing else []
         if prs:
@@ -525,7 +648,13 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
             try:
                 time.sleep(3)
                 pending_out = run_cmd(
-                    ["gh", "api", f"repos/{REPO}/actions/runs?status=action_required", "--jq", ".workflow_runs[].id"],
+                    [
+                        "gh",
+                        "api",
+                        f"repos/{REPO}/actions/runs?status=action_required",
+                        "--jq",
+                        ".workflow_runs[].id",
+                    ],
                     cwd=workspace,
                     check=False,
                 )
@@ -533,7 +662,13 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
                     run_id = run_id.strip()
                     if run_id:
                         run_cmd(
-                            ["gh", "api", f"repos/{REPO}/actions/runs/{run_id}/approve", "-X", "POST"],
+                            [
+                                "gh",
+                                "api",
+                                f"repos/{REPO}/actions/runs/{run_id}/approve",
+                                "-X",
+                                "POST",
+                            ],
                             cwd=workspace,
                             check=False,
                         )
@@ -554,7 +689,14 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
     )
     env["GEMINI_REVIEWER_KEY"] = reviewer_key
     rev_res = subprocess.run(
-        [sys.executable, "scripts/ai_pr_reviewer.py", "--pr-number", str(pr_num), "--workspace", str(workspace)],
+        [
+            sys.executable,
+            "scripts/ai_pr_reviewer.py",
+            "--pr-number",
+            str(pr_num),
+            "--workspace",
+            str(workspace),
+        ],
         cwd=workspace,
         env=env,
         capture_output=True,
@@ -577,10 +719,17 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
 
     review_md_file = workspace / "ai_pr_review.md"
     if review_md_file.exists():
-        run_cmd(["gh", "pr", "comment", str(pr_num), "--body-file", str(review_md_file)], cwd=workspace, check=False)
+        run_cmd(
+            ["gh", "pr", "comment", str(pr_num), "--body-file", str(review_md_file)],
+            cwd=workspace,
+            check=False,
+        )
 
     if verdict != "APPROVED" or score < 90:
-        print(f"[!] PR #{pr_num} verdict: {verdict} (Score: {score}). Calling AI CI Fixer to refactor...", flush=True)
+        print(
+            f"[!] PR #{pr_num} verdict: {verdict} (Score: {score}). Calling AI CI Fixer to refactor...",
+            flush=True,
+        )
         ci_fixer_cmd = [
             sys.executable,
             "scripts/ai_ci_fixer.py",
@@ -621,12 +770,26 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
             cwd=workspace,
             check=False,
         )
-        run_cmd(["git", "push", "origin", branch_name, "--force"], cwd=workspace, check=False)
+        run_cmd(
+            ["git", "push", "origin", branch_name, "--force"],
+            cwd=workspace,
+            check=False,
+        )
 
         # Re-run reviewer to verify the fixes
-        print(f"[*] Re-running Autonomous Architectural Reviewer on PR #{pr_num} after fixes...", flush=True)
+        print(
+            f"[*] Re-running Autonomous Architectural Reviewer on PR #{pr_num} after fixes...",
+            flush=True,
+        )
         rev_res = subprocess.run(
-            [sys.executable, "scripts/ai_pr_reviewer.py", "--pr-number", str(pr_num), "--workspace", str(workspace)],
+            [
+                sys.executable,
+                "scripts/ai_pr_reviewer.py",
+                "--pr-number",
+                str(pr_num),
+                "--workspace",
+                str(workspace),
+            ],
             cwd=workspace,
             env=env,
             capture_output=True,
@@ -650,12 +813,28 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
             f"[🚀] PR #{pr_num} APPROVED (Score: {score}/100)! Attempting to merge PR #{pr_num} into main...",
             flush=True,
         )
-        run_cmd(["gh", "label", "create", "ready-to-merge", "--color", "0E8A16", "-f"], cwd=workspace, check=False)
-        run_cmd(["gh", "pr", "edit", str(pr_num), "--add-label", "ready-to-merge"], cwd=workspace, check=False)
-        merge_res = run_cmd(["gh", "pr", "merge", str(pr_num), "--squash", "--admin"], cwd=workspace, check=False)
+        run_cmd(
+            ["gh", "label", "create", "ready-to-merge", "--color", "0E8A16", "-f"],
+            cwd=workspace,
+            check=False,
+        )
+        run_cmd(
+            ["gh", "pr", "edit", str(pr_num), "--add-label", "ready-to-merge"],
+            cwd=workspace,
+            check=False,
+        )
+        merge_res = run_cmd(
+            ["gh", "pr", "merge", str(pr_num), "--squash", "--admin"],
+            cwd=workspace,
+            check=False,
+        )
 
         # Verify PR was actually merged on GitHub
-        pr_state_raw = run_cmd(["gh", "pr", "view", str(pr_num), "--json", "state,merged"], cwd=workspace, check=False)
+        pr_state_raw = run_cmd(
+            ["gh", "pr", "view", str(pr_num), "--json", "state,merged"],
+            cwd=workspace,
+            check=False,
+        )
         is_merged = False
         try:
             pr_data = json.loads(pr_state_raw) if pr_state_raw else {}
@@ -665,7 +844,8 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
 
         if is_merged:
             print(
-                f"[SUCCESS] Merged PR #{pr_num} into main! Contributor activity recorded for {USER_NAME}.", flush=True
+                f"[SUCCESS] Merged PR #{pr_num} into main! Contributor activity recorded for {USER_NAME}.",
+                flush=True,
             )
             run_cmd(
                 [
@@ -680,7 +860,14 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
                 check=False,
             )
             run_cmd(
-                ["gh", "issue", "close", str(issue_num), "-c", f"Resolved and merged in PR #{pr_num}."],
+                [
+                    "gh",
+                    "issue",
+                    "close",
+                    str(issue_num),
+                    "-c",
+                    f"Resolved and merged in PR #{pr_num}.",
+                ],
                 cwd=workspace,
                 check=False,
             )
@@ -688,7 +875,11 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
             run_cmd(["git", "pull", "origin", "main"], cwd=workspace)
             # Clean up feature branch
             run_cmd(["git", "branch", "-D", branch_name], cwd=workspace, check=False)
-            run_cmd(["git", "push", "origin", "--delete", branch_name], cwd=workspace, check=False)
+            run_cmd(
+                ["git", "push", "origin", "--delete", branch_name],
+                cwd=workspace,
+                check=False,
+            )
             return True
         else:
             print(
@@ -722,23 +913,39 @@ def solve_issue(workspace: Path, issue_num: int, issue_title: str, issue_body: s
                 flush=True,
             )
             reason_text = s_data.get("close_reason") or s_data.get(
-                "executive_summary", "Change evaluated as unnecessary, duplicate, or anti-pattern."
+                "executive_summary",
+                "Change evaluated as unnecessary, duplicate, or anti-pattern.",
             )
             full_comment = f"🛑 **Architectural Gatekeeper: PR Closed as Unnecessary**\n\n**Verdict**: {verdict} | **Score**: {score}/100\n\n**Rationale**: {reason_text}\n\n*Closing PR to maintain codebase invariants.*"
             run_cmd(
-                ["gh", "pr", "close", str(pr_num), "--repo", REPO, "--comment", full_comment, "--delete-branch"],
+                [
+                    "gh",
+                    "pr",
+                    "close",
+                    str(pr_num),
+                    "--repo",
+                    REPO,
+                    "--comment",
+                    full_comment,
+                    "--delete-branch",
+                ],
                 cwd=workspace,
                 check=False,
             )
             run_cmd(["git", "checkout", "main"], cwd=workspace)
             return False
         else:
-            print(f"[!] PR #{pr_num} verdict: {verdict} (Score: {score}). Awaiting review fixes.", flush=True)
+            print(
+                f"[!] PR #{pr_num} verdict: {verdict} (Score: {score}). Awaiting review fixes.",
+                flush=True,
+            )
             run_cmd(["git", "checkout", "main"], cwd=workspace)
             return False
 
 
-def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: int = 5) -> bool:
+def heal_and_merge_open_prs(
+    workspace: Path, worker_id: int = 1, num_workers: int = 5
+) -> bool:
     """
     Finds open PRs assigned to this worker shard, self-heals failing tests,
     runs architectural review, and merges PRs when approved (score >= 90).
@@ -786,7 +993,11 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
     candidate_prs = [p for p in prs if is_candidate_pr(p)]
     # Distribute PRs deterministically across parallel workers
     if num_workers > 1:
-        candidate_prs = [p for p in candidate_prs if (p.get("number", 0) % num_workers) == (worker_id - 1)]
+        candidate_prs = [
+            p
+            for p in candidate_prs
+            if (p.get("number", 0) % num_workers) == (worker_id - 1)
+        ]
 
     if not candidate_prs:
         return False
@@ -803,7 +1014,10 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
         pr_num = pr["number"]
         head_ref = pr["headRefName"]
         title = pr["title"]
-        print(f"\n[*] Evaluating PR #{pr_num}: {title} (branch: {head_ref})...", flush=True)
+        print(
+            f"\n[*] Evaluating PR #{pr_num}: {title} (branch: {head_ref})...",
+            flush=True,
+        )
 
         # Check if linked issue is already closed
         linked_issue = None
@@ -820,7 +1034,16 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
         if linked_issue:
             try:
                 iss_out = run_cmd(
-                    ["gh", "issue", "view", str(linked_issue), "--repo", REPO, "--json", "state,comments"],
+                    [
+                        "gh",
+                        "issue",
+                        "view",
+                        str(linked_issue),
+                        "--repo",
+                        REPO,
+                        "--json",
+                        "state,comments",
+                    ],
                     cwd=workspace,
                     check=False,
                 )
@@ -887,23 +1110,37 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
             run_cmd("git clean -fd", cwd=workspace, check=False)
             run_cmd(["git", "fetch", "origin", head_ref], cwd=workspace, check=False)
             checkout_res = run_cmd(
-                ["git", "checkout", "-B", head_ref, f"origin/{head_ref}"], cwd=workspace, check=False
+                ["git", "checkout", "-B", head_ref, f"origin/{head_ref}"],
+                cwd=workspace,
+                check=False,
             )
-            curr_b = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=workspace).strip()
+            curr_b = run_cmd(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=workspace
+            ).strip()
             if curr_b != head_ref:
-                print(f"[!] Warning: Failed to checkout branch {head_ref}, skipping", flush=True)
+                print(
+                    f"[!] Warning: Failed to checkout branch {head_ref}, skipping",
+                    flush=True,
+                )
                 continue
 
             # Merge origin/main to keep branch up to date
             merge_res = subprocess.run(
-                ["git", "merge", "origin/main", "--no-edit"], cwd=workspace, capture_output=True, text=True
+                ["git", "merge", "origin/main", "--no-edit"],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
             )
             if merge_res.returncode != 0:
                 print(
                     f"[*] Merging origin/main produced conflicts on #{pr_num}. Resolving scripts/ and workflow conflicts...",
                     flush=True,
                 )
-                run_cmd(["git", "checkout", "origin/main", "--", ".github/", "scripts/"], cwd=workspace, check=False)
+                run_cmd(
+                    ["git", "checkout", "origin/main", "--", ".github/", "scripts/"],
+                    cwd=workspace,
+                    check=False,
+                )
                 run_cmd("git add -A", cwd=workspace, check=False)
                 run_cmd(
                     [
@@ -919,17 +1156,32 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
 
             # Run pre-flight quality verification gate (deterministic auto-fix, compileall, ruff, pytest)
             is_green, err_report = verify_and_auto_fix_preflight(workspace)
-            has_fix_request = any("/fix" in c.get("body", "") for c in pr.get("comments", []))
+            has_fix_request = any(
+                "/fix" in c.get("body", "") for c in pr.get("comments", [])
+            )
 
             # If auto-fix repaired changes (e.g. ruff imports/formatting), commit them
-            diff_check = subprocess.run(["git", "status", "--porcelain"], cwd=workspace, capture_output=True, text=True)
+            diff_check = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+            )
             if diff_check.stdout.strip() and is_green:
                 print(
                     f"[*] Fast deterministic auto-fix resolved issues on PR #{pr_num}. Pushing repair commit...",
                     flush=True,
                 )
-                run_cmd(["git", "config", "--replace-all", "user.name", USER_NAME], cwd=workspace, check=False)
-                run_cmd(["git", "config", "--replace-all", "user.email", USER_EMAIL], cwd=workspace, check=False)
+                run_cmd(
+                    ["git", "config", "--replace-all", "user.name", USER_NAME],
+                    cwd=workspace,
+                    check=False,
+                )
+                run_cmd(
+                    ["git", "config", "--replace-all", "user.email", USER_EMAIL],
+                    cwd=workspace,
+                    check=False,
+                )
                 run_cmd(
                     "git rm --cached -f ai_pr_*.md ai_review_*.json ci_fix_*.md 2>/dev/null || true",
                     cwd=workspace,
@@ -988,8 +1240,16 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
 
                 is_green, err_report = verify_and_auto_fix_preflight(workspace)
                 if is_green:
-                    run_cmd(["git", "config", "--replace-all", "user.name", USER_NAME], cwd=workspace, check=False)
-                    run_cmd(["git", "config", "--replace-all", "user.email", USER_EMAIL], cwd=workspace, check=False)
+                    run_cmd(
+                        ["git", "config", "--replace-all", "user.name", USER_NAME],
+                        cwd=workspace,
+                        check=False,
+                    )
+                    run_cmd(
+                        ["git", "config", "--replace-all", "user.email", USER_EMAIL],
+                        cwd=workspace,
+                        check=False,
+                    )
                     run_cmd(
                         "git rm --cached -f ai_pr_*.md ai_review_*.json ci_fix_*.md 2>/dev/null || true",
                         cwd=workspace,
@@ -1013,12 +1273,15 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
                         cwd=workspace,
                         check=False,
                     )
-                    run_cmd(["git", "push", "origin", head_ref], cwd=workspace, check=False)
+                    run_cmd(
+                        ["git", "push", "origin", head_ref], cwd=workspace, check=False
+                    )
                 else:
                     print(
-                        f"[!] PR #{pr_num} repair pass did not achieve 100% green. Closing unviable PR...", flush=True
+                        f"[!] PR #{pr_num} repair pass did not achieve 100% green. Closing unviable PR...",
+                        flush=True,
                     )
-                    close_reason = f"🛑 **CI Quality Gate: PR Closed (Unviable / Invariants Not Satisfied)**\n\nAutomated self-healing repair passes were exhausted without achieving passing test suites.\n\n*Closing PR and deleting branch to keep repository clean.*"
+                    close_reason = "🛑 **CI Quality Gate: PR Closed (Unviable / Invariants Not Satisfied)**\n\nAutomated self-healing repair passes were exhausted without achieving passing test suites.\n\n*Closing PR and deleting branch to keep repository clean.*"
                     run_cmd(
                         [
                             "gh",
@@ -1038,7 +1301,10 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
 
             # Proceed to architectural review if tests pass
             if is_green:
-                print(f"[*] PR #{pr_num} tests 100% green. Running Autonomous Reviewer...", flush=True)
+                print(
+                    f"[*] PR #{pr_num} tests 100% green. Running Autonomous Reviewer...",
+                    flush=True,
+                )
                 rev_env = env.copy()
                 rev_env["GEMINI_REVIEWER_KEY"] = GLOBAL_POOL.next_key()
                 rev_env["GH_REPO"] = REPO
@@ -1068,7 +1334,9 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
                 s_data = {}
                 if review_status_file.exists():
                     try:
-                        s_data = json.loads(review_status_file.read_text(encoding="utf-8"))
+                        s_data = json.loads(
+                            review_status_file.read_text(encoding="utf-8")
+                        )
                         score = s_data.get("score", 0)
                         verdict = s_data.get("verdict", "ACTION_REQUIRED")
                     except Exception:
@@ -1077,35 +1345,67 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
                 review_md_file = workspace / "ai_pr_review.md"
                 if review_md_file.exists():
                     run_cmd(
-                        ["gh", "pr", "comment", str(pr_num), "--body-file", str(review_md_file)],
+                        [
+                            "gh",
+                            "pr",
+                            "comment",
+                            str(pr_num),
+                            "--body-file",
+                            str(review_md_file),
+                        ],
                         cwd=workspace,
                         check=False,
                     )
 
                 if verdict == "APPROVED" and score >= 90:
                     print(
-                        f"[🚀] PR #{pr_num} APPROVED (Score: {score}/100)! Attempting to merge into main...", flush=True
+                        f"[🚀] PR #{pr_num} APPROVED (Score: {score}/100)! Attempting to merge into main...",
+                        flush=True,
                     )
                     run_cmd(
-                        ["gh", "label", "create", "ready-to-merge", "--color", "0E8A16", "-f"],
+                        [
+                            "gh",
+                            "label",
+                            "create",
+                            "ready-to-merge",
+                            "--color",
+                            "0E8A16",
+                            "-f",
+                        ],
                         cwd=workspace,
                         check=False,
                     )
                     run_cmd(
-                        ["gh", "pr", "edit", str(pr_num), "--add-label", "ready-to-merge"], cwd=workspace, check=False
+                        [
+                            "gh",
+                            "pr",
+                            "edit",
+                            str(pr_num),
+                            "--add-label",
+                            "ready-to-merge",
+                        ],
+                        cwd=workspace,
+                        check=False,
                     )
                     merge_res = run_cmd(
-                        ["gh", "pr", "merge", str(pr_num), "--squash", "--admin"], cwd=workspace, check=False
+                        ["gh", "pr", "merge", str(pr_num), "--squash", "--admin"],
+                        cwd=workspace,
+                        check=False,
                     )
 
                     # Verify PR was actually merged on GitHub
                     pr_state_raw = run_cmd(
-                        ["gh", "pr", "view", str(pr_num), "--json", "state,merged"], cwd=workspace, check=False
+                        ["gh", "pr", "view", str(pr_num), "--json", "state,merged"],
+                        cwd=workspace,
+                        check=False,
                     )
                     is_merged = False
                     try:
                         pr_data = json.loads(pr_state_raw) if pr_state_raw else {}
-                        is_merged = pr_data.get("merged", False) or pr_data.get("state") == "MERGED"
+                        is_merged = (
+                            pr_data.get("merged", False)
+                            or pr_data.get("state") == "MERGED"
+                        )
                     except Exception:
                         pass
 
@@ -1141,8 +1441,16 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
                             )
                         run_cmd(["git", "checkout", "main"], cwd=workspace)
                         run_cmd(["git", "pull", "origin", "main"], cwd=workspace)
-                        run_cmd(["git", "branch", "-D", head_ref], cwd=workspace, check=False)
-                        run_cmd(["git", "push", "origin", "--delete", head_ref], cwd=workspace, check=False)
+                        run_cmd(
+                            ["git", "branch", "-D", head_ref],
+                            cwd=workspace,
+                            check=False,
+                        )
+                        run_cmd(
+                            ["git", "push", "origin", "--delete", head_ref],
+                            cwd=workspace,
+                            check=False,
+                        )
                         return True
                     else:
                         print(
@@ -1163,7 +1471,11 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
                         )
                         run_cmd(["git", "checkout", "main"], cwd=workspace)
                         return False
-                elif verdict == "REJECT" or score < 60 or s_data.get("should_close", False):
+                elif (
+                    verdict == "REJECT"
+                    or score < 60
+                    or s_data.get("should_close", False)
+                ):
                     print(
                         f"[*] PR #{pr_num} REJECTED as unnecessary/anti-pattern (Score: {score}/100). Closing...",
                         flush=True,
@@ -1195,7 +1507,11 @@ def heal_and_merge_open_prs(workspace: Path, worker_id: int = 1, num_workers: in
                         flush=True,
                     )
         except Exception as e:
-            print(f"[Warning] Failed evaluating PR #{pr_num}: {e}", file=sys.stderr, flush=True)
+            print(
+                f"[Warning] Failed evaluating PR #{pr_num}: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
         finally:
             run_cmd(["git", "checkout", "main"], cwd=workspace, check=False)
 
@@ -1217,7 +1533,10 @@ def run_issue_job(
     issue_title = issue["title"]
     issue_body = issue.get("body", "")
 
-    print(f"\n[*] ExecutionLoop initiating combo_fix (3 credits) for Issue #{issue_num}...", flush=True)
+    print(
+        f"\n[*] ExecutionLoop initiating combo_fix (3 credits) for Issue #{issue_num}...",
+        flush=True,
+    )
 
     # Check daily volume and cost limits (Task 15)
     can_proceed, limit_reason = volume_limiter.check_limits(org_id=org, is_pr=True)
@@ -1245,7 +1564,9 @@ def run_issue_job(
         return bool(success)
     except Exception as e:
         print(
-            f"[ExecutionLoop Watchdog] Issue #{issue_num} failed with unhandled error: {e}", file=sys.stderr, flush=True
+            f"[ExecutionLoop Watchdog] Issue #{issue_num} failed with unhandled error: {e}",
+            file=sys.stderr,
+            flush=True,
         )
         traceback.print_exc(file=sys.stderr)
         # System-error auto-refund full 3 credits
@@ -1263,7 +1584,10 @@ def run_loop_iteration(
     # 0. Active Triage & Cleanup Gatekeeper: Automatically close unneeded, obsolete, or duplicate PRs & issues
     if worker_id == 1:
         try:
-            from scripts.triage_cleanup import audit_and_close_unneeded_prs, audit_and_close_unneeded_issues
+            from scripts.triage_cleanup import (
+                audit_and_close_unneeded_prs,
+                audit_and_close_unneeded_issues,
+            )
 
             audit_and_close_unneeded_prs(workspace)
             audit_and_close_unneeded_issues(workspace)
@@ -1271,9 +1595,14 @@ def run_loop_iteration(
             print(f"[Warning] Triage cleanup error: {e}", file=sys.stderr, flush=True)
 
     # 1. Active PR Sweeper & Self-Healing: Drain open PRs first
-    healed = heal_and_merge_open_prs(workspace, worker_id=worker_id, num_workers=num_workers)
+    healed = heal_and_merge_open_prs(
+        workspace, worker_id=worker_id, num_workers=num_workers
+    )
     if healed:
-        print(f"[*] Worker {worker_id} successfully merged an open PR in this cycle.", flush=True)
+        print(
+            f"[*] Worker {worker_id} successfully merged an open PR in this cycle.",
+            flush=True,
+        )
 
     # 2. Fetch available advancement issues not currently locked by an active PR or remote branch
     issues = get_open_advancement_issues(workspace)
@@ -1288,7 +1617,10 @@ def run_loop_iteration(
         issues = get_open_advancement_issues(workspace)
 
     if not issues:
-        print("[!] No issues ready to solve (waiting for new issue or PR merge).", flush=True)
+        print(
+            "[!] No issues ready to solve (waiting for new issue or PR merge).",
+            flush=True,
+        )
         return
 
     # Deterministic work partitioning across parallel workers
@@ -1298,15 +1630,35 @@ def run_loop_iteration(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="GossipMesh Autonomous Multi-Agent Daemon")
-    parser.add_argument("--workspace", default=".", help="Path to GossipMesh repository root")
-    parser.add_argument("--once", action="store_true", help="Run once and exit instead of continuous daemon")
-    parser.add_argument(
-        "--iterations", type=int, default=0, help="Number of advancement cycles to run (0 for continuous daemon)"
+    parser = argparse.ArgumentParser(
+        description="GossipMesh Autonomous Multi-Agent Daemon"
     )
-    parser.add_argument("--interval", type=int, default=10, help="Interval in seconds between cycles (default: 10s)")
-    parser.add_argument("--worker-id", type=int, default=1, help="Worker matrix ID (1-based)")
-    parser.add_argument("--num-workers", type=int, default=5, help="Total number of parallel workers")
+    parser.add_argument(
+        "--workspace", default=".", help="Path to GossipMesh repository root"
+    )
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run once and exit instead of continuous daemon",
+    )
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=0,
+        help="Number of advancement cycles to run (0 for continuous daemon)",
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=10,
+        help="Interval in seconds between cycles (default: 10s)",
+    )
+    parser.add_argument(
+        "--worker-id", type=int, default=1, help="Worker matrix ID (1-based)"
+    )
+    parser.add_argument(
+        "--num-workers", type=int, default=5, help="Total number of parallel workers"
+    )
     parser.add_argument(
         "--max-minutes",
         type=int,
@@ -1314,7 +1666,10 @@ def main():
         help="Maximum runtime in minutes before graceful handoff (0 for unlimited)",
     )
     parser.add_argument(
-        "--add-keys", nargs="*", default=[], help="Additional Gemini API keys to add to the round-robin pool"
+        "--add-keys",
+        nargs="*",
+        default=[],
+        help="Additional Gemini API keys to add to the round-robin pool",
     )
     args = parser.parse_args()
 
@@ -1332,7 +1687,10 @@ def main():
 
     if args.once:
         run_loop_iteration(
-            workspace, worker_id=args.worker_id, num_workers=args.num_workers, execution_loop=execution_loop
+            workspace,
+            worker_id=args.worker_id,
+            num_workers=args.num_workers,
+            execution_loop=execution_loop,
         )
     elif args.iterations > 0:
         print(
@@ -1340,21 +1698,31 @@ def main():
             flush=True,
         )
         for i in range(args.iterations):
-            print(f"\n=======================================================", flush=True)
+            print(
+                "\n=======================================================", flush=True
+            )
             print(
                 f"[*] Advancement Batch Cycle {i + 1}/{args.iterations} (Worker {args.worker_id}/{args.num_workers})",
                 flush=True,
             )
-            print(f"=======================================================", flush=True)
+            print("=======================================================", flush=True)
             try:
                 run_loop_iteration(
-                    workspace, worker_id=args.worker_id, num_workers=args.num_workers, execution_loop=execution_loop
+                    workspace,
+                    worker_id=args.worker_id,
+                    num_workers=args.num_workers,
+                    execution_loop=execution_loop,
                 )
             except Exception as e:
                 print(f"[Error in cycle {i + 1}]: {e}", file=sys.stderr, flush=True)
 
-            if args.max_minutes > 0 and (time.time() - start_time) >= (args.max_minutes * 60):
-                print(f"[*] Target runtime ({args.max_minutes} mins) reached. Gracefully concluding batch.", flush=True)
+            if args.max_minutes > 0 and (time.time() - start_time) >= (
+                args.max_minutes * 60
+            ):
+                print(
+                    f"[*] Target runtime ({args.max_minutes} mins) reached. Gracefully concluding batch.",
+                    flush=True,
+                )
                 break
 
             if i + 1 < args.iterations:
@@ -1367,19 +1735,27 @@ def main():
         while True:
             try:
                 run_loop_iteration(
-                    workspace, worker_id=args.worker_id, num_workers=args.num_workers, execution_loop=execution_loop
+                    workspace,
+                    worker_id=args.worker_id,
+                    num_workers=args.num_workers,
+                    execution_loop=execution_loop,
                 )
             except Exception as e:
                 print(f"[Error in loop]: {e}", file=sys.stderr, flush=True)
 
-            if args.max_minutes > 0 and (time.time() - start_time) >= (args.max_minutes * 60):
+            if args.max_minutes > 0 and (time.time() - start_time) >= (
+                args.max_minutes * 60
+            ):
                 print(
                     f"[*] Target runtime ({args.max_minutes} mins) reached. Gracefully concluding continuous cycle.",
                     flush=True,
                 )
                 break
 
-            print(f"[*] Sleeping for {args.interval} seconds until next iteration...", flush=True)
+            print(
+                f"[*] Sleeping for {args.interval} seconds until next iteration...",
+                flush=True,
+            )
             time.sleep(args.interval)
 
 

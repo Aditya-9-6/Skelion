@@ -1,6 +1,5 @@
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import PostgresDsn, RedisDsn
 
 
 class Settings(BaseSettings):
@@ -37,7 +36,9 @@ class Settings(BaseSettings):
 
     # Load provider API keys list (optional, can be empty)
     PROVIDER_API_KEYS: list[str] = (
-        os.getenv("PROVIDER_API_KEYS", "").split(",") if os.getenv("PROVIDER_API_KEYS") else []
+        os.getenv("PROVIDER_API_KEYS", "").split(",")
+        if os.getenv("PROVIDER_API_KEYS")
+        else []
     )
 
     def parse_key_pool(self, raw: str) -> list[str]:
@@ -53,7 +54,9 @@ class Settings(BaseSettings):
     def REDIS_URI(self) -> str:
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
+    )
 
 
 settings = Settings()  # type: ignore

@@ -37,12 +37,16 @@ class BackpressureSignalManager:
         self._last_updated: float = time.time()
         self._metrics_count: int = 0
 
-    def update_saturation(self, current_connections: int, max_connections: int) -> BackpressureState:
+    def update_saturation(
+        self, current_connections: int, max_connections: int
+    ) -> BackpressureState:
         """Updates saturation ratio based on active connections and recalculates state."""
         if max_connections <= 0:
             ratio = 1.0
         else:
-            ratio = min(max(0.0, float(current_connections) / float(max_connections)), 1.0)
+            ratio = min(
+                max(0.0, float(current_connections) / float(max_connections)), 1.0
+            )
 
         with self._lock:
             self._current_saturation = ratio
@@ -81,7 +85,8 @@ class BackpressureSignalManager:
             return {
                 "saturation": self._current_saturation,
                 "state": self._state.value,
-                "should_drop_low_priority": self._current_saturation >= self.config.critical_threshold,
+                "should_drop_low_priority": self._current_saturation
+                >= self.config.critical_threshold,
                 "last_updated": self._last_updated,
                 "metrics_count": self._metrics_count,
             }

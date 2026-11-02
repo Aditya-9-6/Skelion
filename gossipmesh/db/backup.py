@@ -61,7 +61,11 @@ class DatabaseBackupManager:
         backup_id = f"backup_{db_name}_{timestamp}"
         enc_path = self.backup_dir / f"{backup_id}.enc"
 
-        payload = data_dump if data_dump is not None else {"status": "snapshot", "db": db_name, "tables": tables or []}
+        payload = (
+            data_dump
+            if data_dump is not None
+            else {"status": "snapshot", "db": db_name, "tables": tables or []}
+        )
         serialized = json.dumps(payload, indent=2, default=str).encode("utf-8")
 
         sha256 = hashlib.sha256(serialized).hexdigest()
@@ -99,7 +103,9 @@ class DatabaseBackupManager:
             expected_sha = meta_data.get("checksum_sha256")
             computed_sha = hashlib.sha256(decrypted_bytes).hexdigest()
             if expected_sha and computed_sha != expected_sha:
-                raise ValueError(f"Integrity check failed: Expected {expected_sha}, computed {computed_sha}")
+                raise ValueError(
+                    f"Integrity check failed: Expected {expected_sha}, computed {computed_sha}"
+                )
 
         return json.loads(decrypted_bytes.decode("utf-8"))
 
@@ -113,16 +119,34 @@ class DatabaseBackupManager:
         from gossipmesh.models.repository import Repository
         from gossipmesh.models.runtime import Budget, Workflow
 
-        tenant = db_session.query(Organization).filter(Organization.id == organization_id).first()
+        tenant = (
+            db_session.query(Organization)
+            .filter(Organization.id == organization_id)
+            .first()
+        )
         if not tenant:
             raise ValueError(f"Organization ID {organization_id} not found")
 
         users = getattr(tenant, "users", [])
-        repos = db_session.query(Repository).filter(Repository.organization_id == organization_id).all()
+        repos = (
+            db_session.query(Repository)
+            .filter(Repository.organization_id == organization_id)
+            .all()
+        )
         repo_ids = [r.id for r in repos]
 
-        workflows = db_session.query(Workflow).filter(Workflow.repository_id.in_(repo_ids)).all() if repo_ids else []
-        budget = db_session.query(Budget).filter(Budget.organization_id == organization_id).first()
+        workflows = (
+            db_session.query(Workflow)
+            .filter(Workflow.repository_id.in_(repo_ids))
+            .all()
+            if repo_ids
+            else []
+        )
+        budget = (
+            db_session.query(Budget)
+            .filter(Budget.organization_id == organization_id)
+            .first()
+        )
 
         tenant_slug = getattr(tenant, "slug", getattr(tenant, "name", "").lower())
         tenant_export = {
@@ -135,7 +159,9 @@ class DatabaseBackupManager:
                 "id": tenant.id,
                 "name": tenant.name,
                 "slug": tenant_slug,
-                "created_at": str(tenant.created_at) if hasattr(tenant, "created_at") else None,
+                "created_at": str(tenant.created_at)
+                if hasattr(tenant, "created_at")
+                else None,
             },
             "users": [
                 {
@@ -160,7 +186,9 @@ class DatabaseBackupManager:
                     "id": w.id,
                     "repository_id": w.repository_id,
                     "status": getattr(w, "status", "completed"),
-                    "created_at": str(w.created_at) if hasattr(w, "created_at") else None,
+                    "created_at": str(w.created_at)
+                    if hasattr(w, "created_at")
+                    else None,
                 }
                 for w in workflows
             ],
@@ -174,6 +202,8 @@ class DatabaseBackupManager:
 
         if output_file:
             Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-            Path(output_file).write_text(json.dumps(tenant_export, indent=2), encoding="utf-8")
+            Path(output_file).write_text(
+                json.dumps(tenant_export, indent=2), encoding="utf-8"
+            )
 
         return tenant_export

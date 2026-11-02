@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, Set, Optional, Any, Tuple
+from typing import Dict, Set, Optional, Tuple
 from gossipmesh.agents.crdt_store import DeltaORSetStore
 from gossipmesh.core.clocks import VectorClock
 
@@ -16,7 +16,9 @@ class AgentTaskAllocator:
         self.vector_clock = VectorClock(node_id=node_id)
         self._lock = threading.Lock()
 
-    def claim_task(self, task_id: str, agent_id: str) -> Tuple[str, Set[Tuple[str, str]]]:
+    def claim_task(
+        self, task_id: str, agent_id: str
+    ) -> Tuple[str, Set[Tuple[str, str]]]:
         """
         Claims a task for a given agent. Returns task assignment and generated delta tags.
         """
@@ -26,7 +28,9 @@ class AgentTaskAllocator:
             _, delta_tags = self.store.add(assignment)
             return assignment, delta_tags
 
-    def release_task(self, task_id: str, agent_id: str) -> Tuple[str, Set[Tuple[str, str]]]:
+    def release_task(
+        self, task_id: str, agent_id: str
+    ) -> Tuple[str, Set[Tuple[str, str]]]:
         """
         Releases/unclaims a task for a given agent.
         """

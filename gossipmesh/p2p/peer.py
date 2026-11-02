@@ -5,14 +5,21 @@ from gossipmesh.p2p.health import SlidingWindowPeerHealthScorecard, PeerHealthCo
 
 
 class PeerNode:
-    def __init__(self, peer_id: str, address: str, health_config: Optional[PeerHealthConfig] = None) -> None:
+    def __init__(
+        self,
+        peer_id: str,
+        address: str,
+        health_config: Optional[PeerHealthConfig] = None,
+    ) -> None:
         self.peer_id = peer_id
         self.address = address
         self.scorecard = SlidingWindowPeerHealthScorecard(health_config)
         self.connected_at = time.time()
         self._lock = threading.Lock()
 
-    def record_interaction(self, latency_ms: float, dropped: bool = False, violated: bool = False) -> float:
+    def record_interaction(
+        self, latency_ms: float, dropped: bool = False, violated: bool = False
+    ) -> float:
         return self.scorecard.record_sample(latency_ms, dropped, violated)
 
     def is_healthy(self) -> bool:

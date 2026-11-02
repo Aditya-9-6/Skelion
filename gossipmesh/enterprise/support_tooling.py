@@ -11,11 +11,10 @@ Provides authorized, break-glass bounded operator operations:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-from sqlalchemy import select
+from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
-from gossipmesh.core.exceptions import AuthorizationError, ValidationError
+from gossipmesh.core.exceptions import ValidationError
 from gossipmesh.enterprise.break_glass import BreakGlassControlService
 from gossipmesh.enterprise.disaster_recovery import DisasterRecoveryService
 from gossipmesh.models.audit import AuditEvent
@@ -30,7 +29,9 @@ class CustomerSupportTooling:
     def __init__(self, break_glass_service: Optional[BreakGlassControlService] = None):
         self.break_glass = break_glass_service or BreakGlassControlService()
 
-    def _require_authorized_session(self, support_user_id: int, organization_id: int) -> None:
+    def _require_authorized_session(
+        self, support_user_id: int, organization_id: int
+    ) -> None:
         """Enforces that an active, non-expired break-glass session exists."""
         self.break_glass.verify_access(
             support_user_id=support_user_id,
@@ -50,8 +51,14 @@ class CustomerSupportTooling:
         if not org:
             raise ValidationError(f"Organization ID {organization_id} not found")
 
-        member_count = session.query(UserOrganization).filter_by(organization_id=organization_id).count()
-        repo_count = session.query(Repository).filter_by(organization_id=organization_id).count()
+        member_count = (
+            session.query(UserOrganization)
+            .filter_by(organization_id=organization_id)
+            .count()
+        )
+        repo_count = (
+            session.query(Repository).filter_by(organization_id=organization_id).count()
+        )
 
         audit = AuditEvent(
             action="support.organization_lookup",
@@ -80,12 +87,17 @@ class CustomerSupportTooling:
 
         failed_workflows = (
             session.query(Workflow)
-            .filter(Workflow.organization_id == organization_id, Workflow.status == "failed")
+            .filter(
+                Workflow.organization_id == organization_id, Workflow.status == "failed"
+            )
             .count()
         )
         running_workflows = (
             session.query(Workflow)
-            .filter(Workflow.organization_id == organization_id, Workflow.status == "running")
+            .filter(
+                Workflow.organization_id == organization_id,
+                Workflow.status == "running",
+            )
             .count()
         )
 
@@ -108,15 +120,21 @@ class CustomerSupportTooling:
 
         wf = session.get(Workflow, workflow_id)
         if not wf or wf.organization_id != organization_id:
-            raise ValidationError(f"Workflow ID {workflow_id} not found for organization {organization_id}")
+            raise ValidationError(
+                f"Workflow ID {workflow_id} not found for organization {organization_id}"
+            )
 
         if wf.status != "failed":
-            raise ValidationError(f"Cannot retry workflow with status '{wf.status}', must be 'failed'")
+            raise ValidationError(
+                f"Cannot retry workflow with status '{wf.status}', must be 'failed'"
+            )
 
         wf.status = "pending"
 
         # Re-queue failed jobs
-        session.query(Job).filter(Job.workflow_id == workflow_id, Job.status == "failed").update({"status": "pending"})
+        session.query(Job).filter(
+            Job.workflow_id == workflow_id, Job.status == "failed"
+        ).update({"status": "pending"})
 
         audit = AuditEvent(
             action="support.workflow_retried",

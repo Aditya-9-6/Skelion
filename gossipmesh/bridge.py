@@ -3,11 +3,13 @@ Cross-Repo Wire Contract & Telemetry Schema Synchronizer.
 Keeps DevProxy (Go) and Spryzen (Rust) type definitions in automated lockstep.
 """
 
-from typing import Dict, Any, List
+from typing import Dict
 
 
 class WireContract:
-    def __init__(self, name: str, version: int, fields: Dict[str, str], source_repo: str):
+    def __init__(
+        self, name: str, version: int, fields: Dict[str, str], source_repo: str
+    ):
         self.name = name
         self.version = version
         self.fields = fields
@@ -15,7 +17,9 @@ class WireContract:
 
     def to_go_struct(self) -> str:
         """Generates idiomatic Go struct representation."""
-        lines = [f"// {self.name} (v{self.version}) - Synchronized via GossipMesh from {self.source_repo}"]
+        lines = [
+            f"// {self.name} (v{self.version}) - Synchronized via GossipMesh from {self.source_repo}"
+        ]
         lines.append(f"type {self.name} struct {{")
         type_map = {
             "string": "string",
@@ -63,7 +67,9 @@ class CrossRepoBridge:
     def __init__(self):
         self.contracts: Dict[str, WireContract] = {}
 
-    def register(self, name: str, version: int, fields: Dict[str, str], source_repo: str) -> WireContract:
+    def register(
+        self, name: str, version: int, fields: Dict[str, str], source_repo: str
+    ) -> WireContract:
         contract = WireContract(name, version, fields, source_repo)
         self.contracts[name] = contract
         return contract

@@ -48,8 +48,12 @@ class StripeBillingService:
         return_url: str = "https://app.gossipmesh.com/settings/billing",
     ):
         self.api_key = api_key or "sk_test_dummy_gossipmesh_placeholder_key"
-        self.webhook_secret = webhook_secret or "whsec_dummy_gossipmesh_placeholder_secret"
-        self.test_mode = test_mode or self.api_key.startswith("sk_test_dummy") or stripe is None
+        self.webhook_secret = (
+            webhook_secret or "whsec_dummy_gossipmesh_placeholder_secret"
+        )
+        self.test_mode = (
+            test_mode or self.api_key.startswith("sk_test_dummy") or stripe is None
+        )
         self.success_url = success_url
         self.cancel_url = cancel_url
         self.return_url = return_url
@@ -57,8 +61,12 @@ class StripeBillingService:
         if not self.test_mode and stripe is not None:
             stripe.api_key = self.api_key
 
-    def get_customer_by_org(self, session: Session, organization_id: int) -> Optional[StripeCustomer]:
-        stmt = select(StripeCustomer).where(StripeCustomer.organization_id == organization_id)
+    def get_customer_by_org(
+        self, session: Session, organization_id: int
+    ) -> Optional[StripeCustomer]:
+        stmt = select(StripeCustomer).where(
+            StripeCustomer.organization_id == organization_id
+        )
         return session.execute(stmt).scalars().first()
 
     def get_or_create_customer(
@@ -126,7 +134,12 @@ class StripeBillingService:
             mode="subscription",
             success_url=f"{s_url}?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=c_url,
-            subscription_data={"metadata": {"organization_id": str(organization_id), "plan_id": plan_id}},
+            subscription_data={
+                "metadata": {
+                    "organization_id": str(organization_id),
+                    "plan_id": plan_id,
+                }
+            },
         )
         return {"id": session_obj.id, "url": str(session_obj.url)}
 
@@ -138,7 +151,9 @@ class StripeBillingService:
     ) -> Dict[str, str]:
         customer = self.get_customer_by_org(session, organization_id)
         if not customer:
-            raise ValidationError(f"No Stripe customer found for organization {organization_id}")
+            raise ValidationError(
+                f"No Stripe customer found for organization {organization_id}"
+            )
 
         ret_url = return_url or self.return_url
         if self.test_mode or stripe is None:
@@ -151,7 +166,9 @@ class StripeBillingService:
         )
         return {"url": str(portal_session.url)}
 
-    def get_active_subscription(self, session: Session, organization_id: int) -> Optional[BillingSubscription]:
+    def get_active_subscription(
+        self, session: Session, organization_id: int
+    ) -> Optional[BillingSubscription]:
         stmt = (
             select(BillingSubscription)
             .where(
@@ -170,11 +187,15 @@ class StripeBillingService:
     ) -> BillingSubscription:
         sub = self.get_active_subscription(session, organization_id)
         if not sub:
-            raise ValidationError(f"No active subscription found for organization {organization_id}")
+            raise ValidationError(
+                f"No active subscription found for organization {organization_id}"
+            )
 
         if not self.test_mode and stripe is not None:
             if cancel_at_period_end:
-                stripe.Subscription.modify(sub.stripe_subscription_id, cancel_at_period_end=True)
+                stripe.Subscription.modify(
+                    sub.stripe_subscription_id, cancel_at_period_end=True
+                )
             else:
                 stripe.Subscription.cancel(sub.stripe_subscription_id)
 
@@ -215,7 +236,9 @@ class StripeBillingService:
                     tolerance=tolerance,
                 )
             except Exception as e:
-                raise AuthenticationError(f"Stripe signature verification failed: {str(e)}")
+                raise AuthenticationError(
+                    f"Stripe signature verification failed: {str(e)}"
+                )
 
         parts: Dict[str, str] = {}
         for item in signature_header.split(","):
@@ -251,13 +274,17 @@ class StripeBillingService:
 
         return json.loads(payload_bytes.decode("utf-8"))
 
-    def handle_webhook_event(self, session: Session, event: Dict[str, Any]) -> Dict[str, Any]:
+    def handle_webhook_event(
+        self, session: Session, event: Dict[str, Any]
+    ) -> Dict[str, Any]:
         event_id = event.get("id")
         event_type = event.get("type")
         if not event_id or not event_type:
             raise ValidationError("Malformed Stripe event payload")
 
-        stmt = select(ProcessedWebhookEvent).where(ProcessedWebhookEvent.stripe_event_id == event_id)
+        stmt = select(ProcessedWebhookEvent).where(
+            ProcessedWebhookEvent.stripe_event_id == event_id
+        )
         existing = session.execute(stmt).scalars().first()
         if existing:
             return {"status": "already_processed", "event_id": event_id}
@@ -265,7 +292,10 @@ class StripeBillingService:
         data_obj = event.get("data", {}).get("object", {})
 
         try:
-            if event_type in ("customer.subscription.created", "customer.subscription.updated"):
+            if event_type in (
+                "customer.subscription.created",
+                "customer.subscription.updated",
+            ):
                 sub_id = data_obj.get("id")
                 cust_id = data_obj.get("customer")
                 plan_id = data_obj.get("plan", {}).get("id") or "pro"
@@ -273,10 +303,14 @@ class StripeBillingService:
                 cancel_at_period_end = data_obj.get("cancel_at_period_end", False)
                 quantity = data_obj.get("quantity", 1)
 
-                cust_stmt = select(StripeCustomer).where(StripeCustomer.stripe_customer_id == cust_id)
+                cust_stmt = select(StripeCustomer).where(
+                    StripeCustomer.stripe_customer_id == cust_id
+                )
                 db_cust = session.execute(cust_stmt).scalars().first()
                 if db_cust:
-                    sub_stmt = select(BillingSubscription).where(BillingSubscription.stripe_subscription_id == sub_id)
+                    sub_stmt = select(BillingSubscription).where(
+                        BillingSubscription.stripe_subscription_id == sub_id
+                    )
                     sub = session.execute(sub_stmt).scalars().first()
                     if not sub:
                         sub = BillingSubscription(
@@ -297,7 +331,9 @@ class StripeBillingService:
 
             elif event_type == "customer.subscription.deleted":
                 sub_id = data_obj.get("id")
-                sub_stmt = select(BillingSubscription).where(BillingSubscription.stripe_subscription_id == sub_id)
+                sub_stmt = select(BillingSubscription).where(
+                    BillingSubscription.stripe_subscription_id == sub_id
+                )
                 sub = session.execute(sub_stmt).scalars().first()
                 if sub:
                     sub.status = "canceled"
@@ -309,14 +345,20 @@ class StripeBillingService:
                 amount_due = data_obj.get("amount_due", 0)
                 amount_paid = data_obj.get("amount_paid", 0)
                 currency = data_obj.get("currency", "usd")
-                inv_status = data_obj.get("status", "paid" if event_type == "invoice.paid" else "open")
+                inv_status = data_obj.get(
+                    "status", "paid" if event_type == "invoice.paid" else "open"
+                )
                 invoice_url = data_obj.get("hosted_invoice_url")
                 invoice_pdf = data_obj.get("invoice_pdf")
 
-                cust_stmt = select(StripeCustomer).where(StripeCustomer.stripe_customer_id == cust_id)
+                cust_stmt = select(StripeCustomer).where(
+                    StripeCustomer.stripe_customer_id == cust_id
+                )
                 db_cust = session.execute(cust_stmt).scalars().first()
                 if db_cust:
-                    inv_stmt = select(BillingInvoice).where(BillingInvoice.stripe_invoice_id == inv_id)
+                    inv_stmt = select(BillingInvoice).where(
+                        BillingInvoice.stripe_invoice_id == inv_id
+                    )
                     inv = session.execute(inv_stmt).scalars().first()
                     if not inv:
                         inv = BillingInvoice(
@@ -354,4 +396,6 @@ class StripeBillingService:
             )
             session.add(record)
             session.commit()
-            raise GossipMeshException(f"Failed to handle Stripe webhook event {event_id}: {str(e)}")
+            raise GossipMeshException(
+                f"Failed to handle Stripe webhook event {event_id}: {str(e)}"
+            )
