@@ -116,6 +116,20 @@ async function resolveApiBase(): Promise<string> {
 
     try {
 
+        const customUrl = vscode.workspace.getConfiguration('skelion').get<string>('serverUrl');
+
+        if (customUrl && customUrl.trim()) {
+
+            CURRENT_API_BASE = customUrl.trim().replace(/\/$/, '');
+
+            return CURRENT_API_BASE;
+
+        }
+
+    } catch (_) {}
+
+    try {
+
         const r3 = await safeFetch('http://127.0.0.1:8003/v1/waf/metrics', { signal: AbortSignal.timeout(500) });
 
         if (r3.ok) {

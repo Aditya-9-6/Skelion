@@ -44,6 +44,16 @@
           "name": "Dashboard"
         }
       ]
+    },
+    "configuration": {
+      "title": "Skelion",
+      "properties": {
+        "skelion.serverUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional custom Skelion backend or Render URL (e.g. https://skelion.onrender.com). If empty, auto-detects local server."
+        }
+      }
     }
   },
   "scripts": {
@@ -56,9 +66,10 @@
     "type": "git",
     "url": "https://github.com/Aditya-9-6/Skelion.git"
   },
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.88.0",
-    "@vscode/vsce": "2.24.0",
-  "license": "MIT"
+    "@vscode/vsce": "2.24.0"
+  }
 }

@@ -80,6 +80,14 @@ async function safeFetch(url, options = {}) {
 }
 async function resolveApiBase() {
     try {
+        const customUrl = vscode.workspace.getConfiguration('skelion').get('serverUrl');
+        if (customUrl && customUrl.trim()) {
+            CURRENT_API_BASE = customUrl.trim().replace(/\/$/, '');
+            return CURRENT_API_BASE;
+        }
+    }
+    catch (_) { }
+    try {
         const r3 = await safeFetch('http://127.0.0.1:8003/v1/waf/metrics', { signal: AbortSignal.timeout(500) });
         if (r3.ok) {
             CURRENT_API_BASE = 'http://127.0.0.1:8003';
