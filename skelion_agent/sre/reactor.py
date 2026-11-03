@@ -2,6 +2,11 @@ import select
 import socket
 import logging
 from typing import Dict, Optional
+
+# Fallback for Windows: ensure select has EPOLLIN attribute
+if not hasattr(select, "EPOLLIN"):
+    select.EPOLLIN = getattr(select, "POLLIN", 0x001)
+
 from skelion_agent.sre.load_shedder import AdaptiveLoadShedder
 
 logger = logging.getLogger(__name__)
@@ -14,13 +19,11 @@ class EpollReactorMesh:
 
     def __init__(self, load_shedder: Optional[AdaptiveLoadShedder] = None) -> None:
         self.load_shedder = load_shedder or AdaptiveLoadShedder()
-        self.epoll = getattr(select, "epoll", None)()
         # Fallback for Windows: use poll if epoll not available
-        if not hasattr(select, "epoll"):
+        if hasattr(select, "epoll"):
+            self.epoll = select.epoll()
+        else:
             self.epoll = select.poll()
-            # define EPOLLIN constant if missing
-            if not hasattr(select, "EPOLLIN"):
-                select.EPOLLIN = getattr(select, "POLLIN", 0x001)
 
         self.fd_map: Dict[int, socket.socket] = {}
         self._running = False

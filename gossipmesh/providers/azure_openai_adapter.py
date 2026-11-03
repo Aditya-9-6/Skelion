@@ -1,7 +1,14 @@
 from typing import Any, AsyncGenerator
 import time
-from openai import AsyncAzureOpenAI
-import tiktoken
+try:
+    from openai import AsyncAzureOpenAI
+except ImportError:
+    class AsyncAzureOpenAI:  # type: ignore
+        def __init__(self, *args, **kwargs): pass
+try:
+    import tiktoken
+except ImportError:
+    tiktoken = None
 
 from gossipmesh.providers.base import BaseProvider
 from gossipmesh.providers.models import (

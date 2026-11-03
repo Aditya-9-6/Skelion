@@ -24,6 +24,7 @@ class EphemeralAntiEntropyNode:
         self.host = host
         self.port = port
         self.state: Dict[str, str] = state or {}
+        self._versions: Dict[str, float] = {k: time.time() for k in self.state}
         self.merkle_tree = MerkleTree(self.state)
         self.sync_interval = sync_interval
         self._transport: Optional[asyncio.DatagramTransport] = None
@@ -38,6 +39,7 @@ class EphemeralAntiEntropyNode:
 
     def update_state(self, key: str, value: str) -> None:
         self.state[key] = value
+        self._versions[key] = time.time()
         self.merkle_tree.insert(key, value)
 
     async def start(self) -> None:
@@ -80,7 +82,6 @@ class EphemeralAntiEntropyNode:
             while self._is_running:
                 await asyncio.sleep(self.sync_interval)
                 if self.peers:
-                    # Pick a peer for anti-entropy sync
                     peer = self.peers[int(time.time() * 1000) % len(self.peers)]
                     await self._send_digest_request(peer)
         except asyncio.CancelledError:
@@ -95,6 +96,8 @@ class EphemeralAntiEntropyNode:
             "type": "DIGEST_REQ",
             "sender": (self.host, self.port),
             "root_hash": self.merkle_tree.get_root_hash(),
+            "state": self.state,
+            "versions": self._versions,
         }
         try:
             self._transport.sendto(json.dumps(packet).encode("utf-8"), peer)
@@ -107,33 +110,43 @@ class EphemeralAntiEntropyNode:
             p_type = packet.get("type")
             if p_type == "DIGEST_REQ":
                 peer_root = packet.get("root_hash")
+                peer_state = packet.get("state", {})
+                peer_versions = packet.get("versions", {})
                 local_root = self.merkle_tree.get_root_hash()
                 if peer_root != local_root:
-                    # Send our subtree fingerprints for reconciliation
+                    self._reconcile(peer_state, {}, peer_versions)
+                    dest = tuple(packet.get("sender")) if packet.get("sender") else addr
                     resp = {
                         "type": "DIGEST_RESP",
                         "sender": (self.host, self.port),
                         "fingerprints": self.merkle_tree.get_subtree_fingerprints(),
                         "state": self.state,
+                        "versions": self._versions,
                     }
                     if self._transport:
-                        self._transport.sendto(json.dumps(resp).encode("utf-8"), addr)
+                        self._transport.sendto(json.dumps(resp).encode("utf-8"), dest)
             elif p_type == "DIGEST_RESP":
                 peer_state = packet.get("state", {})
                 peer_fps = packet.get("fingerprints", {})
-                self._reconcile(peer_state, peer_fps)
+                peer_versions = packet.get("versions", {})
+                self._reconcile(peer_state, peer_fps, peer_versions)
         except Exception as e:
             logger.error(f"Error handling packet from {addr}: {e}")
 
     def _reconcile(
-        self, peer_state: Dict[str, str], peer_fingerprints: Dict[str, str]
+        self,
+        peer_state: Dict[str, str],
+        peer_fingerprints: Dict[str, str],
+        peer_versions: Optional[Dict[str, float]] = None,
     ) -> None:
-        local_fps = self.merkle_tree.get_subtree_fingerprints()
-        # Simple anti-entropy reconciliation: pull missing or divergent keys
+        peer_versions = peer_versions or {}
         updated = False
         for k, v in peer_state.items():
-            if self.state.get(k) != v:
+            peer_ver = peer_versions.get(k, 0.0)
+            local_ver = self._versions.get(k, 0.0)
+            if k not in self.state or peer_ver > local_ver:
                 self.state[k] = v
+                self._versions[k] = peer_ver
                 self.merkle_tree.insert(k, v)
                 updated = True
         if updated:

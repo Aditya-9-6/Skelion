@@ -1,7 +1,10 @@
 from typing import AsyncGenerator
 import time
 import asyncio
-import boto3
+try:
+    import boto3
+except ImportError:
+    boto3 = None  # type: ignore
 
 from gossipmesh.providers.base import BaseProvider
 from gossipmesh.providers.models import (

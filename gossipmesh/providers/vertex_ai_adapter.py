@@ -1,7 +1,11 @@
 from typing import AsyncGenerator
 import time
-import vertexai
-from vertexai.generative_models import GenerativeModel, Part, Content
+try:
+    import vertexai
+    from vertexai.generative_models import GenerativeModel, Part, Content
+except ImportError:
+    vertexai = None  # type: ignore
+    GenerativeModel = Part = Content = None  # type: ignore
 
 from gossipmesh.providers.base import BaseProvider
 from gossipmesh.providers.models import (
