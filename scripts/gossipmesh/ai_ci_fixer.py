@@ -476,7 +476,7 @@ def detect_and_resolve_conflicts(
         )
         for line in status_res.stdout.splitlines():
             if line and line[:2] in ("UU", "AA", "UD", "DU", "AU", "UA", "DD"):
-                conflicted_files.add(line[3:].strip().replace("\", "/"))
+                conflicted_files.add(line[3:].strip().replace("\\", "/"))
     except Exception:
         pass
 
@@ -486,7 +486,7 @@ def detect_and_resolve_conflicts(
             if "<<<<<<< HEAD" in content or (
                 "=======" in content and ">>>>>>>" in content
             ):
-                conflicted_files.add(str(p.relative_to(workspace)).replace("\", "/"))
+                conflicted_files.add(str(p.relative_to(workspace)).replace("\\", "/"))
         except Exception:
             pass
 
@@ -567,10 +567,10 @@ CRITICAL INSTRUCTIONS:
             files = res.get("files", [])
             for f in files:
                 if f.get("content"):
-                    dest = workspace / f["path"].replace("\", "/")
+                    dest = workspace / f["path"].replace("\\", "/")
                     dest.write_text(f["content"], encoding="utf-8")
                     subprocess.run(
-                        ["git", "add", f["path"].replace("\", "/")], cwd=workspace
+                        ["git", "add", f["path"].replace("\\", "/")], cwd=workspace
                     )
                     resolved.append(rel_path)
                     print(
@@ -934,7 +934,7 @@ def extract_referenced_files(error_log: str, workspace: Path) -> list[str]:
         if (workspace / d).is_dir()
     ]
     for match in pattern.finditer(error_log):
-        rel_str = match.group(1).replace("\", "/")
+        rel_str = match.group(1).replace("\\", "/")
         p = workspace / rel_str
         if p.is_file() and not any(
             part in p.parts for part in (".venv", ".git", "__pycache__")
@@ -950,7 +950,7 @@ def extract_referenced_files(error_log: str, workspace: Path) -> list[str]:
                     if sub.name == Path(rel_str).name:
                         try:
                             found.add(
-                                str(sub.relative_to(workspace)).replace("\", "/")
+                                str(sub.relative_to(workspace)).replace("\\", "/")
                             )
                         except ValueError:
                             pass
@@ -965,7 +965,7 @@ def extract_referenced_files(error_log: str, workspace: Path) -> list[str]:
             errors="replace",
         )
         for line in diff_names.stdout.splitlines():
-            line = line.strip().replace("\", "/")
+            line = line.strip().replace("\\", "/")
             if line.endswith(".py") and (workspace / line).is_file():
                 found.add(line)
     except Exception:
@@ -1112,7 +1112,7 @@ def main():
     review_feedback = ""
     if args.review_feedback_file and Path(args.review_feedback_file).is_file():
         review_feedback = Path(args.review_feedback_file).read_text(encoding="utf-8")
-        print(f"[*] Loaded Reviewer Feedback ({len(review_feedback)} chars).Counters")
+        print(f"[*] Loaded Reviewer Feedback ({len(review_feedback)} chars).")
 
     all_repaired_files = set(conflicts_resolved)
     latest_summary = "Resolved Git merge conflicts." if conflicts_resolved else ""
@@ -1184,7 +1184,7 @@ Your goal: Fix all lint errors, type errors, and broken tests so that all diagno
 {pr_diff[:10000]}
 
 === REFERENCED SOURCE FILES (PRESERVE ALL EXISTING CODE) ===
-{chr(10).join(f"--- File: {path} ---{chr(10)}{content}" for path, content in file_contents.items())}
+{chr(10).join(f"--- File: {path} ---\n{content}" for path, content in file_contents.items())}
 
 Instructions:
 1. Fix all failing checks above.
@@ -1211,7 +1211,7 @@ Instructions:
 
         print(f"[*] Applying {len(files)} fixed file(s)...", flush=True)
         for f in files:
-            rel_path = f["path"].replace("\", "/")
+            rel_path = f["path"].replace("\\", "/")
             content = f["content"]
             target = workspace / rel_path
 

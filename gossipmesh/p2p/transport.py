@@ -3,7 +3,7 @@
 from typing import Any, Dict, Optional
 import logging
 
-from gossipmesh.p2p.fountain import FountainDecoder, FountainFragmentConfig
+from gossipmesh.p2p.fountain import FountainFragmentConfig, FountainDecoder
 
 logger = logging.getLogger(__name__)
 

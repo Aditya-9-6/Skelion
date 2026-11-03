@@ -22,6 +22,7 @@ class PacketFragment:
         self.data = data
 
     def serialize(self) -> bytes:
+        # Simple header format: msg_id_len (1B), msg_id, index (4B), total (4B), crc32 (4B), data_len (4B), data
         msg_bytes = self.message_id.encode("utf-8")
         header = (
             bytes([len(msg_bytes)])
@@ -59,6 +60,7 @@ class PacketFragmenter:
 
     def fragment(self, message_id: str, payload: bytes) -> List[PacketFragment]:
         full_crc = zlib.crc32(payload) & 0xFFFFFFFF
+        # Reserve space for header overhead
         chunk_size = max(100, self.mtu - 128)
         chunks = [
             payload[i : i + chunk_size] for i in range(0, len(payload), chunk_size)
