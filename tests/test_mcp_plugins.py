@@ -142,3 +142,27 @@ def test_plugin_rest_api_endpoints(tmp_path):
     exec_res = client.post("/v1/plugins/execute-tool", json={"tool_name": active_tool, "arguments": {}})
     assert exec_res.status_code == 200
     assert exec_res.json()["status"] == "ok"
+
+
+def test_connect_github_tool_repo_rea(tmp_path):
+    storage_file = str(tmp_path / "plugins.json")
+    registry = PluginRegistry(storage_path=storage_file)
+
+    # Test connecting morluto/rea repository directly
+    res = registry.import_github_tool_repo("https://github.com/morluto/rea")
+    assert res["status"] == "ok"
+    plugin = res["plugin"]
+    assert "REA" in plugin["name"]
+    assert plugin["type"] == "mcp_stdio"
+    assert plugin["source"] == "github_repo"
+    assert len(plugin["tools"]) >= 3
+    tool_names = [t["name"] for t in plugin["tools"]]
+    assert "rea_open_binary" in tool_names
+    assert "rea_decompile" in tool_names
+    assert "rea_search_strings" in tool_names
+
+    # Test via REST API endpoint
+    api_res = client.post("/v1/plugins/connect-github-repo", json={"repo_url": "github.com/morluto/rea"})
+    assert api_res.status_code == 200
+    assert api_res.json()["status"] == "ok"
+    assert "REA" in api_res.json()["plugin"]["name"]

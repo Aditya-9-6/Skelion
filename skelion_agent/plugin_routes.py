@@ -40,6 +40,11 @@ class ImportClaudeRequest(BaseModel):
     config_path: Optional[str] = None
 
 
+class ConnectGitHubRepoRequest(BaseModel):
+    repo_url: str
+    command: Optional[str] = None
+
+
 class ImportOpenApiRequest(BaseModel):
     spec: Dict[str, Any]
     title: Optional[str] = None
@@ -106,6 +111,12 @@ async def import_claude_plugins(req: Optional[ImportClaudeRequest] = None):
 async def import_openapi_action(req: ImportOpenApiRequest):
     """Imports OpenAPI 3.0/3.1 specs used in ChatGPT Custom Actions."""
     return plugin_registry.import_openapi_action(req.spec, title=req.title)
+
+
+@router.post("/connect-github-repo")
+async def connect_github_repo(req: ConnectGitHubRepoRequest):
+    """Connects any open-source GitHub tool repo (e.g. morluto/rea) as an active MCP server."""
+    return plugin_registry.import_github_tool_repo(req.repo_url, custom_command=req.command)
 
 
 @router.get("/active-tools")

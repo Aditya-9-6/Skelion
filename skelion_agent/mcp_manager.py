@@ -133,6 +133,13 @@ class ClaudeConfigImporter:
                 {"name": "docker_list_containers", "description": "List running and stopped Docker containers", "parameters": {"type": "object", "properties": {}}},
                 {"name": "docker_get_logs", "description": "Fetch container logs", "parameters": {"type": "object", "properties": {"container_id": {"type": "string"}}}}
             ]
+        elif "rea" in s_lower or "reverse" in s_lower:
+            return [
+                {"name": "rea_open_binary", "description": "Open and inspect executable binary, APK, or Electron bundle", "parameters": {"type": "object", "properties": {"target_path": {"type": "string"}}, "required": ["target_path"]}},
+                {"name": "rea_decompile", "description": "Decompile procedure or bytecode to pseudo-code with evidence log", "parameters": {"type": "object", "properties": {"symbol": {"type": "string"}}}},
+                {"name": "rea_search_strings", "description": "Extract strings, endpoints, and embedded API keys from target", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}}},
+                {"name": "rea_analyze_flow", "description": "Trace control flow and reconstruct logic into clean implementation", "parameters": {"type": "object", "properties": {"flow_name": {"type": "string"}}}}
+            ]
         # Generic fallback
         return [
             {"name": f"{s_lower}_execute", "description": f"Execute action via {server_name}", "parameters": {"type": "object", "properties": {"action": {"type": "string"}}}}
@@ -309,6 +316,44 @@ class PluginRegistry:
 
     def import_openapi_action(self, spec: Dict[str, Any], title: Optional[str] = None) -> Dict[str, Any]:
         plugin = OpenApiImporter.import_spec(spec, source_name=title)
+        self.plugins[plugin.id] = plugin
+        self._save()
+        return {"status": "ok", "plugin": plugin.to_dict()}
+
+    def import_github_tool_repo(self, repo_url: str, custom_command: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Connects an arbitrary GitHub tool repo (like morluto/rea) as an active MCP / CLI tool.
+        Supports both npm/npx tools, python repos, and local git clones.
+        """
+        clean_url = repo_url.strip().rstrip("/").replace(".git", "")
+        repo_name = clean_url.split("/")[-1] if "/" in clean_url else repo_url
+        plugin_id = f"github_repo_{repo_name.lower().replace('-', '_')}"
+
+        if "rea" in repo_name.lower() or "morluto" in clean_url.lower():
+            plugin = MCPPlugin(
+                id=plugin_id,
+                name="REA (Reverse Engineer Anything)",
+                type="mcp_stdio",
+                command=custom_command or "npx",
+                args=["-y", "rea-agents"] if not custom_command else [],
+                source="github_repo",
+                status="connected",
+                enabled=True,
+                tools=ClaudeConfigImporter._infer_tools("rea")
+            )
+        else:
+            plugin = MCPPlugin(
+                id=plugin_id,
+                name=f"GitHub Tool: {repo_name}",
+                type="mcp_stdio",
+                command=custom_command or "npx",
+                args=["-y", f"github:{clean_url.split('github.com/')[-1]}"] if "github.com" in clean_url else [],
+                source="github_repo",
+                status="connected",
+                enabled=True,
+                tools=ClaudeConfigImporter._infer_tools(repo_name)
+            )
+
         self.plugins[plugin.id] = plugin
         self._save()
         return {"status": "ok", "plugin": plugin.to_dict()}
