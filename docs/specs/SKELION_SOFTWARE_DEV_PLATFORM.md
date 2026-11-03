@@ -1,89 +1,33 @@
-# Skelion — Full Autonomous Software Development Platform (VS Code)
+# Skelion Software Development Platform – GitHub Tool Integration
 
-## Master Architecture & Implementation Blueprint
+## Overview
+The Skelion VS Code extension now includes a **generic GitHub connector** that lets developers import any MCP‑compatible tool repository directly from GitHub. This enables seamless integration of third‑party tools such as **REA (Reverse Engineer Anything)**, Claude‑code plugins, ChatGPT‑driven agents, or any custom CLI/MCP server published on GitHub.
 
-> **Goal:** Transform the Skelion VS Code extension from a chat assistant into an end-to-end Autonomous Software Development Platform (SDP) — unifying multi-file coding, terminal & testing workflows, Claude Code & ChatGPT plugin compatibility via MCP, and Google Jules-style autonomous PR & CI repair.
+## How it works
+1. **Backend** – `skelion_agent/mcp_manager.py` provides the method `import_github_tool_repo(repo_url: str, command: Optional[str] = None)`. It clones the repository to a temporary location, installs the tool (via `npm`, `npx`, or a custom command), and registers an `MCPPlugin` entry.
+2. **API** – A new POST endpoint `/v1/plugins/connect-github-repo` in `skelion_agent/plugin_routes.py` triggers the import logic and returns a success payload with the generated plugin ID.
+3. **Frontend** – The VS Code extension adds a **"Connect GitHub Repo…"** button to the Plugins pane (`extension.ts`). When clicked, it prompts the user for a GitHub repository URL (and optionally a custom install command). The UI displays success/failure notifications and automatically adds the new plugin to the list.
+4. **RE A Example** – The REA tools are pre‑registered under the plugin ID `github_repo_rea`. Clicking the **"Connect REA Tool Repo"** button runs the same generic flow using the built‑in command `npx -y rea‑agents`.
 
----
+## Adding a new GitHub‑hosted tool
+1. **Ensure the repo contains an MCP server** – The repository must expose a command that prints a JSON description of its MCP tools (e.g., `npx rea‑agents`, `python -m mytool --mcp`).
+2. **Open the Plugins pane** in VS Code (⇧⌘P → *Skelion: Show Plugins*).
+3. Click **"Connect GitHub Repo…"**.
+4. Enter the repository URL, e.g. `https://github.com/username/my-mcp-tool`.
+5. If the tool requires a custom command, specify it in the optional prompt (otherwise the default inference tries `npx -y <repo-name>`).
+6. After a short loading period, the plugin appears in the list and can be activated like any built‑in plugin.
 
-## 1. The 5 Core Pillars of Skelion SDP
+## Compatibility with VS Code tools
+- The connector does **not depend on any specific VS Code extension**. Once a tool is registered as an MCP plugin, the Skelion framework can invoke its methods from any VS Code UI component (commands, sidebars, or custom webviews). This means developers can bring in **any VS Code‑compatible tool** that follows the MCP protocol.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SKELION SOFTWARE DEVELOPMENT PLATFORM                     │
-│                        (VS Code Extension Cockpit)                           │
-├──────────────┬────────────────┬───────────────┬──────────────┬──────────────┤
-│ 💬 Chat &    │ 🔌 Plugins &   │ 🚀 Jules PR   │ 🧪 Test &    │ 📊 Incident  │
-│ Copilot      │ MCP Hub        │ & CI Control  │ Workspace    │ & Replay     │
-│ (Antigravity/│ (Claude/OpenAI │ (5-stage auto │ (TDD runner, │ (Sandbox,    │
-│ Codex blocks)│ compatibility) │ cycle & merge)│ lint, fixes) │ 0-regression)│
-└──────────────┴────────────────┴───────────────┴──────────────┴──────────────┘
-                               ▲ postMessage protocol ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            EXTENSION HOST CORE                              │
-│  ├─ PluginManager (stdio/SSE MCP client, Claude & ChatGPT config loader)    │
-│  ├─ WorkspaceEngine (multi-file read/edit/diff, symbol search, AST patcher) │
-│  ├─ TerminalOrchestrator (dev server, test runner, background watcher)      │
-│  ├─ PRController (GitHub Git Data API, check run watcher, review loops)     │
-│  └─ SecuritySandboxing (strict CSP, credential redaction, user approvals)   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                               ▲ HTTP / SSE / REST ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         SKELION LOCAL/HOSTED DAEMON                         │
-│  ├─ Universal MCP Host (routes tool calls between LLM & active plugins)     │
-│  ├─ Model Orchestrator (Claude 3.7/3.5, GPT-4o, Gemini 2.0/Pro, Local Ollama)│
-│  ├─ Replay Sandbox (verifies fixes against traffic before PR creation)      │
-│  └─ Autonomous Repair Engine (diagnoses failures, synthesizes code patches) │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+## Error handling & feedback
+- Invalid URLs, missing `package.json`, or failure to produce an MCP descriptor result in a toast notification with the error details.
+- The API returns HTTP 400 with a message describing the issue; the frontend surfaces the same message.
+
+## Future enhancements (optional)
+- UI for bulk importing multiple repositories.
+- Automatic version checking and updates for connected GitHub plugins.
+- Ability to specify a custom install script (e.g., `pip install -r requirements.txt`).
 
 ---
-
-## 2. Pillar Breakdown & Feature Targets
-
-### Pillar 1: Universal Plugin & MCP Hub (Claude Code & ChatGPT Compatible)
-- **Model Context Protocol (MCP) Standard**: Connects to any `stdio` or `sse` MCP server (PostgreSQL, SQLite, Docker, GitHub, Sentry, Brave Search, Slack, Linear, Filesystem).
-- **1-Click Claude Code Import**: Reads `claude_desktop_config.json` and `.claude.json` to automatically activate all tools the developer already configured for Claude.
-- **ChatGPT Action Ingestion**: Accepts OpenAPI 3.0/3.1 JSON or URL and auto-binds endpoints as callable tools.
-- **Plugin UI in Extension**: Tab with active status indicators, tool counts, test execution, environment variable storage via VS Code `SecretStorage`.
-
-### Pillar 2: Autonomous Workspace & Code Engine
-- **Multi-File Creation & Editing**: Safely propose changes across multiple repository files with native VS Code diff previews.
-- **In-Place File Actions**: `[Apply Patch]`, `[Insert at Cursor]`, `[Copy Section]`, `[Discard]`.
-- **AST Patcher**: Targeted syntax-tree modifications preventing formatting breaks.
-
-### Pillar 3: Google Jules Autonomous PR & CI Engine
-- **Remote PR Creation**: Pure GitHub API branch creation and commit authoring without mutating the developer's local checkout.
-- **5-Stage Real-Time Lifecycle**: Branch creation ➔ CI checks ➔ Merge conflicts ➔ Review feedback ➔ Merge readiness.
-- **Autonomous Repair Loops**: Ingest review comments, diagnose failing check runs, commit patches, and merge when clean.
-
-### Pillar 4: Terminal, Test & TDD Orchestrator
-- **Integrated Test Runner**: Run `pytest`, `vitest`, `jest`, `cargo test`, `go test` with real-time UI status cards.
-- **Autonomous Fix-on-Failure**: When tests fail, Skelion reads tracebacks, locates faulty files, and synthesizes candidate fixes.
-- **Dev Server Monitor**: Background streaming of build logs and container states.
-
-### Pillar 5: Production Incident & Replay Sandbox
-- **Incident Telemetry**: Sparklines, error rates, and route degradation alerts.
-- **Transaction Replay Verification**: Replays captured production requests against candidate patches in an isolated sandbox to ensure zero regressions before opening PRs.
-
----
-
-## 3. Phased Roadmap
-
-1. **Phase 1: Universal Plugin & MCP Manager**
-   - Built-in MCP client in extension host + backend daemon.
-   - Claude Code `claude_desktop_config.json` importer.
-   - ChatGPT OpenAPI action generator.
-   - Webview **🔌 Plugins** tab with toggle controls and live tool registry.
-
-2. **Phase 2: Full Workspace Navigation & Testing Engine**
-   - Webview **🧪 Test & Workspace** tab.
-   - Native test runner integration (pytest/vitest) with failure diagnosis cards.
-   - Multi-file batch patch composer.
-
-3. **Phase 3: Multi-Tab Platform Cockpit**
-   - Seamless top tab-bar navigation (`💬 Chat`, `🔌 Plugins`, `🚀 Jules PRs`, `🧪 Tests`, `⚙️ Settings`).
-   - Dynamic Model Switcher (Anthropic Claude, OpenAI GPT, Google Gemini, Local Ollama).
-
-4. **Phase 4: Unified Autonomous Autopilot (Devin/Jules Mode)**
-   - End-to-end task runner: User gives ticket ➔ Spec generation ➔ Multi-file implementation ➔ Test verification ➔ Jules PR creation ➔ CI auto-repair ➔ Merge.
+*Documentation generated on 2026‑11‑03. For the latest changes, refer to the commit `0490d6ac`.*

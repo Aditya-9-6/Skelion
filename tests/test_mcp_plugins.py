@@ -166,3 +166,26 @@ def test_connect_github_tool_repo_rea(tmp_path):
     assert api_res.status_code == 200
     assert api_res.json()["status"] == "ok"
     assert "REA" in api_res.json()["plugin"]["name"]
+
+
+def test_connect_generic_github_tool_repo(tmp_path):
+    storage_file = str(tmp_path / "plugins.json")
+    registry = PluginRegistry(storage_path=storage_file)
+
+    # Test connecting a generic GitHub tool repo
+    repo_url = "https://github.com/example/simple-mcp-tool"
+    res = registry.import_github_tool_repo(repo_url)
+    assert res["status"] == "ok"
+    plugin = res["plugin"]
+    assert plugin["id"] == "github_repo_simple_mcp_tool"
+    assert "simple-mcp-tool" in plugin["name"]
+    assert plugin["source"] == "github_repo"
+    assert plugin["status"] == "connected"
+    assert plugin["enabled"] is True
+
+    # Assert plugin appears in the registry list
+    all_plugins = registry.list_plugins()
+    matching = [p for p in all_plugins if p["id"] == "github_repo_simple_mcp_tool"]
+    assert len(matching) == 1
+    assert matching[0]["name"] == "GitHub Tool: simple-mcp-tool"
+

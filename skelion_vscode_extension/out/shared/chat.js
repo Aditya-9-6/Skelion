@@ -61,7 +61,7 @@ exports.TableBlockSchema = zod_1.z.object({
     title: zod_1.z.string().optional(),
     columns: zod_1.z.array(exports.TableColumnSchema),
     data_ref: zod_1.z.string().optional(),
-    rows: zod_1.z.array(zod_1.z.record(zod_1.z.unknown())).optional(),
+    rows: zod_1.z.array(zod_1.z.record(zod_1.z.string(), zod_1.z.unknown())).optional(),
     provenance: exports.ProvenanceSchema.optional(),
     actions: zod_1.z.array(exports.AllowedActionSchema).optional(),
 });
@@ -164,7 +164,7 @@ exports.LogViewerBlockSchema = zod_1.z.object({
     type: zod_1.z.literal('log_viewer'),
     id: zod_1.z.string(),
     data_ref: zod_1.z.string(),
-    filters: zod_1.z.record(zod_1.z.unknown()).optional(),
+    filters: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
 });
 exports.RequestInspectorBlockSchema = zod_1.z.object({
     type: zod_1.z.literal('request_inspector'),
@@ -220,7 +220,7 @@ exports.CreditEstimateBlockSchema = zod_1.z.object({
 exports.ActionItemSchema = zod_1.z.object({
     action_id: exports.AllowedActionSchema,
     label: zod_1.z.string(),
-    args: zod_1.z.record(zod_1.z.unknown()).optional(),
+    args: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
     style: zod_1.z.enum(['primary', 'secondary', 'danger']).optional(),
 });
 exports.ActionsBlockSchema = zod_1.z.object({
@@ -469,7 +469,7 @@ exports.WebviewToHostMessageSchema = zod_1.z.discriminatedUnion('type', [
     zod_1.z.object({
         type: zod_1.z.literal('action'),
         action_id: exports.AllowedActionSchema,
-        args: zod_1.z.record(zod_1.z.unknown()).optional(),
+        args: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
     }),
     zod_1.z.object({
         type: zod_1.z.literal('copy'),
@@ -494,7 +494,7 @@ exports.WebviewToHostMessageSchema = zod_1.z.discriminatedUnion('type', [
 exports.HostToWebviewMessageSchema = zod_1.z.discriminatedUnion('type', [
     zod_1.z.object({
         type: zod_1.z.literal('init'),
-        user: zod_1.z.record(zod_1.z.unknown()).nullable(),
+        user: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).nullable(),
         token: zod_1.z.string().nullable(),
         plan: zod_1.z.string(),
         creditsRemaining: zod_1.z.number().optional(),

@@ -14,7 +14,14 @@ class EpollReactorMesh:
 
     def __init__(self, load_shedder: Optional[AdaptiveLoadShedder] = None) -> None:
         self.load_shedder = load_shedder or AdaptiveLoadShedder()
-        self.epoll = select.epoll()
+        self.epoll = getattr(select, "epoll", None)()
+        # Fallback for Windows: use poll if epoll not available
+        if not hasattr(select, "epoll"):
+            self.epoll = select.poll()
+            # define EPOLLIN constant if missing
+            if not hasattr(select, "EPOLLIN"):
+                select.EPOLLIN = getattr(select, "POLLIN", 0x001)
+
         self.fd_map: Dict[int, socket.socket] = {}
         self._running = False
 

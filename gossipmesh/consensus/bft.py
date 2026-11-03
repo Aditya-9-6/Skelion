@@ -6,7 +6,20 @@ Provides robust 2/3 majority consensus validation resilient to malicious or lagg
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, NamedTuple
+
+# Simple data class for a vote – tests expect BFTVote
+class BFTVote(NamedTuple):
+    model_name: str
+    verdict: str
+    score: float
+    concerns: List[str]
+    suggestions: List[str]
+    confidence_scores: List[float] = []
+
+# Re-export as alias for backward compatibility
+ModelVote = BFTVote
+
 
 from gossipmesh.consensus import ModelVote, ConsensusResult, ByzantineConsensusEngine
 

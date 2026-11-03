@@ -67,7 +67,7 @@ export const TableBlockSchema = z.object({
   title: z.string().optional(),
   columns: z.array(TableColumnSchema),
   data_ref: z.string().optional(),
-  rows: z.array(z.record(z.unknown())).optional(),
+  rows: z.array(z.record(z.string(), z.unknown())).optional(),
   provenance: ProvenanceSchema.optional(),
   actions: z.array(AllowedActionSchema).optional(),
 });
@@ -187,7 +187,7 @@ export const LogViewerBlockSchema = z.object({
   type: z.literal('log_viewer'),
   id: z.string(),
   data_ref: z.string(),
-  filters: z.record(z.unknown()).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const RequestInspectorBlockSchema = z.object({
@@ -253,7 +253,7 @@ export const CreditEstimateBlockSchema = z.object({
 export const ActionItemSchema = z.object({
   action_id: AllowedActionSchema,
   label: z.string(),
-  args: z.record(z.unknown()).optional(),
+  args: z.record(z.string(), z.unknown()).optional(),
   style: z.enum(['primary', 'secondary', 'danger']).optional(),
 });
 
@@ -540,7 +540,7 @@ export const WebviewToHostMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('action'),
     action_id: AllowedActionSchema,
-    args: z.record(z.unknown()).optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
   }),
   z.object({
     type: z.literal('copy'),
@@ -567,7 +567,7 @@ export type WebviewToHostMessage = z.infer<typeof WebviewToHostMessageSchema>;
 export const HostToWebviewMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('init'),
-    user: z.record(z.unknown()).nullable(),
+    user: z.record(z.string(), z.unknown()).nullable(),
     token: z.string().nullable(),
     plan: z.string(),
     creditsRemaining: z.number().optional(),

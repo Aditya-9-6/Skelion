@@ -5,8 +5,8 @@ import shutil
 CONV_ID = "b1faa519-83ae-42f2-9fa8-65bfb5c1b076"
 SRC_DIR = r"g:\My Drive\helios\skelion_vscode_extension"
 BRAIN_DIR = rf"C:\Users\adity\.gemini\antigravity\brain\{CONV_ID}\skelion_vscode_extension"
-OUT_VSIX = os.path.join(SRC_DIR, "skelion-vscode-0.1.0.vsix")
-BRAIN_VSIX = os.path.join(BRAIN_DIR, "skelion-vscode-0.1.0.vsix")
+OUT_VSIX = os.path.join(SRC_DIR, "skelion-vscode-0.1.2.vsix")
+BRAIN_VSIX = os.path.join(BRAIN_DIR, "skelion-vscode-0.1.2.vsix")
 
 
 def build_vsix():
@@ -51,7 +51,7 @@ def build_vsix():
     manifest = """<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="skelion-vscode" Version="0.1.0" Language="en-US" Publisher="adity" />
+    <Identity Id="skelion-vscode" Version="0.1.2" Language="en-US" Publisher="adity" />
     <DisplayName>Skelion Agent</DisplayName>
     <Description xml:space="preserve">Full Autonomous Software Development Platform for VS Code with Universal Plugin &amp; MCP Hub</Description>
     <Tags>AI,DevOps,MCP,ClaudeCode,ChatGPT,AutonomousPlatform</Tags>
