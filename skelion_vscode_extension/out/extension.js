@@ -289,6 +289,34 @@ class SkelionSidebarProvider {
     attachMessageListener(webview) {
         webview.onDidReceiveMessage(async (msg) => {
             switch (msg.type) {
+                case 'syncLiveProfile': {
+                    const token = await this.getValidToken();
+                    if (token) {
+                        try {
+                            const apiBase = await resolveApiBase();
+                            const meRes = await safeFetch(`${apiBase}/v1/auth/me`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (meRes.ok) {
+                                const meData = await meRes.json();
+                                const user = {
+                                    ...meData,
+                                    username: meData.github_username || meData.name || 'Aditya-9-6'
+                                };
+                                const limitsRes = await safeFetch(`${apiBase}/v1/limits/status`, {
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                const limits = limitsRes.ok ? await limitsRes.json() : null;
+                                webview.postMessage({
+                                    type: 'liveProfileUpdated',
+                                    user,
+                                    limits
+                                });
+                            }
+                        } catch (_) {}
+                    }
+                    break;
+                }
                 case 'webviewReady': {
                     await this.checkExistingSession(webview);
                     break;
@@ -1387,7 +1415,7 @@ class SkelionSidebarProvider {
 
         
 
-        <button id="signout-btn" data-action="signOut" style="background:transparent; border:none; color:#888; cursor:pointer; font-size:11px;">Sign Out</button>
+        <button id="sync-btn" data-action="syncLiveProfile" style="background:transparent; border:none; color:#58a6ff; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="Sync Live Tokens & Plan">🔄 Sync</button> <button id="signout-btn" data-action="signOut" style="background:transparent; border:none; color:#888; cursor:pointer; font-size:11px;">Sign Out</button>
 
       </div>
 
@@ -2638,6 +2666,15 @@ class SkelionSidebarProvider {
 
 
 
+    
+    // Real-time live sync (No restart needed on purchase or quota update)
+    window.addEventListener('focus', () => {
+      vscode.postMessage({ type: 'syncLiveProfile' });
+    });
+    setInterval(() => {
+      vscode.postMessage({ type: 'syncLiveProfile' });
+    }, 15000);
+
     window.addEventListener('message', (event) => {
 
       try {
@@ -2744,7 +2781,24 @@ class SkelionSidebarProvider {
 
           renderConversationsList(msg.conversations);
 
-        } else if (msg.type === 'limitsData') {
+        
+        } else if (msg.type === 'liveProfileUpdated') {
+          if (msg.user) {
+            currentUser = msg.user;
+            const uDisp = document.getElementById('user-display');
+            if (uDisp) uDisp.textContent = msg.user.username || msg.user.name || 'Aditya-9-6';
+            const pBadge = document.getElementById('plan-badge');
+            if (pBadge && msg.user.plan) pBadge.textContent = String(msg.user.plan).toUpperCase();
+          }
+          if (msg.limits) {
+            try { renderLimitsUI(msg.limits); } catch(e) {}
+          }
+          const sBtn = document.getElementById('sync-btn');
+          if (sBtn) {
+            sBtn.textContent = '✓ Live';
+            setTimeout(() => { if (sBtn) sBtn.innerHTML = '🔄 Sync'; }, 1500);
+          }
+} else if (msg.type === 'limitsData') {
 
           renderLimitsUI(msg.limits);
 
@@ -2861,6 +2915,19 @@ class SkelionSidebarProvider {
 
 
     function renderLimitsUI(limits) {
+        if (limits.coding_tokens) {
+          const tot = limits.coding_tokens.total_remaining != null ? limits.coding_tokens.total_remaining : 0;
+          const mon = limits.coding_tokens.monthly_remaining != null ? limits.coding_tokens.monthly_remaining : 0;
+          const pur = limits.coding_tokens.purchased_remaining != null ? limits.coding_tokens.purchased_remaining : 0;
+          setElText('total-tokens-balance', tot.toLocaleString());
+          setElText('monthly-tokens-balance', mon.toLocaleString());
+          setElText('purchased-tokens-balance', pur.toLocaleString());
+        }
+        if (limits.plan) {
+          const pb = document.getElementById('plan-badge');
+          if (pb) pb.textContent = String(limits.plan).toUpperCase();
+        }
+
 
       try {
 
