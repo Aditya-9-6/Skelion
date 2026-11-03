@@ -131,6 +131,7 @@ class SlidingWindowCongestionController:
             if sample_rtt < 0.0:
                 sample_rtt = 0.0
 
+            # Update SRTT
             if self.srtt is None:
                 self.srtt = sample_rtt
             else:
@@ -139,6 +140,7 @@ class SlidingWindowCongestionController:
 
             self.jitter_estimator.update(sample_rtt)
 
+            # Congestion window state machine update
             if self.state == CongestionState.SLOW_START:
                 self.cwnd += 1.0
                 if self.cwnd >= self.ssthresh:
@@ -251,13 +253,19 @@ class AdaptiveRingBufferCongestionShaper:
             return self._write_latency_ewma
 
     def calculate_fanout_scaling_factor(self) -> float:
+        """
+        Calculates backpressure-driven fanout multiplier in range [0.0, 1.0].
+        When buffer fill ratio or write latency exceeds high watermarks, scaling factor drops.
+        """
         with self._lock:
             fill_ratio = self.get_fill_ratio()
             if fill_ratio >= self.config.buffer_high_watermark:
+                # Severe backpressure / congestion
                 return 0.25
             elif fill_ratio <= self.config.buffer_low_watermark:
                 return 1.0
             else:
+                # Linear interpolation between low and high watermarks
                 span = (
                     self.config.buffer_high_watermark - self.config.buffer_low_watermark
                 )
@@ -269,6 +277,10 @@ class AdaptiveRingBufferCongestionShaper:
     def prune_low_priority_transmissions(
         self, peer_rankings: Dict[str, float]
     ) -> Dict[str, bool]:
+        """
+        Applies backpressure-driven fanout pruning across peers based on priority/reliability ranking.
+        Returns a mapping of peer_id -> keep_transmission (bool).
+        """
         scaling = self.calculate_fanout_scaling_factor()
         sorted_peers = sorted(
             peer_rankings.items(), key=lambda item: item[1], reverse=True
@@ -276,6 +288,7 @@ class AdaptiveRingBufferCongestionShaper:
         total_peers = len(sorted_peers)
         if total_peers == 0:
             return {}
+
         allowed_count = max(1, int(math.ceil(total_peers * scaling)))
         decisions: Dict[str, bool] = {}
         for idx, (peer_id, score) in enumerate(sorted_peers):
