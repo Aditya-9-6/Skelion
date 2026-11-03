@@ -109,20 +109,32 @@ class ProxyMiddleware:
         # 2. Normal routing first
         try:
             await self.app(scope, receive, send)
-        except Exception:
-            # Forward request unchanged on failure (fails-open behaviour)
+        except Exception as app_exc:
+            # Forward request unchanged on failure (fail-open behavior)
             logger.exception("Proxy fail-open: forwarding request after exception")
-            async with httpx.AsyncClient() as client:
-                url = f"{self.target_base}{request.url.path}"
-                resp = await client.request(
-                    request.method,
-                    url,
-                    headers=request.headers.raw,
-                    content=body_bytes or await request.body(),
-                    timeout=10,
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    url = f"{self.target_base}{request.url.path}"
+                    resp = await client.request(
+                        request.method,
+                        url,
+                        headers=request.headers.raw,
+                        content=body_bytes or await request.body(),
+                    )
+                    await Response(
+                        resp.content,
+                        status_code=resp.status_code,
+                        headers=dict(resp.headers),
+                    )(scope, receive, send)
+            except Exception as forward_err:
+                logger.error(f"Proxy fail-open upstream unreachable: {forward_err}")
+                fallback_resp = Response(
+                    content=json.dumps({
+                        "error": "Internal Server Error",
+                        "detail": str(app_exc),
+                        "fail_open_status": "target_unreachable"
+                    }),
+                    status_code=500,
+                    media_type="application/json"
                 )
-                await Response(
-                    resp.content,
-                    status_code=resp.status_code,
-                    headers=dict(resp.headers),
-                )(scope, receive, send)
+                await fallback_resp(scope, receive, send)

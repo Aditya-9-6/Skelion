@@ -41,7 +41,59 @@ except ImportError:  # pragma: no cover
         )
 
 
-from jose import jwt  # type: ignore[import]
+try:
+    from jose import jwt
+    JWTError = jwt.JWTError
+except ImportError:
+    try:
+        import jwt
+        class JWTError(Exception):
+            pass
+    except ImportError:
+        import hmac
+        import base64
+        import json
+        import time
+
+        class JWTError(Exception):
+            pass
+
+        def _b64url_encode(data: bytes) -> str:
+            return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
+
+        def _b64url_decode(s: str) -> bytes:
+            pad = "=" * ((4 - len(s) % 4) % 4)
+            return base64.urlsafe_b64decode(s + pad)
+
+        class SimpleJWT:
+            JWTError = JWTError
+
+            @staticmethod
+            def encode(payload, key, algorithm="HS256"):
+                h = _b64url_encode(json.dumps({"alg": algorithm, "typ": "JWT"}).encode())
+                def serialize(obj):
+                    if hasattr(obj, "timestamp"):
+                        return int(obj.timestamp())
+                    return str(obj)
+                p = _b64url_encode(json.dumps(payload, default=serialize).encode())
+                sig = _b64url_encode(hmac.new(key.encode("utf-8"), f"{h}.{p}".encode("utf-8"), hashlib.sha256).digest())
+                return f"{h}.{p}.{sig}"
+
+            @staticmethod
+            def decode(token, key, algorithms=None):
+                parts = token.split(".")
+                if len(parts) != 3:
+                    raise JWTError("Invalid token format")
+                h, p, sig = parts
+                expected = _b64url_encode(hmac.new(key.encode("utf-8"), f"{h}.{p}".encode("utf-8"), hashlib.sha256).digest())
+                if not hmac.compare_digest(sig, expected):
+                    raise JWTError("Signature verification failed")
+                data = json.loads(_b64url_decode(p).decode("utf-8"))
+                if "exp" in data and data["exp"] < time.time():
+                    raise JWTError("Token expired")
+                return data
+
+        jwt = SimpleJWT()
 
 # ---------------------------------------------------------------------------
 # JWT helpers

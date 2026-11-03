@@ -5,6 +5,7 @@ from typing import Generator
 
 from sqlmodel import SQLModel, Session, create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy import event
 
 from skelion_agent.config import settings
 
@@ -14,8 +15,21 @@ DATABASE_URL = os.getenv(
     os.getenv("DATABASE_URI", settings.DATABASE_URL),
 )
 
-# Create the SQLAlchemy engine
-engine: Engine = create_engine(DATABASE_URL, echo=False)
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False, "timeout": 30}
+
+# Create the SQLAlchemy engine with concurrency safeguards
+engine: Engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
+
+if DATABASE_URL.startswith("sqlite"):
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 
 
 def get_engine() -> Engine:
@@ -42,5 +56,4 @@ def get_db() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     """Create all tables defined in the models module."""
-
     SQLModel.metadata.create_all(engine)

@@ -3,7 +3,10 @@ import os
 try:
     import jwt
 except ImportError:
-    from jose import jwt
+    try:
+        from jose import jwt
+    except ImportError:
+        jwt = None
 import time
 import requests
 
