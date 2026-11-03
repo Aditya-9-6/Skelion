@@ -11,6 +11,8 @@ import hashlib
 import os
 import base64
 import httpx
+import re
+import subprocess
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -239,24 +241,53 @@ async def create_autofix_pr(
         )
     )
     branch = req.branch_name or f"skelion/fix-{incident.fingerprint[:8]}"
-    repo = req.repo or os.getenv("GITHUB_REPOSITORY", "adity/helios")
+    # Dynamic repo auto-detection
+    repo = req.repo or os.getenv("GH_REPO") or os.getenv("GITHUB_REPOSITORY")
+    if not repo or repo == "adity/helios":
+        try:
+            remote_proc = subprocess.run(
+                ["git", "config", "--get", "remote.origin.url"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                shell=(os.name == "nt"),
+            )
+            if remote_proc.returncode == 0:
+                out = remote_proc.stdout.strip()
+                m = re.search(r"github\.com[:/]([^/]+/[^/.]+?)(?:\.git)?$", out)
+                if m:
+                    repo = m.group(1)
+        except Exception:
+            pass
+    if not repo or repo == "adity/helios":
+        repo = "Aditya-9-6/Skelion"
     pr_title = (
         req.pr_title
         or f"⚡ [Skelion Autofix] Fail-Open Boundary for {incident.http_method} {incident.route_path}"
     )
 
-    # Write patch locally if directory exists (for hybrid local/cloud consistency)
-    try:
-        dir_name = os.path.dirname(target_path)
-        if dir_name and not os.path.exists(dir_name):
-            os.makedirs(dir_name, exist_ok=True)
-        with open(target_path, "w", encoding="utf-8") as f:
-            f.write(patch_code)
-    except Exception:
-        pass
+    # SKELION AUTONOMOUS PR-ONLY MANDATE:
+    # Do NOT modify files on local disk! All fixes are submitted strictly via GitHub Pull Request.
 
     # 4. GitHub REST API Integration
     gh_token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+    if (
+        not gh_token
+        or gh_token.startswith("dummy")
+        or gh_token.startswith("placeholder")
+    ):
+        try:
+            gh_token_proc = subprocess.run(
+                ["gh", "auth", "token"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                shell=(os.name == "nt"),
+            )
+            if gh_token_proc.returncode == 0 and gh_token_proc.stdout.strip():
+                gh_token = gh_token_proc.stdout.strip()
+        except Exception:
+            pass
     pr_url = None
     pr_number = None
 
@@ -285,12 +316,18 @@ async def create_autofix_pr(
                     )
                     if ref_res.status_code == 200:
                         base_sha = ref_res.json()["object"]["sha"]
-                        # 4c. Create new fix branch
-                        await client.post(
+                        # 4c. Create or update fix branch
+                        b_res = await client.post(
                             f"https://api.github.com/repos/{repo}/git/refs",
                             headers=gh_headers,
                             json={"ref": f"refs/heads/{branch}", "sha": base_sha},
                         )
+                        if b_res.status_code == 422:
+                            await client.patch(
+                                f"https://api.github.com/repos/{repo}/git/refs/heads/{branch}",
+                                headers=gh_headers,
+                                json={"sha": base_sha, "force": True},
+                            )
                         # 4d. Check if file exists on branch
                         content_res = await client.get(
                             f"https://api.github.com/repos/{repo}/contents/{target_path}?ref={branch}",
@@ -304,11 +341,19 @@ async def create_autofix_pr(
 
                         # 4e. Commit the verified patch
                         commit_body = {
-                            "message": f"fix(edge): Skelion autonomous replay-verified patch for {incident.route_path}",
+                            "message": f"fix(edge): Skelion autonomous replay-verified patch for {incident.route_path}\n\nCo-authored-by: Dahale Aditya Dnyaneshwar <adityadahale96@gmail.com>",
                             "content": base64.b64encode(
                                 patch_code.encode("utf-8")
                             ).decode("ascii"),
                             "branch": branch,
+                            "author": {
+                                "name": "Dahale Aditya Dnyaneshwar",
+                                "email": "adityadahale96@gmail.com",
+                            },
+                            "committer": {
+                                "name": "Dahale Aditya Dnyaneshwar",
+                                "email": "adityadahale96@gmail.com",
+                            },
                         }
                         if file_sha:
                             commit_body["sha"] = file_sha
@@ -338,6 +383,47 @@ async def create_autofix_pr(
                             pr_data = pr_res.json()
                             pr_url = pr_data.get("html_url")
                             pr_number = pr_data.get("number")
+                        elif pr_res.status_code == 422:
+                            owner = repo.split("/")[0] if "/" in repo else "Aditya-9-6"
+                            ex_res = await client.get(
+                                f"https://api.github.com/repos/{repo}/pulls?head={owner}:{branch}&state=all",
+                                headers=gh_headers,
+                            )
+                            if ex_res.status_code == 200 and ex_res.json():
+                                pr_data = ex_res.json()[0]
+                                pr_url = pr_data.get("html_url")
+                                pr_number = pr_data.get("number")
+        except Exception:
+            pass
+
+    if not pr_url:
+        try:
+            gh_cli_res = subprocess.run(
+                [
+                    "gh",
+                    "pr",
+                    "create",
+                    "--repo",
+                    repo,
+                    "--head",
+                    branch,
+                    "--base",
+                    "main",
+                    "--title",
+                    pr_title,
+                    "--body",
+                    f"⚡ Skelion Autofix Patch for {incident.route_path}\n\nIncident ID: `{incident.id}`",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                shell=(os.name == "nt"),
+            )
+            if gh_cli_res.returncode == 0 and "http" in gh_cli_res.stdout:
+                pr_url = gh_cli_res.stdout.strip()
+                m_num = re.search(r"/pull/(\d+)", pr_url)
+                if m_num:
+                    pr_number = int(m_num.group(1))
         except Exception:
             pass
 
@@ -349,6 +435,16 @@ async def create_autofix_pr(
     diagnostic_card = generate_pr_diagnostic_card(
         incident, pr_url, proposed_diff=patch_code
     )
+
+    # Attach Google Jules-style autonomous timeline
+    timeline = None
+    try:
+        from skelion_agent.github_pr_engine import SkelionPREngine
+        engine = SkelionPREngine(repo=repo, token=gh_token)
+        if pr_number:
+            timeline = engine.get_jules_timeline(pr_number)
+    except Exception:
+        pass
 
     return {
         "status": "success",
@@ -362,8 +458,53 @@ async def create_autofix_pr(
         "tokens_deducted": tokens_deducted,
         "autofix_tokens_remaining": remaining_tokens,
         "diagnostic_card": diagnostic_card,
+        "jules_timeline": timeline,
         "message": f"Skelion Bot successfully opened Autofix PR #{pr_number} on branch '{branch}'!",
     }
+
+
+@router.get("/v1/github/pr-timeline/{pr_number}")
+async def get_pr_timeline(pr_number: int, repo: Optional[str] = None):
+    """Returns real-time Google Jules-style 5-stage lifecycle card for a PR."""
+    try:
+        from skelion_agent.github_pr_engine import SkelionPREngine
+        engine = SkelionPREngine(repo=repo)
+        return engine.get_jules_timeline(pr_number)
+    except Exception as e:
+        return {"status": "error", "message": str(e), "pr_number": pr_number}
+
+
+@router.post("/v1/github/pr-cycle/{pr_number}")
+async def trigger_pr_cycle(pr_number: int, repo: Optional[str] = None):
+    """Executes full autonomous review, conflict check, and repair cycle on PR."""
+    try:
+        from skelion_agent.github_pr_engine import SkelionPREngine
+        engine = SkelionPREngine(repo=repo)
+        return engine.run_autonomous_cycle(pr_number)
+    except Exception as e:
+        return {"status": "error", "message": str(e), "pr_number": pr_number}
+
+
+class MergePRRequest(BaseModel):
+    commit_title: Optional[str] = None
+    commit_message: Optional[str] = None
+    merge_method: Optional[str] = "merge"
+    repo: Optional[str] = None
+
+
+@router.post("/v1/github/pr-merge/{pr_number}")
+async def merge_pr_endpoint(pr_number: int, req: Optional[MergePRRequest] = None):
+    """Merges a pull request directly via GitHub API once all stages are clean."""
+    try:
+        from skelion_agent.github_pr_engine import SkelionPREngine
+        repo = req.repo if req else None
+        title = req.commit_title if req else None
+        msg = req.commit_message if req else None
+        method = req.merge_method if req else "merge"
+        engine = SkelionPREngine(repo=repo)
+        return engine.merge_pr(pr_number, commit_title=title, commit_message=msg, merge_method=method)
+    except Exception as e:
+        return {"status": "error", "message": str(e), "pr_number": pr_number}
 
 
 @router.post("/v1/webhooks/github")

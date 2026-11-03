@@ -2,8 +2,9 @@ import os
 import zipfile
 import shutil
 
+CONV_ID = "b1faa519-83ae-42f2-9fa8-65bfb5c1b076"
 SRC_DIR = r"g:\My Drive\helios\skelion_vscode_extension"
-BRAIN_DIR = r"C:\Users\adity\.gemini\antigravity\brain\5b2cce19-829f-47e8-a475-c50d0b5847f8\skelion_vscode_extension"
+BRAIN_DIR = rf"C:\Users\adity\.gemini\antigravity\brain\{CONV_ID}\skelion_vscode_extension"
 OUT_VSIX = os.path.join(SRC_DIR, "skelion-vscode-0.1.0.vsix")
 BRAIN_VSIX = os.path.join(BRAIN_DIR, "skelion-vscode-0.1.0.vsix")
 
@@ -11,22 +12,30 @@ BRAIN_VSIX = os.path.join(BRAIN_DIR, "skelion-vscode-0.1.0.vsix")
 def build_vsix():
     print(f"Building VSIX from {SRC_DIR} -> {OUT_VSIX}...")
     os.makedirs(BRAIN_DIR, exist_ok=True)
-    os.makedirs(os.path.join(BRAIN_DIR, "out"), exist_ok=True)
 
-    # Sync compiled outputs to brain directory as artifacts
-    for f in ["out/extension.js", "out/extension.js.map", "package.json"]:
-        src_f = os.path.join(SRC_DIR, f)
-        brain_f = os.path.join(BRAIN_DIR, f)
-        if os.path.exists(src_f):
-            shutil.copyfile(src_f, brain_f)
-
-    # Files to include in the extension/ folder
+    # Collect files to pack
     files_to_pack = [
         ("package.json", "extension/package.json"),
-        ("out/extension.js", "extension/out/extension.js"),
-        ("out/extension.js.map", "extension/out/extension.js.map"),
         ("media/icon.svg", "extension/media/icon.svg"),
     ]
+
+    # Recursively pack out/
+    out_dir = os.path.join(SRC_DIR, "out")
+    if os.path.exists(out_dir):
+        for root, _, filenames in os.walk(out_dir):
+            for fn in filenames:
+                full_path = os.path.join(root, fn)
+                rel_path = os.path.relpath(full_path, SRC_DIR)
+                files_to_pack.append((rel_path.replace("\\", "/"), f"extension/{rel_path.replace('\\', '/')}"))
+
+    # Recursively pack fixtures/
+    fixtures_dir = os.path.join(SRC_DIR, "fixtures")
+    if os.path.exists(fixtures_dir):
+        for root, _, filenames in os.walk(fixtures_dir):
+            for fn in filenames:
+                full_path = os.path.join(root, fn)
+                rel_path = os.path.relpath(full_path, SRC_DIR)
+                files_to_pack.append((rel_path.replace("\\", "/"), f"extension/{rel_path.replace('\\', '/')}"))
 
     # Content types XML
     content_types = """<?xml version="1.0" encoding="utf-8"?>
@@ -44,8 +53,8 @@ def build_vsix():
   <Metadata>
     <Identity Id="skelion-vscode" Version="0.1.0" Language="en-US" Publisher="adity" />
     <DisplayName>Skelion Agent</DisplayName>
-    <Description xml:space="preserve">VS Code panel for Skelion authentication &amp; billing with Autonomous DevOps Loop</Description>
-    <Tags>AI,DevOps,Incident,AutonomousLoop</Tags>
+    <Description xml:space="preserve">Full Autonomous Software Development Platform for VS Code with Universal Plugin &amp; MCP Hub</Description>
+    <Tags>AI,DevOps,MCP,ClaudeCode,ChatGPT,AutonomousPlatform</Tags>
     <Categories>AI,Other</Categories>
     <GalleryFlags>Public</GalleryFlags>
     <Icon>extension/media/icon.svg</Icon>
@@ -59,25 +68,24 @@ def build_vsix():
   </Installation>
   <Dependencies />
   <Assets>
-    <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
+    <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" />
+    <Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/media/icon.svg" />
   </Assets>
 </PackageManifest>"""
 
     with zipfile.ZipFile(OUT_VSIX, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", content_types)
         z.writestr("extension.vsixmanifest", manifest)
+        for rel_src, target_path in files_to_pack:
+            real_src = os.path.join(SRC_DIR, rel_src.replace("/", os.sep))
+            if os.path.exists(real_src):
+                z.write(real_src, target_path)
 
-        for src, dest in files_to_pack:
-            full_src = os.path.join(SRC_DIR, src)
-            if os.path.exists(full_src):
-                z.write(full_src, dest)
-                print(f"Packed: {src} -> {dest}")
-            else:
-                print(f"Warning: Missing {full_src}")
-
+    # Sync to brain directory as artifact
     shutil.copyfile(OUT_VSIX, BRAIN_VSIX)
+    size = os.path.getsize(OUT_VSIX)
     print(f"VSIX built and copied to {BRAIN_VSIX}")
-    print(f"Size: {os.path.getsize(OUT_VSIX)} bytes")
+    print(f"Size: {size} bytes ({len(files_to_pack)} files packed)")
 
 
 if __name__ == "__main__":

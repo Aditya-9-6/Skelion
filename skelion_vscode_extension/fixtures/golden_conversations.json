@@ -1,0 +1,314 @@
+[
+  {
+    "id": "conv_golden_main",
+    "title": "Incident Triage & Checkout 429 Storm",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "updatedAt": "2026-11-02T10:05:00Z",
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "id": "m_user_1",
+        "role": "user",
+        "createdAt": "2026-11-02T10:00:00Z",
+        "status": "done",
+        "blocks": [
+          {
+            "type": "markdown",
+            "id": "b_u1",
+            "text": "What broke in the last 24h on `/v1/checkout`? Give me stats, affected routes, and proposed fix with replay evidence."
+          }
+        ]
+      },
+      {
+        "id": "m_assistant_1",
+        "role": "assistant",
+        "createdAt": "2026-11-02T10:00:15Z",
+        "status": "done",
+        "blocks": [
+          {
+            "type": "markdown",
+            "id": "b1",
+            "text": "Two issues are affecting customers right now. The biggest is an HTTP 429 quota exhaustion storm on `/v1/checkout` after deploy **2.1**."
+          },
+          {
+            "type": "incident_card",
+            "id": "b_inc_190",
+            "incident_id": "190"
+          },
+          {
+            "type": "stat_tiles",
+            "id": "b2",
+            "tiles": [
+              { "label": "Affected requests", "value": "4.2", "unit": "%", "delta": "+3.1 pts", "trend": "up", "severity": "crit" },
+              { "label": "p95 latency", "value": "840", "unit": "ms", "delta": "+210 ms", "trend": "up", "severity": "warn" },
+              { "label": "Bot traffic in errors", "value": "38", "unit": "%", "severity": "info" }
+            ]
+          },
+          {
+            "type": "chart",
+            "id": "b3",
+            "title": "Error rate by minute (last 24h)",
+            "kind": "line",
+            "x": { "field": "ts", "type": "time" },
+            "y": [{ "field": "error_rate", "unit": "%" }],
+            "series": [{ "name": "/v1/checkout", "field": "error_rate", "color": "#f85149" }],
+            "data_ref": "q_err_rate_24h",
+            "provenance": {
+              "source": "proxy_capture",
+              "query_id": "q_err_rate_24h",
+              "asOf": "2026-11-02T10:00:00Z",
+              "range": "24h",
+              "redaction": "applied",
+              "rowCount": 1440
+            }
+          },
+          {
+            "type": "table",
+            "id": "b4",
+            "title": "Top Active Incidents",
+            "columns": [
+              { "key": "title", "label": "Issue", "kind": "text" },
+              { "key": "route", "label": "Route", "kind": "code" },
+              { "key": "affected", "label": "Affected %", "kind": "percent", "align": "right" },
+              { "key": "class", "label": "Type", "kind": "badge" }
+            ],
+            "data_ref": "q_top_issues",
+            "rows": [
+              { "title": "Checkout 429 quota exhaustion", "route": "/v1/checkout", "affected": "4.2%", "class": "Rate Limit" },
+              { "title": "Payment webhook timeout", "route": "/v1/billing/verify", "affected": "1.1%", "class": "Timeout" },
+              { "title": "Cart inventory synchronization lock", "route": "/v1/cart/sync", "affected": "0.4%", "class": "Lock Contention" }
+            ],
+            "provenance": {
+              "source": "incident_store",
+              "query_id": "q_top_issues",
+              "asOf": "2026-11-02T10:00:00Z",
+              "redaction": "applied",
+              "rowCount": 3
+            }
+          },
+          {
+            "type": "file_ref",
+            "id": "b5",
+            "path": "gossipmesh/p2p/congestion.py",
+            "line": 260,
+            "label": "congestion.py:260"
+          },
+          {
+            "type": "callout",
+            "id": "b_callout",
+            "level": "warn",
+            "title": "Backpressure Threshold Triggered",
+            "text": "The ring buffer high-watermark exceeded 85%, triggering proportional fanout pruning."
+          },
+          {
+            "type": "diff",
+            "id": "b_diff",
+            "filename": "gossipmesh/p2p/congestion.py",
+            "patch": "--- a/gossipmesh/p2p/congestion.py\n+++ b/gossipmesh/p2p/congestion.py\n@@ -260,3 +260,7 @@\n             else:\n+                # Linear interpolation between low and high watermarks\n+                span = self.config.buffer_high_watermark - self.config.buffer_low_watermark\n+                offset = (fill_ratio - self.config.buffer_low_watermark) / span\n+                return float(max(0.25, min(1.0, 1.0 - 0.75 * offset)))",
+            "stats": { "added": 4, "removed": 0 },
+            "fix_id": "fix_checkout_429"
+          },
+          {
+            "type": "credit_estimate",
+            "id": "b_cred_1",
+            "credits": 42,
+            "detail": "Sandbox replay verification against 120 production transactions & automated GitHub PR generation",
+            "requires_confirm": false
+          },
+          {
+            "type": "replay_evidence",
+            "id": "b_replay_1",
+            "fix_id": "fix_checkout_429"
+          },
+          {
+            "type": "fix_card",
+            "id": "b6",
+            "fix_id": "fix_checkout_429"
+          },
+          {
+            "type": "actions",
+            "id": "b7",
+            "items": [
+              { "action_id": "open_incident", "label": "Open Incident #190", "args": { "id": "190" }, "style": "primary" },
+              { "action_id": "run_replay", "label": "Re-run Replay Sandbox", "args": { "fix_id": "fix_checkout_429" }, "style": "secondary" },
+              { "action_id": "copy", "label": "Copy Triage Summary" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "conv_golden_edge_cases",
+    "title": "Edge Cases, Fences & Security Sanitization",
+    "createdAt": "2026-11-02T10:10:00Z",
+    "updatedAt": "2026-11-02T10:12:00Z",
+    "model": "claude-3-5-sonnet",
+    "messages": [
+      {
+        "id": "m_edge_1",
+        "role": "assistant",
+        "createdAt": "2026-11-02T10:10:00Z",
+        "status": "streaming",
+        "blocks": [
+          {
+            "type": "markdown",
+            "id": "b_partial_md",
+            "text": "Streaming partial markdown with an unclosed fence:\n\n```python:skelion_agent/throttler.py\ndef check_rate_limit(key: str) -> bool:\n    # streaming in progress..."
+          },
+          {
+            "type": "steps",
+            "id": "b_steps",
+            "items": [
+              { "label": "Inspect Redis KeyPool token bucket", "status": "done" },
+              { "label": "Run diagnostic replay against 120 captured transactions", "status": "running", "detail": "Replaying 84/120 requests" },
+              { "label": "Synthesize zero-regression unified patch", "status": "pending" }
+            ]
+          },
+          {
+            "type": "unsupported",
+            "id": "b_unsupported_test",
+            "raw": {
+              "experimental_widget": "quantum_profiler",
+              "parameters": { "qubits": 4, "state": "superposition" }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "conv_golden_advanced_blocks",
+    "title": "Advanced Blocks: Architecture Diagram, Timeline & Inspector",
+    "createdAt": "2026-11-02T10:20:00Z",
+    "updatedAt": "2026-11-02T10:25:00Z",
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "id": "m_adv_user",
+        "role": "user",
+        "createdAt": "2026-11-02T10:20:00Z",
+        "status": "done",
+        "blocks": [
+          {
+            "type": "markdown",
+            "id": "b_adv_u1",
+            "text": "Inspect the architecture bottleneck, telemetry timeline, redacted error logs, and HTTP payload for Incident #190."
+          }
+        ]
+      },
+      {
+        "id": "m_adv_asst",
+        "role": "assistant",
+        "createdAt": "2026-11-02T10:20:25Z",
+        "status": "done",
+        "blocks": [
+          {
+            "type": "markdown",
+            "id": "b_adv_m1",
+            "text": "Here is the end-to-end diagnosis of the rate-limiting bottleneck on `/v1/checkout` across architecture, sequence timeline, redacted log entries, and the raw HTTP 429 response trace."
+          },
+          {
+            "type": "diagram",
+            "id": "b_adv_diag",
+            "syntax": "mermaid",
+            "text": "graph LR\n  Client[Client Traffic] --> LB[Ingress Load Balancer]\n  LB --> Proxy[Skelion Proxy Capture]\n  Proxy --> Throttler[Rate Limiter: congestion.py]\n  Throttler -->|Keypool 429 Storm| Client\n  Throttler -->|Token Bucket OK| Core[Checkout Core Service]"
+          },
+          {
+            "type": "timeline",
+            "id": "b_adv_timeline",
+            "events": [
+              { "ts": "14:15:00 UTC", "label": "Deploy 2.1 Initiated", "severity": "info", "detail": "Image tag 2.1-prod deployed across checkout pods" },
+              { "ts": "14:20:12 UTC", "label": "HTTP 429 Surge Detected", "severity": "danger", "detail": "Error rate breached 1.0% SLO threshold, peaking at 4.2%" },
+              { "ts": "14:22:45 UTC", "label": "Incident #190 Auto-Triaged", "severity": "warn", "detail": "Correlated to congestion.py linear clamp omission" },
+              { "ts": "14:25:30 UTC", "label": "Replay Sandbox Verified", "severity": "success", "detail": "120/120 transactions verified with 0 regressions" }
+            ]
+          },
+          {
+            "type": "log_viewer",
+            "id": "b_adv_logs",
+            "data_ref": "q_incident_190_logs",
+            "filters": { "level": "ERROR", "route": "/v1/checkout" }
+          },
+          {
+            "type": "request_inspector",
+            "id": "b_adv_req",
+            "data_ref": "q_sample_request_190"
+          },
+          {
+            "type": "json",
+            "id": "b_adv_json",
+            "value": {
+              "incident_id": 190,
+              "service": "checkout-api",
+              "metrics": {
+                "error_rate_pct": 4.2,
+                "p95_latency_ms": 840,
+                "active_connections": 1240
+              },
+              "telemetry_source": "gossipmesh_ring_buffer",
+              "redacted_headers": ["Authorization", "Cookie", "X-Api-Key"]
+            },
+            "collapsed": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "conv_golden_pr_engine",
+    "title": "Autonomous PR Engine (Skelion / Jules-Style)",
+    "createdAt": "2026-11-03T10:00:00Z",
+    "updatedAt": "2026-11-03T10:05:00Z",
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "id": "m_pr_user",
+        "role": "user",
+        "createdAt": "2026-11-03T10:00:00Z",
+        "status": "done",
+        "blocks": [
+          {
+            "type": "markdown",
+            "id": "b_pr_u1",
+            "text": "Approve fix for Incident #190 and open autonomous Pull Request from @Aditya-9-6. Track CI checks, conflicts, and review comments."
+          }
+        ]
+      },
+      {
+        "id": "m_pr_asst",
+        "role": "assistant",
+        "createdAt": "2026-11-03T10:00:15Z",
+        "status": "done",
+        "blocks": [
+          {
+            "type": "markdown",
+            "id": "b_pr_m1",
+            "text": "Autonomous PR opened directly on GitHub under `@Aditya-9-6`. Local workspace files remain completely untouched. Continuous CI verification, conflict detection, and review comment handling are active."
+          },
+          {
+            "type": "pr_card",
+            "id": "b_pr_card_190",
+            "pr_number": 190,
+            "pr_url": "https://github.com/Aditya-9-6/Skelion/pull/190",
+            "title": "⚡ [Skelion Autofix] Fail-Open Boundary for POST /v1/checkout",
+            "branch": "feature/key-pool-429-handling",
+            "author": "Aditya-9-6",
+            "target_branch": "main",
+            "stages": [
+              { "key": "branch_created", "title": "Remote Branch Created", "status": "passed", "detail": "Branch created via GitHub Git Data API. Local disk untouched.", "icon": "🟢" },
+              { "key": "ci_checks", "title": "CI Status & Checks", "status": "passed", "detail": "GitHub Actions check runs polled. 3/3 passed.", "icon": "🟢" },
+              { "key": "merge_conflicts", "title": "Merge Conflict Verification", "status": "clean", "detail": "Zero merge conflicts against origin/main. Clean rebase.", "icon": "🟢" },
+              { "key": "review_comments", "title": "Review Feedback Ingestion", "status": "resolved", "detail": "AI comments scanned & synthesized. 0 blocking issues.", "icon": "🟢" },
+              { "key": "ready_to_merge", "title": "Merge Readiness", "status": "passed", "detail": "All branch protection & CI criteria satisfied. Ready to merge.", "icon": "🟢" }
+            ],
+            "ci_status": { "state": "success", "passed": 3, "total": 3 },
+            "merge_status": { "mergeable": true, "state": "clean" },
+            "review_status": { "comments_count": 0, "actions_count": 0 },
+            "actions": ["open_url", "trigger_pr_cycle"]
+          }
+        ]
+      }
+    ]
+  }
+]
