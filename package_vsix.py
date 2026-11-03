@@ -51,7 +51,7 @@ def build_vsix():
     manifest = """<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="skelion-vscode" Version="0.1.2" Language="en-US" Publisher="adity" />
+    <Identity Id="skelion-vscode" Version="0.1.2" Language="en-US" Publisher="adityadnyaneshwardahale" />
     <DisplayName>Skelion Agent</DisplayName>
     <Description xml:space="preserve">Full Autonomous Software Development Platform for VS Code with Universal Plugin &amp; MCP Hub</Description>
     <Tags>AI,DevOps,MCP,ClaudeCode,ChatGPT,AutonomousPlatform</Tags>
