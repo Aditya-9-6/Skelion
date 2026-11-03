@@ -29,27 +29,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 
     context.subscriptions.push(
-
         vscode.commands.registerCommand('skelion.openPanel', () => {
-
             vscode.commands.executeCommand('workbench.view.extension.skelion');
-
-        }),
-
-        vscode.commands.registerCommand('skelion.instantDevLogin', async () => {
-
-            await vscode.commands.executeCommand('workbench.view.extension.skelion');
-
-            await provider.performDevLogin();
-
-        }),
-
-        vscode.commands.registerCommand('skelion.openMasterDashboard', () => {
-
-            vscode.env.openExternal(vscode.Uri.parse('http://127.0.0.1:8003/admin'));
-
         })
-
     );
 
 }
@@ -2132,7 +2114,7 @@ class SkelionSidebarProvider implements vscode.WebviewViewProvider {
 
       <div style="display:flex; align-items:center; gap:8px;">
 
-        <button data-action="openAdmin" style="background:transparent; border:none; color:#b8860b; cursor:pointer; font-size:11px; font-weight:600;" title="Open Master Admin Control Plane">🎛️ Admin</button>
+        
 
         <button id="signout-btn" data-action="signOut" style="background:transparent; border:none; color:#888; cursor:pointer; font-size:11px;">Sign Out</button>
 

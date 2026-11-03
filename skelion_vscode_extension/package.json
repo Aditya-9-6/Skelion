@@ -18,14 +18,6 @@
       {
         "command": "skelion.openPanel",
         "title": "Skelion: Open Dashboard"
-      },
-      {
-        "command": "skelion.instantDevLogin",
-        "title": "Skelion: Instant Dev Sign In (Aditya)"
-      },
-      {
-        "command": "skelion.openMasterDashboard",
-        "title": "Skelion: Open Master Admin Control Dashboard"
       }
     ],
     "viewsContainers": {
