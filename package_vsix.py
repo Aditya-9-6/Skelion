@@ -16,7 +16,9 @@ def build_vsix():
     # Collect files to pack
     files_to_pack = [
         ("package.json", "extension/package.json"),
+        ("media/icon.png", "extension/media/icon.png"),
         ("media/icon.svg", "extension/media/icon.svg"),
+        ("media/banner.png", "extension/media/banner.png"),
     ]
 
     # Recursively pack out/
@@ -40,6 +42,7 @@ def build_vsix():
     # Content types XML
     content_types = """<?xml version="1.0" encoding="utf-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="png" ContentType="image/png" />
   <Default Extension="json" ContentType="application/json" />
   <Default Extension="js" ContentType="application/javascript" />
   <Default Extension="svg" ContentType="image/svg+xml" />
@@ -51,13 +54,13 @@ def build_vsix():
     manifest = """<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="skelion-vscode" Version="0.1.2" Language="en-US" Publisher="adityadnyaneshwardahale" />
+    <Identity Id="skelion-vscode" Version="0.1.2" Language="en-US" Publisher="AdityaDnyaneshwarDahale" />
     <DisplayName>Skelion Agent</DisplayName>
     <Description xml:space="preserve">Full Autonomous Software Development Platform for VS Code with Universal Plugin &amp; MCP Hub</Description>
     <Tags>AI,DevOps,MCP,ClaudeCode,ChatGPT,AutonomousPlatform</Tags>
     <Categories>AI,Other</Categories>
     <GalleryFlags>Public</GalleryFlags>
-    <Icon>extension/media/icon.svg</Icon>
+    <Icon>extension/media/icon.png</Icon>
     <Properties>
       <Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.88.0" />
       <Property Id="Microsoft.VisualStudio.Code.ExtensionDependencies" Value="" />
@@ -69,7 +72,7 @@ def build_vsix():
   <Dependencies />
   <Assets>
     <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" />
-    <Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/media/icon.svg" />
+    <Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/media/icon.png" />
   </Assets>
 </PackageManifest>"""
 

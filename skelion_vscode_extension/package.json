@@ -1,7 +1,8 @@
 {
   "name": "skelion-vscode",
-  "publisher": "adityadnyaneshwardahale",
+  "publisher": "AdityaDnyaneshwarDahale",
   "displayName": "Skelion Agent",
+  "icon": "media/icon.png",
   "description": "VS Code panel for Skelion authentication & billing",
   "version": "0.1.2",
   "engines": {
