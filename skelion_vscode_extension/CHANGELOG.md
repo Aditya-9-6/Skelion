@@ -2,14 +2,16 @@
 
 All notable changes to the Skelion VS Code Extension and Autonomous Platform.
 
-## [0.1.2] - 2026-11-03
+## [0.1.2] - 2026-11-04
 
 ### Added
+- **Skeleton Loading UX**: Added YouTube-style pulsating shimmer placeholder structures across all primary panels (Incidents, Autofix, Limits, History, Plugins, Chat).
+- **Zero-Restart Live Sync**: Synchronize developer profiles, tier upgrades, and token quotas dynamically with live-spinning sync indicators without requiring a VS Code window reload.
+- **Error Diagnostics & Retry Actions**: Contextual error cards with connection diagnostics, server status checks, and one-click retry triggers for all data feeds.
+- **WCAG 2.1 AA Accessibility**: Enhanced screen-reader support with `role="tablist"`, `role="tab"`, `aria-busy`, and high-contrast color scheme definitions.
 - **GitHub Tool Connector**: Generic GitHub tool repository importer with full REA (Reverse Engineer Anything) support and MCP tooling.
-- **Error Handling UI**: Toast error and fallback notifications in `extension.ts` for all GitHub repository connection events.
-- **Automated Test Suite**: Added `test_connect_generic_github_tool_repo` verifying generic repository tools registration in `tests/test_mcp_plugins.py`.
-- **TypeScript 5 & Zod Fixes**: Upgraded schema definitions in `chat.ts` to support modern Zod object records.
-- **Production VSIX**: Packaged `skelion-vscode-0.1.2.vsix` with complete webview, assets, and compiled host controllers.
+- **Automated Test Suite & CI/CD**: Unified test runner across 5 comprehensive test suites with GitHub Actions workflow automation for cross-platform validation.
+- **TypeScript 5 & Zod 3.22**: Upgraded strict schema definitions and downsampling algorithms for guaranteed type safety.
 
 ## [0.1.1] - 2026-11-02
 

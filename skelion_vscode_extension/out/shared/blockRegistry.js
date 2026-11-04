@@ -29,7 +29,7 @@ class BlockRegistry {
         return {
             success: false,
             fallback,
-            error: parseResult.error.message,
+            error: parseResult.error?.message || 'Validation error',
         };
     }
     static listTypes() {

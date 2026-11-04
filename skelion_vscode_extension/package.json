@@ -3,8 +3,23 @@
   "publisher": "AdityaDnyaneshwarDahale",
   "displayName": "Skelion Agent",
   "icon": "media/icon.png",
-  "description": "VS Code panel for Skelion authentication & billing",
+  "description": "Autonomous AI engineering, real-time incident remediation, live zero-restart billing & MCP agent platform",
   "version": "0.1.2",
+  "categories": [
+    "Machine Learning",
+    "Programming Languages",
+    "Testing",
+    "Other"
+  ],
+  "keywords": [
+    "skelion",
+    "autonomous",
+    "incident",
+    "autofix",
+    "mcp",
+    "ai-agent",
+    "telemetry"
+  ],
   "engines": {
     "vscode": "^1.88.0"
   },
@@ -50,6 +65,9 @@
     }
   },
   "scripts": {
+    "test": "node scripts/run-tests.js",
+    "lint": "tsc --noEmit",
+    "e2e": "bash ./scripts/e2e-test.sh",
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",

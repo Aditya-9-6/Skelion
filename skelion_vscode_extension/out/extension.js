@@ -313,7 +313,8 @@ class SkelionSidebarProvider {
                                     limits
                                 });
                             }
-                        } catch (_) {}
+                        }
+                        catch (_) { }
                     }
                     break;
                 }
@@ -421,8 +422,13 @@ class SkelionSidebarProvider {
                                 const incidentsList = Array.isArray(data) ? data : (data.incidents || []);
                                 webview.postMessage({ type: 'incidentsData', incidents: incidentsList });
                             }
+                            else {
+                                webview.postMessage({ type: 'fetchError', panel: 'incidents', error: `Server returned HTTP ${res.status}` });
+                            }
                         }
-                        catch (e) { }
+                        catch (e) {
+                            webview.postMessage({ type: 'fetchError', panel: 'incidents', error: e?.message || 'Failed to fetch incidents' });
+                        }
                     }
                     break;
                 }
@@ -442,8 +448,13 @@ class SkelionSidebarProvider {
                                     autofix_tokens_remaining: data.autofix_tokens_remaining
                                 });
                             }
+                            else {
+                                webview.postMessage({ type: 'fetchError', panel: 'suggestions', error: `Server returned HTTP ${res.status}` });
+                            }
                         }
-                        catch (e) { }
+                        catch (e) {
+                            webview.postMessage({ type: 'fetchError', panel: 'suggestions', error: e?.message || 'Failed to fetch autofix suggestions' });
+                        }
                     }
                     break;
                 }
@@ -458,8 +469,13 @@ class SkelionSidebarProvider {
                                 const data = await res.json();
                                 webview.postMessage({ type: 'conversationsData', conversations: data.conversations || [] });
                             }
+                            else {
+                                webview.postMessage({ type: 'fetchError', panel: 'conversations', error: `Server returned HTTP ${res.status}` });
+                            }
                         }
-                        catch (e) { }
+                        catch (e) {
+                            webview.postMessage({ type: 'fetchError', panel: 'conversations', error: e?.message || 'Failed to fetch conversations' });
+                        }
                     }
                     break;
                 }
@@ -474,8 +490,13 @@ class SkelionSidebarProvider {
                                 const limits = await res.json();
                                 webview.postMessage({ type: 'limitsData', limits });
                             }
+                            else {
+                                webview.postMessage({ type: 'fetchError', panel: 'limits', error: `Server returned HTTP ${res.status}` });
+                            }
                         }
-                        catch (e) { }
+                        catch (e) {
+                            webview.postMessage({ type: 'fetchError', panel: 'limits', error: e?.message || 'Failed to fetch limits' });
+                        }
                     }
                     break;
                 }
@@ -1014,6 +1035,7 @@ class SkelionSidebarProvider {
 <html lang="en">
 
 <head>
+    <link rel="stylesheet" href="${this._view?.webview?.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'skeleton.css'))}">
 
   <meta charset="UTF-8">
 
@@ -1356,10 +1378,12 @@ class SkelionSidebarProvider {
 </head>
 
 <body>
+    <div id="loading-overlay" class="loading-overlay" aria-busy="true" aria-label="Loading Skelion Agent">
+      <div class="skeleton-circle" style="width:48px; height:48px;"></div>
+      <div class="skeleton-text" style="width:130px; height:12px;"></div>
+    </div>
 
-
-
-  <!-- SIGN IN SCREEN -->
+<!-- SIGN IN SCREEN -->
 
   <div id="screen-signin" class="screen ${isLoggedIn ? '' : 'active'}" style="display: ${isLoggedIn ? 'none' : 'block'};">
 
@@ -1415,7 +1439,7 @@ class SkelionSidebarProvider {
 
         
 
-        <button id="sync-btn" data-action="syncLiveProfile" style="background:transparent; border:none; color:#58a6ff; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="Sync Live Tokens & Plan">🔄 Sync</button> <button id="signout-btn" data-action="signOut" style="background:transparent; border:none; color:#888; cursor:pointer; font-size:11px;">Sign Out</button>
+        <button id="sync-btn" data-action="syncLiveProfile" aria-label="Sync Live Tokens & Plan" style="background:transparent; border:none; color:#58a6ff; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="Sync Live Tokens & Plan"><span class="sync-icon">🔄</span> Sync</button> <button id="signout-btn" data-action="signOut" style="background:transparent; border:none; color:#888; cursor:pointer; font-size:11px;">Sign Out</button>
 
       </div>
 
@@ -1425,23 +1449,23 @@ class SkelionSidebarProvider {
 
     <!-- TABS (ORDERED WITH ASK CHAT PANEL FIRST) -->
 
-    <div class="tabs">
+    <div class="tabs" role="tablist">
 
-      <button class="tab-btn active" data-tab="chat">💬 Ask</button>
+      <button class="tab-btn active" role="tab" data-tab="chat" aria-label="Ask Skelion AI Chat" title="Ask Skelion AI Chat">💬 Ask</button>
 
-      <button class="tab-btn" data-tab="incidents">🚨 Incidents</button>
+      <button class="tab-btn" role="tab" data-tab="incidents" aria-label="Live Production Incidents" title="Live Production Incidents">🚨 Incidents</button>
 
-      <button class="tab-btn" data-tab="autofix">⚡ Fixes</button>
+      <button class="tab-btn" role="tab" data-tab="autofix" aria-label="Skelion Autofix Patches" title="Skelion Autofix Patches">⚡ Fixes</button>
 
-      <button class="tab-btn" data-tab="history">📜 History</button>
+      <button class="tab-btn" role="tab" data-tab="history" aria-label="Saved Conversation History" title="Saved Conversation History">📜 History</button>
 
-      <button class="tab-btn" data-tab="limits">⏱️ Limits</button>
+      <button class="tab-btn" role="tab" data-tab="limits" aria-label="Antigravity Pacing Limits" title="Antigravity Pacing Limits">⏱️ Limits</button>
 
-      <button class="tab-btn" data-tab="autonomous">🚀 Loop</button>
+      <button class="tab-btn" role="tab" data-tab="autonomous" aria-label="Autonomous DevOps Loop" title="Autonomous DevOps Loop">🚀 Loop</button>
 
-      <button class="tab-btn" data-tab="plugins">🔌 Plugins</button>
+      <button class="tab-btn" role="tab" data-tab="plugins" aria-label="Universal Plugins and MCP Hub" title="Universal Plugins and MCP Hub">🔌 Plugins</button>
 
-      <button class="tab-btn" data-tab="billing">💳 Pricing</button>
+      <button class="tab-btn" role="tab" data-tab="billing" aria-label="Pricing and Token Top-ups" title="Pricing and Token Top-ups">💳 Pricing</button>
 
     </div>
 
@@ -1493,7 +1517,13 @@ class SkelionSidebarProvider {
 
         </div>
 
-        <div id="chat-drawer-list" style="font-size:11px; color:#888;">${conversationsDrawerHtml}</div>
+        <div id="chat-drawer-list" style="font-size:11px; color:#888;">
+          <div id="skeleton-drawer">
+            <div class="skeleton-text" style="width:85%; height:14px; margin-bottom:8px;"></div>
+            <div class="skeleton-text" style="width:65%; height:14px; margin-bottom:8px;"></div>
+            <div class="skeleton-text" style="width:75%; height:14px; margin-bottom:8px;"></div>
+          </div>
+        </div>
 
       </div>
 
@@ -1557,7 +1587,13 @@ class SkelionSidebarProvider {
 
       <div style="font-size:11px; color:#888; margin-bottom:8px;">Live traffic intercepted & preserved at edge without downtime.</div>
 
-      <div id="incidents-list">${incidentsHtml}</div>
+      <div id="incidents-list">
+        <div id="skeleton-incidents">
+          <div class="skeleton-card" style="height:76px; margin-bottom:8px;"></div>
+          <div class="skeleton-card" style="height:76px; margin-bottom:8px;"></div>
+          <div class="skeleton-card" style="height:76px; margin-bottom:8px;"></div>
+        </div>
+      </div>
 
     </div>
 
@@ -1613,7 +1649,12 @@ class SkelionSidebarProvider {
 
       </div>
 
-      <div id="autofix-list">${suggestionsHtml}</div>
+      <div id="autofix-list">
+        <div id="skeleton-autofix">
+          <div class="skeleton-card" style="height:100px; margin-bottom:8px;"></div>
+          <div class="skeleton-card" style="height:100px; margin-bottom:8px;"></div>
+        </div>
+      </div>
 
     </div>
 
@@ -1623,77 +1664,88 @@ class SkelionSidebarProvider {
 
     <div id="tab-limits" class="tab-content" style="display:none;">
 
-      <div class="card">
-
-        <b>⏱️ Antigravity-Style Rate Pacing</b>
-
-        <div style="font-size:11px; color:#888; margin-top:4px;">Protects provider capacity with 5-hour burst and weekly quotas.</div>
-
+      <div id="skeleton-limits">
+        <div class="skeleton-card" style="height:55px; margin-bottom:8px;"></div>
+        <div class="skeleton-card" style="height:75px; margin-bottom:8px;"></div>
+        <div class="skeleton-card" style="height:75px; margin-bottom:8px;"></div>
+        <div class="skeleton-card" style="height:48px; margin-bottom:8px;"></div>
       </div>
 
+      <div id="limits-content" style="display:none;">
 
+        <div class="card">
 
-      <div class="card">
+          <b>⏱️ Antigravity-Style Rate Pacing</b>
 
-        <div style="display:flex; justify-content:space-between;">
-
-          <b>5-Hour Pacing Window</b>
-
-          <span id="limit-5h-resets" style="color:#888; font-size:11px;">Resets in: 5h 0m</span>
+          <div style="font-size:11px; color:#888; margin-top:4px;">Protects provider capacity with 5-hour burst and weekly quotas.</div>
 
         </div>
 
-        <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:11px;">
-
-          <span>Tokens Used:</span>
-
-          <b id="limit-5h-count">0 / 500</b>
-
-        </div>
-
-        <div class="progress-bar-container"><div id="limit-5h-bar" class="progress-bar-fill" style="width:0%;"></div></div>
-
-      </div>
 
 
+        <div class="card">
 
-      <div class="card">
+          <div style="display:flex; justify-content:space-between;">
 
-        <div style="display:flex; justify-content:space-between;">
+            <b>5-Hour Pacing Window</b>
 
-          <b>Weekly Quota Window</b>
-
-          <span id="limit-weekly-resets" style="color:#888; font-size:11px;">Resets in: 7d 0h</span>
-
-        </div>
-
-        <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:11px;">
-
-          <span>Tokens Used:</span>
-
-          <b id="limit-weekly-count">0 / 1500</b>
-
-        </div>
-
-        <div class="progress-bar-container"><div id="limit-weekly-bar" class="progress-bar-fill" style="width:0%;"></div></div>
-
-      </div>
-
-
-
-      <div class="card">
-
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-
-          <div>
-
-            <b>Enforce Rate Limits</b>
-
-            <div style="font-size:10.5px; color:#888;">Disable to burn purchased tokens at maximum speed</div>
+            <span id="limit-5h-resets" style="color:#888; font-size:11px;">Resets in: 5h 0m</span>
 
           </div>
 
-          <input type="checkbox" id="limit-toggle" style="width:auto;" checked />
+          <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:11px;">
+
+            <span>Tokens Used:</span>
+
+            <b id="limit-5h-count">0 / 500</b>
+
+          </div>
+
+          <div class="progress-bar-container"><div id="limit-5h-bar" class="progress-bar-fill" style="width:0%;"></div></div>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <div style="display:flex; justify-content:space-between;">
+
+            <b>Weekly Quota Window</b>
+
+            <span id="limit-weekly-resets" style="color:#888; font-size:11px;">Resets in: 7d 0h</span>
+
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:11px;">
+
+            <span>Tokens Used:</span>
+
+            <b id="limit-weekly-count">0 / 1500</b>
+
+          </div>
+
+          <div class="progress-bar-container"><div id="limit-weekly-bar" class="progress-bar-fill" style="width:0%;"></div></div>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+
+            <div>
+
+              <b>Enforce Rate Limits</b>
+
+              <div style="font-size:10.5px; color:#888;">Disable to burn purchased tokens at maximum speed</div>
+
+            </div>
+
+            <input type="checkbox" id="limit-toggle" style="width:auto;" checked />
+
+          </div>
 
         </div>
 
@@ -1701,9 +1753,7 @@ class SkelionSidebarProvider {
 
     </div>
 
-
-
-    <!-- TAB 4: HISTORY -->
+<!-- TAB 4: HISTORY -->
 
     <div id="tab-history" class="tab-content" style="display:none;">
 
@@ -1715,7 +1765,13 @@ class SkelionSidebarProvider {
 
       </div>
 
-      <div id="history-list">${conversationsHistoryHtml}</div>
+      <div id="history-list">
+        <div id="skeleton-history">
+          <div class="skeleton-card" style="height:48px; margin-bottom:6px;"></div>
+          <div class="skeleton-card" style="height:48px; margin-bottom:6px;"></div>
+          <div class="skeleton-card" style="height:48px; margin-bottom:6px;"></div>
+        </div>
+      </div>
 
     </div>
 
@@ -2037,6 +2093,11 @@ class SkelionSidebarProvider {
 
       <!-- PLUGIN CARDS CONTAINER -->
       <div id="plugins-list-container" style="display:flex; flex-direction:column; gap:10px;">
+        <div id="skeleton-plugins" style="display:none;">
+          <div class="skeleton-card" style="height:90px; margin-bottom:8px;"></div>
+          <div class="skeleton-card" style="height:80px; margin-bottom:8px;"></div>
+          <div class="skeleton-card" style="height:80px; margin-bottom:8px;"></div>
+        </div>
         <!-- REA (Reverse Engineer Anything) Card -->
         <div class="card" style="border:1px solid rgba(14,165,233,0.3); background:rgba(14,165,233,0.03); padding:10px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -2382,20 +2443,24 @@ class SkelionSidebarProvider {
 
         }
 
-        case 'refreshIncidents': {
-
-          vscode.postMessage({ type: 'fetchIncidents' });
-
+        case 'syncLiveProfile': {
+          const sBtn = document.getElementById('sync-btn');
+          const syncIcon = sBtn ? sBtn.querySelector('.sync-icon') : null;
+          if (syncIcon) syncIcon.classList.add('spinning');
+          vscode.postMessage({ type: 'syncLiveProfile' });
           break;
+        }
 
+        case 'refreshIncidents': {
+          showIncidentsSkeleton();
+          vscode.postMessage({ type: 'fetchIncidents' });
+          break;
         }
 
         case 'refreshSuggestions': {
-
+          showSuggestionsSkeleton();
           vscode.postMessage({ type: 'fetchSuggestions' });
-
           break;
-
         }
 
         case 'triggerCrossRepoSync': {
@@ -2459,11 +2524,9 @@ class SkelionSidebarProvider {
         }
 
         case 'refreshHistory': {
-
+          showHistorySkeleton();
           vscode.postMessage({ type: 'fetchConversations' });
-
           break;
-
         }
 
         case 'proposeFix': {
@@ -2695,7 +2758,16 @@ class SkelionSidebarProvider {
 
           const appEl = document.getElementById('screen-app');
 
-          if (appEl) { appEl.classList.add('active'); appEl.style.display = 'flex'; }
+          if (appEl) {
+            appEl.classList.add('active');
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+              overlay.setAttribute('aria-busy', 'false');
+              overlay.style.opacity = '0';
+              setTimeout(() => overlay.remove(), 250);
+            }
+            appEl.style.display = 'flex';
+          }
 
           const userDisp = document.getElementById('user-display');
 
@@ -2728,7 +2800,12 @@ class SkelionSidebarProvider {
           if (appEl) { appEl.classList.remove('active'); appEl.style.display = 'none'; }
 
           const signinEl = document.getElementById('screen-signin');
-
+          const overlay = document.getElementById('loading-overlay');
+          if (overlay) {
+            overlay.setAttribute('aria-busy', 'false');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 250);
+          }
           if (signinEl) { signinEl.classList.add('active'); signinEl.style.display = 'block'; }
 
           const ghBtn = document.getElementById('github-signin-btn');
@@ -2795,10 +2872,47 @@ class SkelionSidebarProvider {
           }
           const sBtn = document.getElementById('sync-btn');
           if (sBtn) {
-            sBtn.textContent = '✓ Live';
-            setTimeout(() => { if (sBtn) sBtn.innerHTML = '🔄 Sync'; }, 1500);
+            const syncIcon = sBtn.querySelector('.sync-icon');
+            if (syncIcon) syncIcon.classList.remove('spinning');
+            sBtn.innerHTML = '✓ Live';
+            setTimeout(() => { if (sBtn) sBtn.innerHTML = '<span class="sync-icon">🔄</span> Sync'; }, 1500);
           }
-} else if (msg.type === 'limitsData') {
+        } else if (msg.type === 'fetchError') {
+          console.warn('Fetch error received:', msg);
+          if (msg.panel === 'incidents') showPanelError('incidents-list', msg.error, 'refreshIncidents');
+          else if (msg.panel === 'suggestions') showPanelError('autofix-list', msg.error, 'refreshSuggestions');
+          else if (msg.panel === 'conversations') showPanelError('history-list', msg.error, 'refreshHistory');
+          else if (msg.panel === 'plugins') showPanelError('plugins-list-container', msg.error, 'fetchPlugins');
+        } else if (msg.type === 'pluginsLoaded') {
+          const d = msg.data || {};
+          const container = document.getElementById('plugins-list-container');
+          if (container && d.plugins && Array.isArray(d.plugins)) {
+            container.classList.remove('fade-in');
+            void container.offsetWidth;
+            container.classList.add('fade-in');
+            container.innerHTML = d.plugins.map(function(p) {
+              const toolsHtml = (p.tools || []).map(function(t) {
+                return '<span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-family:monospace;">🔧 ' + escapeHtml(t.name) + '</span>';
+              }).join(' ');
+              return '<div class="card" style="border:1px solid rgba(0,0,0,0.08); padding:10px;">' +
+                '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+                  '<div>' +
+                    '<div style="display:flex; align-items:center; gap:6px;">' +
+                      '<b style="font-size:13px; color:#1e293b;">' + escapeHtml(p.name) + '</b>' +
+                      '<span style="font-size:10px; background:#e0e7ff; color:#3730a3; padding:1px 6px; border-radius:8px;">' + escapeHtml(p.type || 'MCP') + '</span>' +
+                    '</div>' +
+                    '<div style="font-size:11px; color:#64748b; margin-top:2px;">Status: <b style="color:#10b981;">' + escapeHtml(p.status || 'Connected') + '</b></div>' +
+                  '</div>' +
+                  '<label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer;">' +
+                    '<input type="checkbox" ' + (p.enabled ? 'checked' : '') + ' data-action="togglePlugin" data-plugin-id="' + escapeHtml(p.id) + '" style="cursor:pointer;" />' +
+                    '<span style="color:#059669; font-weight:600;">Active</span>' +
+                  '</label>' +
+                '</div>' +
+                (toolsHtml ? '<div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">' + toolsHtml + '</div>' : '') +
+              '</div>';
+            }).join('');
+          }
+        } else if (msg.type === 'limitsData') {
 
           renderLimitsUI(msg.limits);
 
@@ -2914,7 +3028,73 @@ class SkelionSidebarProvider {
 
 
 
+
+    function showIncidentsSkeleton() {
+      const list = document.getElementById('incidents-list');
+      if (list) {
+        list.innerHTML = '<div id="skeleton-incidents">' +
+          '<div class="skeleton-card" style="height:76px; margin-bottom:8px;"></div>' +
+          '<div class="skeleton-card" style="height:76px; margin-bottom:8px;"></div>' +
+          '<div class="skeleton-card" style="height:76px; margin-bottom:8px;"></div>' +
+        '</div>';
+      }
+    }
+
+    function showSuggestionsSkeleton() {
+      const list = document.getElementById('autofix-list');
+      if (list) {
+        list.innerHTML = '<div id="skeleton-autofix">' +
+          '<div class="skeleton-card" style="height:100px; margin-bottom:8px;"></div>' +
+          '<div class="skeleton-card" style="height:100px; margin-bottom:8px;"></div>' +
+        '</div>';
+      }
+    }
+
+    function showLimitsSkeleton() {
+      const sk = document.getElementById('skeleton-limits');
+      const lc = document.getElementById('limits-content');
+      if (sk) sk.style.display = 'block';
+      if (lc) lc.style.display = 'none';
+    }
+
+    function showHistorySkeleton() {
+      const list = document.getElementById('history-list');
+      if (list) {
+        list.innerHTML = '<div id="skeleton-history">' +
+          '<div class="skeleton-card" style="height:48px; margin-bottom:6px;"></div>' +
+          '<div class="skeleton-card" style="height:48px; margin-bottom:6px;"></div>' +
+          '<div class="skeleton-card" style="height:48px; margin-bottom:6px;"></div>' +
+        '</div>';
+      }
+    }
+
+    function showPluginsSkeleton() {
+      const container = document.getElementById('plugins-list-container');
+      if (container) {
+        container.innerHTML = '<div id="skeleton-plugins">' +
+          '<div class="skeleton-card" style="height:90px; margin-bottom:8px;"></div>' +
+          '<div class="skeleton-card" style="height:80px; margin-bottom:8px;"></div>' +
+          '<div class="skeleton-card" style="height:80px; margin-bottom:8px;"></div>' +
+        '</div>';
+      }
+    }
+
+    function showPanelError(containerId, errorText, retryAction) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = '<div class="card fade-in" style="border-left: 3px solid #f85149; background: rgba(248,81,73,0.06); text-align:center; padding:16px 12px;">' +
+        '<div style="font-weight:bold; color:#f85149; font-size:12px; margin-bottom:4px;">⚠️ Connection Notice</div>' +
+        '<div style="font-size:11px; color:#888; margin-bottom:10px;">' + escapeHtml(errorText || 'Unable to reach Skelion edge service.') + '</div>' +
+        '<button class="action-btn" data-action="' + retryAction + '" style="width:auto; padding:5px 14px; font-size:11px; display:inline-block;">🔄 Retry</button>' +
+      '</div>';
+    }
+
     function renderLimitsUI(limits) {
+      const skLimits = document.getElementById('skeleton-limits');
+      if (skLimits) skLimits.style.display = 'none';
+      const limitsContent = document.getElementById('limits-content');
+      if (limitsContent) { limitsContent.style.display = 'block'; limitsContent.classList.add('fade-in'); }
+
         if (limits.coding_tokens) {
           const tot = limits.coding_tokens.total_remaining != null ? limits.coding_tokens.total_remaining : 0;
           const mon = limits.coding_tokens.monthly_remaining != null ? limits.coding_tokens.monthly_remaining : 0;
@@ -3071,13 +3251,26 @@ class SkelionSidebarProvider {
 
         }
 
-        if (tab === 'incidents') vscode.postMessage({ type: 'fetchIncidents' });
-
-        if (tab === 'autofix') vscode.postMessage({ type: 'fetchSuggestions' });
-
-        if (tab === 'limits') vscode.postMessage({ type: 'fetchLimits' });
-
-        if (tab === 'history') vscode.postMessage({ type: 'fetchConversations' });
+        if (tab === 'incidents') {
+          showIncidentsSkeleton();
+          vscode.postMessage({ type: 'fetchIncidents' });
+        }
+        if (tab === 'autofix') {
+          showSuggestionsSkeleton();
+          vscode.postMessage({ type: 'fetchSuggestions' });
+        }
+        if (tab === 'limits') {
+          showLimitsSkeleton();
+          vscode.postMessage({ type: 'fetchLimits' });
+        }
+        if (tab === 'history') {
+          showHistorySkeleton();
+          vscode.postMessage({ type: 'fetchConversations' });
+        }
+        if (tab === 'plugins') {
+          showPluginsSkeleton();
+          vscode.postMessage({ type: 'fetchPlugins' });
+        }
         if (tab === 'autonomous') {
           vscode.postMessage({ type: 'fetchAutonomousStatus' });
           vscode.postMessage({ type: 'fetchSyncStatus' });
@@ -3118,6 +3311,9 @@ class SkelionSidebarProvider {
       const list = document.getElementById('incidents-list');
 
       if (!list) return;
+      list.classList.remove('fade-in');
+      void list.offsetWidth;
+      list.classList.add('fade-in');
 
       if (!incidents || incidents.length === 0) {
 
@@ -3531,7 +3727,7 @@ class SkelionSidebarProvider {
     function renderConversationsList(conversations) {
 
       const historyList = document.getElementById('history-list');
-
+      if (historyList) { historyList.classList.remove('fade-in'); void historyList.offsetWidth; historyList.classList.add('fade-in'); }
       const drawerList = document.getElementById('chat-drawer-list');
 
       if (!conversations || conversations.length === 0) {
@@ -3577,6 +3773,9 @@ class SkelionSidebarProvider {
       const list = document.getElementById('autofix-list');
 
       if (!list) return;
+      list.classList.remove('fade-in');
+      void list.offsetWidth;
+      list.classList.add('fade-in');
 
       window.activeSuggestions = {};
 
