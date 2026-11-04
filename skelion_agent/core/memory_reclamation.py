@@ -1,19 +1,25 @@
 import threading
+
+
 # Atomic operations replaced with simple thread‑safe wrapper
 class SimpleAtomicLong:
     def __init__(self, value: int = 0):
         self._value = value
         self._lock = threading.Lock()
+
     def load(self) -> int:
         with self._lock:
             return self._value
+
     def store(self, val: int) -> None:
         with self._lock:
             self._value = val
+
     def increment(self, delta: int = 1) -> int:
         with self._lock:
             self._value += delta
             return self._value
+
 
 from typing import List, Callable, Any
 import logging

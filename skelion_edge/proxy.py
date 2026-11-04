@@ -129,12 +129,14 @@ class ProxyMiddleware:
             except Exception as forward_err:
                 logger.error(f"Proxy fail-open upstream unreachable: {forward_err}")
                 fallback_resp = Response(
-                    content=json.dumps({
-                        "error": "Internal Server Error",
-                        "detail": str(app_exc),
-                        "fail_open_status": "target_unreachable"
-                    }),
+                    content=json.dumps(
+                        {
+                            "error": "Internal Server Error",
+                            "detail": str(app_exc),
+                            "fail_open_status": "target_unreachable",
+                        }
+                    ),
                     status_code=500,
-                    media_type="application/json"
+                    media_type="application/json",
                 )
                 await fallback_resp(scope, receive, send)
