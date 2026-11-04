@@ -4,7 +4,9 @@ import shutil
 
 CONV_ID = "b1faa519-83ae-42f2-9fa8-65bfb5c1b076"
 SRC_DIR = r"g:\My Drive\helios\skelion_vscode_extension"
-BRAIN_DIR = rf"C:\Users\adity\.gemini\antigravity\brain\{CONV_ID}\skelion_vscode_extension"
+BRAIN_DIR = (
+    rf"C:\Users\adity\.gemini\antigravity\brain\{CONV_ID}\skelion_vscode_extension"
+)
 OUT_VSIX = os.path.join(SRC_DIR, "skelion-vscode-0.1.2.vsix")
 BRAIN_VSIX = os.path.join(BRAIN_DIR, "skelion-vscode-0.1.2.vsix")
 
@@ -28,7 +30,12 @@ def build_vsix():
             for fn in filenames:
                 full_path = os.path.join(root, fn)
                 rel_path = os.path.relpath(full_path, SRC_DIR)
-                files_to_pack.append((rel_path.replace("\\", "/"), f"extension/{rel_path.replace('\\', '/')}"))
+                files_to_pack.append(
+                    (
+                        rel_path.replace("\\", "/"),
+                        f"extension/{rel_path.replace('\\', '/')}",
+                    )
+                )
 
     # Recursively pack fixtures/
     fixtures_dir = os.path.join(SRC_DIR, "fixtures")
@@ -37,7 +44,12 @@ def build_vsix():
             for fn in filenames:
                 full_path = os.path.join(root, fn)
                 rel_path = os.path.relpath(full_path, SRC_DIR)
-                files_to_pack.append((rel_path.replace("\\", "/"), f"extension/{rel_path.replace('\\', '/')}"))
+                files_to_pack.append(
+                    (
+                        rel_path.replace("\\", "/"),
+                        f"extension/{rel_path.replace('\\', '/')}",
+                    )
+                )
 
     # Content types XML
     content_types = """<?xml version="1.0" encoding="utf-8"?>

@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional, NamedTuple
 
+
 # Simple data class for a vote – tests expect BFTVote
 class BFTVote(NamedTuple):
     model_name: str
@@ -16,6 +17,7 @@ class BFTVote(NamedTuple):
     concerns: List[str]
     suggestions: List[str]
     confidence_scores: List[float] = []
+
 
 # Re-export as alias for backward compatibility
 ModelVote = BFTVote

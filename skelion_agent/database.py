@@ -23,6 +23,7 @@ if DATABASE_URL.startswith("sqlite"):
 engine: Engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 
 if DATABASE_URL.startswith("sqlite"):
+
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()

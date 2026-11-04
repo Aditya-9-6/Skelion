@@ -8,14 +8,10 @@ REST Endpoints for:
 """
 
 from typing import Dict, Any, Optional, List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from skelion_agent.mcp_manager import (
-    plugin_registry,
-    MCPPlugin,
-    ClaudeConfigImporter
-)
+from skelion_agent.mcp_manager import plugin_registry, MCPPlugin, ClaudeConfigImporter
 
 router = APIRouter(prefix="/v1/plugins", tags=["Universal Plugins & MCP"])
 
@@ -65,7 +61,7 @@ async def list_plugins():
         "total_plugins": len(plugins),
         "plugins": plugins,
         "claude_config_detected": claude_config_found is not None,
-        "claude_config_path": claude_config_found
+        "claude_config_path": claude_config_found,
     }
 
 
@@ -83,7 +79,7 @@ async def add_plugin(req: AddPluginRequest):
         tools=req.tools or [],
         source="custom",
         status="connected",
-        enabled=True
+        enabled=True,
     )
     return plugin_registry.add_plugin(plugin)
 
@@ -116,18 +112,16 @@ async def import_openapi_action(req: ImportOpenApiRequest):
 @router.post("/connect-github-repo")
 async def connect_github_repo(req: ConnectGitHubRepoRequest):
     """Connects any open-source GitHub tool repo (e.g. morluto/rea) as an active MCP server."""
-    return plugin_registry.import_github_tool_repo(req.repo_url, custom_command=req.command)
+    return plugin_registry.import_github_tool_repo(
+        req.repo_url, custom_command=req.command
+    )
 
 
 @router.get("/active-tools")
 async def get_active_tools():
     """Lists all tools enabled across active plugins ready for LLM invocation."""
     tools = plugin_registry.get_all_active_tools()
-    return {
-        "status": "ok",
-        "active_tool_count": len(tools),
-        "tools": tools
-    }
+    return {"status": "ok", "active_tool_count": len(tools), "tools": tools}
 
 
 @router.post("/execute-tool")

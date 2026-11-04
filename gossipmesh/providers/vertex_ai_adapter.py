@@ -1,5 +1,6 @@
 from typing import AsyncGenerator
 import time
+
 try:
     import vertexai
     from vertexai.generative_models import GenerativeModel, Part, Content

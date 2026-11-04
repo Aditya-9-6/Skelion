@@ -1,10 +1,14 @@
 from typing import AsyncGenerator
 import time
+
 try:
     from anthropic import AsyncAnthropic
 except ImportError:
+
     class AsyncAnthropic:  # type: ignore
-        def __init__(self, *args, **kwargs): pass
+        def __init__(self, *args, **kwargs):
+            pass
+
 
 from gossipmesh.providers.base import BaseProvider
 from gossipmesh.providers.models import (

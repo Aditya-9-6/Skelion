@@ -1,15 +1,12 @@
 # tests/test_mcp_plugins.py — Test Suite for Universal Plugin & MCP System
-import os
 import json
-import pytest
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
 from skelion_agent.mcp_manager import (
     PluginRegistry,
-    MCPPlugin,
     ClaudeConfigImporter,
-    OpenApiImporter
+    OpenApiImporter,
 )
 from skelion_agent.plugin_routes import router
 
@@ -36,13 +33,17 @@ def test_claude_desktop_config_importer(tmp_path):
         "mcpServers": {
             "filesystem": {
                 "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
             },
             "postgres-production": {
                 "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@db:5432/prod"],
-                "env": {"PGPASSWORD": "supersecretpassword"}
-            }
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-postgres",
+                    "postgresql://user:pass@db:5432/prod",
+                ],
+                "env": {"PGPASSWORD": "supersecretpassword"},
+            },
         }
     }
     with open(mock_config, "w", encoding="utf-8") as f:
@@ -53,7 +54,7 @@ def test_claude_desktop_config_importer(tmp_path):
     names = [p.name for p in imported]
     assert "filesystem" in names
     assert "postgres-production" in names
-    
+
     pg_plugin = next(p for p in imported if p.name == "postgres-production")
     assert pg_plugin.source == "claude_import"
     assert len(pg_plugin.tools) >= 1
@@ -63,27 +64,32 @@ def test_claude_desktop_config_importer(tmp_path):
 def test_chatgpt_openapi_importer():
     sample_openapi = {
         "openapi": "3.1.0",
-        "info": {
-            "title": "Stripe Payments Inspector",
-            "version": "1.0.0"
-        },
+        "info": {"title": "Stripe Payments Inspector", "version": "1.0.0"},
         "servers": [{"url": "https://api.stripe.com/v1"}],
         "paths": {
             "/charges": {
                 "get": {
                     "operationId": "list_charges",
                     "summary": "List all recent customer charges",
-                    "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer"}}]
+                    "parameters": [
+                        {"name": "limit", "in": "query", "schema": {"type": "integer"}}
+                    ],
                 }
             },
             "/refunds": {
                 "post": {
                     "operationId": "create_refund",
                     "summary": "Issue refund for charge ID",
-                    "parameters": [{"name": "charge_id", "in": "query", "schema": {"type": "string"}}]
+                    "parameters": [
+                        {
+                            "name": "charge_id",
+                            "in": "query",
+                            "schema": {"type": "string"},
+                        }
+                    ],
                 }
-            }
-        }
+            },
+        },
     }
 
     plugin = OpenApiImporter.import_spec(sample_openapi, source_name="Stripe Payments")
@@ -133,13 +139,17 @@ def test_plugin_rest_api_endpoints(tmp_path):
 
     # Test POST /v1/plugins/toggle
     first_id = data["plugins"][0]["id"]
-    toggle_res = client.post("/v1/plugins/toggle", json={"plugin_id": first_id, "enabled": False})
+    toggle_res = client.post(
+        "/v1/plugins/toggle", json={"plugin_id": first_id, "enabled": False}
+    )
     assert toggle_res.status_code == 200
     assert toggle_res.json()["enabled"] is False
 
     # Test POST /v1/plugins/execute-tool
     active_tool = tools_data["tools"][-1]["name"]
-    exec_res = client.post("/v1/plugins/execute-tool", json={"tool_name": active_tool, "arguments": {}})
+    exec_res = client.post(
+        "/v1/plugins/execute-tool", json={"tool_name": active_tool, "arguments": {}}
+    )
     assert exec_res.status_code == 200
     assert exec_res.json()["status"] == "ok"
 
@@ -162,7 +172,9 @@ def test_connect_github_tool_repo_rea(tmp_path):
     assert "rea_search_strings" in tool_names
 
     # Test via REST API endpoint
-    api_res = client.post("/v1/plugins/connect-github-repo", json={"repo_url": "github.com/morluto/rea"})
+    api_res = client.post(
+        "/v1/plugins/connect-github-repo", json={"repo_url": "github.com/morluto/rea"}
+    )
     assert api_res.status_code == 200
     assert api_res.json()["status"] == "ok"
     assert "REA" in api_res.json()["plugin"]["name"]
@@ -188,4 +200,3 @@ def test_connect_generic_github_tool_repo(tmp_path):
     matching = [p for p in all_plugins if p["id"] == "github_repo_simple_mcp_tool"]
     assert len(matching) == 1
     assert matching[0]["name"] == "GitHub Tool: simple-mcp-tool"
-

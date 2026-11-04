@@ -1,6 +1,7 @@
 from typing import AsyncGenerator
 import time
 import asyncio
+
 try:
     import boto3
 except ImportError:

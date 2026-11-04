@@ -26,7 +26,11 @@ async def test_anti_entropy_convergence():
 
         # Wait for anti-entropy sync cycle and convergence
         for _ in range(25):
-            if node2.state.get('keyB') == 'val2_updated' and node1.merkle_tree.get_root_hash() == node2.merkle_tree.get_root_hash():
+            if (
+                node2.state.get("keyB") == "val2_updated"
+                and node1.merkle_tree.get_root_hash()
+                == node2.merkle_tree.get_root_hash()
+            ):
                 break
             await asyncio.sleep(0.1)
 

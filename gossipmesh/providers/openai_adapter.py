@@ -1,11 +1,16 @@
 from typing import Any
 from typing import AsyncGenerator
 import time
+
 try:
     from openai import AsyncOpenAI
 except ImportError:
+
     class AsyncOpenAI:  # type: ignore
-        def __init__(self, *args, **kwargs): pass
+        def __init__(self, *args, **kwargs):
+            pass
+
+
 try:
     import tiktoken
 except ImportError:
