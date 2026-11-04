@@ -40,7 +40,7 @@ export function runTests(): boolean {
     const parseResult = ConversationSchema.safeParse(conv);
     assert(parseResult.success, `Conversation "${conv.id}" parsed cleanly with ConversationSchema`);
     if (!parseResult.success) {
-      console.error('Validation error:', parseResult.error);
+      console.error('Validation error:', (parseResult as any).error);
     }
   }
 
@@ -53,7 +53,7 @@ export function runTests(): boolean {
   const valResult = BlockRegistry.validate(unknownBlock);
   assert(!valResult.success, 'Unknown block flagged as non-standard');
   if (!valResult.success) {
-    assert(valResult.fallback.type === 'unsupported', 'Unknown block normalized to unsupported fallback');
+    assert((valResult as any).fallback.type === 'unsupported', 'Unknown block normalized to unsupported fallback');
   }
 
   // 4. Test Valid Block Parse via BlockRegistry

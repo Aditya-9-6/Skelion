@@ -72,7 +72,7 @@ export class BlockRegistry {
     return {
       success: false,
       fallback,
-      error: parseResult.error.message,
+      error: (parseResult as any).error?.message || 'Validation error',
     };
   }
 
