@@ -43,10 +43,12 @@ except ImportError:  # pragma: no cover
 
 try:
     from jose import jwt
+
     JWTError = jwt.JWTError
 except ImportError:
     try:
         import jwt
+
         class JWTError(Exception):
             pass
     except ImportError:
@@ -70,13 +72,21 @@ except ImportError:
 
             @staticmethod
             def encode(payload, key, algorithm="HS256"):
-                h = _b64url_encode(json.dumps({"alg": algorithm, "typ": "JWT"}).encode())
+                h = _b64url_encode(
+                    json.dumps({"alg": algorithm, "typ": "JWT"}).encode()
+                )
+
                 def serialize(obj):
                     if hasattr(obj, "timestamp"):
                         return int(obj.timestamp())
                     return str(obj)
+
                 p = _b64url_encode(json.dumps(payload, default=serialize).encode())
-                sig = _b64url_encode(hmac.new(key.encode("utf-8"), f"{h}.{p}".encode("utf-8"), hashlib.sha256).digest())
+                sig = _b64url_encode(
+                    hmac.new(
+                        key.encode("utf-8"), f"{h}.{p}".encode("utf-8"), hashlib.sha256
+                    ).digest()
+                )
                 return f"{h}.{p}.{sig}"
 
             @staticmethod
@@ -85,7 +95,11 @@ except ImportError:
                 if len(parts) != 3:
                     raise JWTError("Invalid token format")
                 h, p, sig = parts
-                expected = _b64url_encode(hmac.new(key.encode("utf-8"), f"{h}.{p}".encode("utf-8"), hashlib.sha256).digest())
+                expected = _b64url_encode(
+                    hmac.new(
+                        key.encode("utf-8"), f"{h}.{p}".encode("utf-8"), hashlib.sha256
+                    ).digest()
+                )
                 if not hmac.compare_digest(sig, expected):
                     raise JWTError("Signature verification failed")
                 data = json.loads(_b64url_decode(p).decode("utf-8"))

@@ -440,6 +440,7 @@ async def create_autofix_pr(
     timeline = None
     try:
         from skelion_agent.github_pr_engine import SkelionPREngine
+
         engine = SkelionPREngine(repo=repo, token=gh_token)
         if pr_number:
             timeline = engine.get_jules_timeline(pr_number)
@@ -468,6 +469,7 @@ async def get_pr_timeline(pr_number: int, repo: Optional[str] = None):
     """Returns real-time Google Jules-style 5-stage lifecycle card for a PR."""
     try:
         from skelion_agent.github_pr_engine import SkelionPREngine
+
         engine = SkelionPREngine(repo=repo)
         return engine.get_jules_timeline(pr_number)
     except Exception as e:
@@ -479,6 +481,7 @@ async def trigger_pr_cycle(pr_number: int, repo: Optional[str] = None):
     """Executes full autonomous review, conflict check, and repair cycle on PR."""
     try:
         from skelion_agent.github_pr_engine import SkelionPREngine
+
         engine = SkelionPREngine(repo=repo)
         return engine.run_autonomous_cycle(pr_number)
     except Exception as e:
@@ -497,12 +500,15 @@ async def merge_pr_endpoint(pr_number: int, req: Optional[MergePRRequest] = None
     """Merges a pull request directly via GitHub API once all stages are clean."""
     try:
         from skelion_agent.github_pr_engine import SkelionPREngine
+
         repo = req.repo if req else None
         title = req.commit_title if req else None
         msg = req.commit_message if req else None
         method = req.merge_method if req else "merge"
         engine = SkelionPREngine(repo=repo)
-        return engine.merge_pr(pr_number, commit_title=title, commit_message=msg, merge_method=method)
+        return engine.merge_pr(
+            pr_number, commit_title=title, commit_message=msg, merge_method=method
+        )
     except Exception as e:
         return {"status": "error", "message": str(e), "pr_number": pr_number}
 

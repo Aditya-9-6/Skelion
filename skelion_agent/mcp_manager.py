@@ -8,12 +8,7 @@ Universal Plugin & Model Context Protocol (MCP) Manager:
 """
 
 import os
-import sys
 import json
-import time
-import shutil
-import asyncio
-import subprocess
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field, asdict
 
@@ -58,13 +53,17 @@ class ClaudeConfigImporter:
 
         # User Home configs
         home = os.path.expanduser("~")
-        paths.append(os.path.join(home, ".config", "claude", "claude_desktop_config.json"))
+        paths.append(
+            os.path.join(home, ".config", "claude", "claude_desktop_config.json")
+        )
         paths.append(os.path.join(home, ".claude.json"))
         paths.append(os.path.join(home, ".claude", "claude_desktop_config.json"))
-        
+
         # Local workspace .claude
         paths.append(os.path.abspath(".claude.json"))
-        paths.append(os.path.abspath(os.path.join(".claude", "claude_desktop_config.json")))
+        paths.append(
+            os.path.abspath(os.path.join(".claude", "claude_desktop_config.json"))
+        )
         return paths
 
     @classmethod
@@ -106,7 +105,7 @@ class ClaudeConfigImporter:
                 enabled=True,
                 status="connected",
                 tools=sample_tools,
-                source="claude_import"
+                source="claude_import",
             )
             plugins.append(plugin)
         return plugins
@@ -116,33 +115,117 @@ class ClaudeConfigImporter:
         s_lower = server_name.lower()
         if "postgres" in s_lower or "db" in s_lower:
             return [
-                {"name": f"{s_lower}_query", "description": "Execute read-only SQL query on PostgreSQL", "parameters": {"type": "object", "properties": {"sql": {"type": "string"}}, "required": ["sql"]}},
-                {"name": f"{s_lower}_list_tables", "description": "List all database schemas and tables", "parameters": {"type": "object", "properties": {}}}
+                {
+                    "name": f"{s_lower}_query",
+                    "description": "Execute read-only SQL query on PostgreSQL",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"sql": {"type": "string"}},
+                        "required": ["sql"],
+                    },
+                },
+                {
+                    "name": f"{s_lower}_list_tables",
+                    "description": "List all database schemas and tables",
+                    "parameters": {"type": "object", "properties": {}},
+                },
             ]
         elif "github" in s_lower:
             return [
-                {"name": "github_create_issue", "description": "Create an issue in a GitHub repository", "parameters": {"type": "object", "properties": {"title": {"type": "string"}, "body": {"type": "string"}}}},
-                {"name": "github_get_pr_diff", "description": "Get git diff for a Pull Request", "parameters": {"type": "object", "properties": {"pr_number": {"type": "integer"}}}}
+                {
+                    "name": "github_create_issue",
+                    "description": "Create an issue in a GitHub repository",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "body": {"type": "string"},
+                        },
+                    },
+                },
+                {
+                    "name": "github_get_pr_diff",
+                    "description": "Get git diff for a Pull Request",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"pr_number": {"type": "integer"}},
+                    },
+                },
             ]
         elif "brave" in s_lower or "search" in s_lower:
             return [
-                {"name": "brave_web_search", "description": "Execute web search query via Brave Search API", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}
+                {
+                    "name": "brave_web_search",
+                    "description": "Execute web search query via Brave Search API",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"query": {"type": "string"}},
+                        "required": ["query"],
+                    },
+                }
             ]
         elif "docker" in s_lower:
             return [
-                {"name": "docker_list_containers", "description": "List running and stopped Docker containers", "parameters": {"type": "object", "properties": {}}},
-                {"name": "docker_get_logs", "description": "Fetch container logs", "parameters": {"type": "object", "properties": {"container_id": {"type": "string"}}}}
+                {
+                    "name": "docker_list_containers",
+                    "description": "List running and stopped Docker containers",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+                {
+                    "name": "docker_get_logs",
+                    "description": "Fetch container logs",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"container_id": {"type": "string"}},
+                    },
+                },
             ]
         elif "rea" in s_lower or "reverse" in s_lower:
             return [
-                {"name": "rea_open_binary", "description": "Open and inspect executable binary, APK, or Electron bundle", "parameters": {"type": "object", "properties": {"target_path": {"type": "string"}}, "required": ["target_path"]}},
-                {"name": "rea_decompile", "description": "Decompile procedure or bytecode to pseudo-code with evidence log", "parameters": {"type": "object", "properties": {"symbol": {"type": "string"}}}},
-                {"name": "rea_search_strings", "description": "Extract strings, endpoints, and embedded API keys from target", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}}},
-                {"name": "rea_analyze_flow", "description": "Trace control flow and reconstruct logic into clean implementation", "parameters": {"type": "object", "properties": {"flow_name": {"type": "string"}}}}
+                {
+                    "name": "rea_open_binary",
+                    "description": "Open and inspect executable binary, APK, or Electron bundle",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"target_path": {"type": "string"}},
+                        "required": ["target_path"],
+                    },
+                },
+                {
+                    "name": "rea_decompile",
+                    "description": "Decompile procedure or bytecode to pseudo-code with evidence log",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"symbol": {"type": "string"}},
+                    },
+                },
+                {
+                    "name": "rea_search_strings",
+                    "description": "Extract strings, endpoints, and embedded API keys from target",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"query": {"type": "string"}},
+                    },
+                },
+                {
+                    "name": "rea_analyze_flow",
+                    "description": "Trace control flow and reconstruct logic into clean implementation",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"flow_name": {"type": "string"}},
+                    },
+                },
             ]
         # Generic fallback
         return [
-            {"name": f"{s_lower}_execute", "description": f"Execute action via {server_name}", "parameters": {"type": "object", "properties": {"action": {"type": "string"}}}}
+            {
+                "name": f"{s_lower}_execute",
+                "description": f"Execute action via {server_name}",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"action": {"type": "string"}},
+                },
+            }
         ]
 
 
@@ -150,11 +233,13 @@ class OpenApiImporter:
     """Imports ChatGPT Custom GPT Actions / OpenAPI 3.0/3.1 specs into Skelion tools."""
 
     @staticmethod
-    def import_spec(spec_data: Dict[str, Any], source_name: Optional[str] = None) -> MCPPlugin:
+    def import_spec(
+        spec_data: Dict[str, Any], source_name: Optional[str] = None
+    ) -> MCPPlugin:
         info = spec_data.get("info", {})
         title = source_name or info.get("title", "Custom API Plugin")
         plugin_id = f"openapi_{title.lower().replace(' ', '_').replace('-', '_')}"
-        
+
         servers = spec_data.get("servers", [])
         base_url = servers[0].get("url", "https://api.example.com") if servers else ""
 
@@ -164,16 +249,25 @@ class OpenApiImporter:
             for method, details in methods.items():
                 if method.lower() not in ("get", "post", "put", "delete", "patch"):
                     continue
-                op_id = details.get("operationId") or f"{method.lower()}_{path_url.strip('/').replace('/', '_')}"
-                summary = details.get("summary") or details.get("description") or f"Call {method.upper()} {path_url}"
-                
-                tools.append({
-                    "name": op_id,
-                    "description": summary,
-                    "method": method.upper(),
-                    "path": path_url,
-                    "parameters": details.get("parameters", {})
-                })
+                op_id = (
+                    details.get("operationId")
+                    or f"{method.lower()}_{path_url.strip('/').replace('/', '_')}"
+                )
+                summary = (
+                    details.get("summary")
+                    or details.get("description")
+                    or f"Call {method.upper()} {path_url}"
+                )
+
+                tools.append(
+                    {
+                        "name": op_id,
+                        "description": summary,
+                        "method": method.upper(),
+                        "path": path_url,
+                        "parameters": details.get("parameters", {}),
+                    }
+                )
 
         return MCPPlugin(
             id=plugin_id,
@@ -183,7 +277,7 @@ class OpenApiImporter:
             enabled=True,
             status="connected",
             tools=tools,
-            source="chatgpt_openapi"
+            source="chatgpt_openapi",
         )
 
 
@@ -212,22 +306,42 @@ class PluginRegistry:
                 source="curated",
                 status="connected",
                 tools=[
-                    {"name": "github_search_repos", "description": "Search code and repositories across GitHub", "parameters": {"query": "string"}},
-                    {"name": "github_create_pull_request", "description": "Create pull request on GitHub", "parameters": {"title": "string", "branch": "string"}}
-                ]
+                    {
+                        "name": "github_search_repos",
+                        "description": "Search code and repositories across GitHub",
+                        "parameters": {"query": "string"},
+                    },
+                    {
+                        "name": "github_create_pull_request",
+                        "description": "Create pull request on GitHub",
+                        "parameters": {"title": "string", "branch": "string"},
+                    },
+                ],
             ),
             MCPPlugin(
                 id="plugin_postgres_mcp",
                 name="PostgreSQL Inspector",
                 type="mcp_stdio",
                 command="npx",
-                args=["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/dev"],
+                args=[
+                    "-y",
+                    "@modelcontextprotocol/server-postgres",
+                    "postgresql://localhost/dev",
+                ],
                 source="curated",
                 status="connected",
                 tools=[
-                    {"name": "postgres_query", "description": "Run read-only SQL queries and explain plans", "parameters": {"sql": "string"}},
-                    {"name": "postgres_schema", "description": "Inspect table schemas and indexes", "parameters": {"table": "string"}}
-                ]
+                    {
+                        "name": "postgres_query",
+                        "description": "Run read-only SQL queries and explain plans",
+                        "parameters": {"sql": "string"},
+                    },
+                    {
+                        "name": "postgres_schema",
+                        "description": "Inspect table schemas and indexes",
+                        "parameters": {"table": "string"},
+                    },
+                ],
             ),
             MCPPlugin(
                 id="plugin_docker_mcp",
@@ -238,9 +352,17 @@ class PluginRegistry:
                 source="curated",
                 status="connected",
                 tools=[
-                    {"name": "docker_ps", "description": "List all active containers and health status", "parameters": {}},
-                    {"name": "docker_logs", "description": "Stream logs from container", "parameters": {"container": "string"}}
-                ]
+                    {
+                        "name": "docker_ps",
+                        "description": "List all active containers and health status",
+                        "parameters": {},
+                    },
+                    {
+                        "name": "docker_logs",
+                        "description": "Stream logs from container",
+                        "parameters": {"container": "string"},
+                    },
+                ],
             ),
             MCPPlugin(
                 id="plugin_brave_search",
@@ -251,9 +373,13 @@ class PluginRegistry:
                 source="curated",
                 status="connected",
                 tools=[
-                    {"name": "brave_search", "description": "Live web research for docs, API errors, and packages", "parameters": {"query": "string"}}
-                ]
-            )
+                    {
+                        "name": "brave_search",
+                        "description": "Live web research for docs, API errors, and packages",
+                        "parameters": {"query": "string"},
+                    }
+                ],
+            ),
         ]
         for p in curated:
             self.plugins[p.id] = p
@@ -300,7 +426,9 @@ class PluginRegistry:
             return {"status": "ok", "plugin_id": plugin_id}
         return {"status": "error", "message": f"Plugin {plugin_id} not found"}
 
-    def import_claude_plugins(self, config_path: Optional[str] = None) -> Dict[str, Any]:
+    def import_claude_plugins(
+        self, config_path: Optional[str] = None
+    ) -> Dict[str, Any]:
         imported = ClaudeConfigImporter.import_plugins(config_path)
         added_count = 0
         for p in imported:
@@ -311,16 +439,20 @@ class PluginRegistry:
         return {
             "status": "ok",
             "imported_count": added_count,
-            "plugins": [p.to_dict() for p in imported]
+            "plugins": [p.to_dict() for p in imported],
         }
 
-    def import_openapi_action(self, spec: Dict[str, Any], title: Optional[str] = None) -> Dict[str, Any]:
+    def import_openapi_action(
+        self, spec: Dict[str, Any], title: Optional[str] = None
+    ) -> Dict[str, Any]:
         plugin = OpenApiImporter.import_spec(spec, source_name=title)
         self.plugins[plugin.id] = plugin
         self._save()
         return {"status": "ok", "plugin": plugin.to_dict()}
 
-    def import_github_tool_repo(self, repo_url: str, custom_command: Optional[str] = None) -> Dict[str, Any]:
+    def import_github_tool_repo(
+        self, repo_url: str, custom_command: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Connects an arbitrary GitHub tool repo (like morluto/rea) as an active MCP / CLI tool.
         Supports both npm/npx tools, python repos, and local git clones.
@@ -339,7 +471,7 @@ class PluginRegistry:
                 source="github_repo",
                 status="connected",
                 enabled=True,
-                tools=ClaudeConfigImporter._infer_tools("rea")
+                tools=ClaudeConfigImporter._infer_tools("rea"),
             )
         else:
             plugin = MCPPlugin(
@@ -347,11 +479,13 @@ class PluginRegistry:
                 name=f"GitHub Tool: {repo_name}",
                 type="mcp_stdio",
                 command=custom_command or "npx",
-                args=["-y", f"github:{clean_url.split('github.com/')[-1]}"] if "github.com" in clean_url else [],
+                args=["-y", f"github:{clean_url.split('github.com/')[-1]}"]
+                if "github.com" in clean_url
+                else [],
                 source="github_repo",
                 status="connected",
                 enabled=True,
-                tools=ClaudeConfigImporter._infer_tools(repo_name)
+                tools=ClaudeConfigImporter._infer_tools(repo_name),
             )
 
         self.plugins[plugin.id] = plugin
@@ -365,13 +499,15 @@ class PluginRegistry:
             if not p.enabled:
                 continue
             for t in p.tools:
-                active_tools.append({
-                    "name": t.get("name"),
-                    "description": f"[{p.name}] {t.get('description', '')}",
-                    "parameters": t.get("parameters", {}),
-                    "plugin_id": p.id,
-                    "plugin_name": p.name
-                })
+                active_tools.append(
+                    {
+                        "name": t.get("name"),
+                        "description": f"[{p.name}] {t.get('description', '')}",
+                        "parameters": t.get("parameters", {}),
+                        "plugin_id": p.id,
+                        "plugin_name": p.name,
+                    }
+                )
         return active_tools
 
     def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -390,7 +526,7 @@ class PluginRegistry:
         if not target_plugin:
             return {
                 "status": "error",
-                "message": f"Tool '{tool_name}' not found in active plugins."
+                "message": f"Tool '{tool_name}' not found in active plugins.",
             }
 
         # Simulated safe execution result with real metadata
@@ -400,7 +536,7 @@ class PluginRegistry:
             "plugin_id": target_plugin.id,
             "plugin_name": target_plugin.name,
             "arguments": arguments,
-            "output": f"Executed {tool_name} successfully via {target_plugin.name}."
+            "output": f"Executed {tool_name} successfully via {target_plugin.name}.",
         }
 
 

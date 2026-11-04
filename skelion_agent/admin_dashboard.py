@@ -112,7 +112,7 @@ def list_admin_customers(db: Session = Depends(get_db)):
     seen = set()
     for org in orgs:
         dedup_key = (org.github_username or org.email or org.id).strip().lower()
-        if dedup_key in seen and dedup_key not in ('no email', 'none', ''):
+        if dedup_key in seen and dedup_key not in ("no email", "none", ""):
             continue
         seen.add(dedup_key)
         limits = get_token_status(org)
