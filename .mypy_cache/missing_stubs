@@ -1,3 +1,5 @@
 types-passlib
 types-psutil
+types-pycurl
+types-python-jose
 types-tree-sitter

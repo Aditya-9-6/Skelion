@@ -3,20 +3,16 @@
 from typing import Any, Dict, Optional
 import logging
 
-from gossipmesh.p2p.fountain import FountainFragmentConfig, FountainDecoder
-
 logger = logging.getLogger(__name__)
 
 
 class P2PTransport:
     """Resilient transport layer supporting incremental fountain fragment broadcast and duplicate filtering."""
 
-    def __init__(
-        self, node_id: str, config: Optional[FountainFragmentConfig] = None
-    ) -> None:
+    def __init__(self, node_id: str, config: Optional[Any] = None) -> None:
         self.node_id = node_id
-        self.config = config or FountainFragmentConfig()
-        self.active_decoders: Dict[str, FountainDecoder] = {}
+        self.config = config
+        self.active_decoders: Dict[str, Any] = {}
 
     def receive_message(self, message_id: str, payload: Dict[str, Any]) -> bool:
         """

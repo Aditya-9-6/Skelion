@@ -350,8 +350,7 @@ def process_single_issue(issue: dict, repo: str = None, workspace_str: str = Non
         ]:
             run_cmd(["git", "rm", "-r", "--cached", stray], cwd=workspace, check=False)
             run_cmd(["git", "reset", "--", stray], cwd=workspace, check=False)
-        author_name = os.environ.get("GIT_AUTHOR_NAME") or "Dahale Aditya Dnyaneshwar"
-        author_email = os.environ.get("GIT_AUTHOR_EMAIL") or "adityadahale96@gmail.com"
+
         commit_msg = f"feat(ai): resolve #{issue_num} - {title}\n\nCo-authored-by: {author_name} <{author_email}>"
         run_cmd(
             [
