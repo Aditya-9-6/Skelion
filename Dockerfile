@@ -1,11 +1,14 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir .[dev,p2p]
 
-RUN useradd -u 10001 gossipmesh && chown -R gossipmesh:gossipmesh /app
-USER gossipmesh
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 8080
+COPY . .
+
+RUN useradd -u 10001 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
 CMD ["python", "-m", "gossipmesh.main"]
