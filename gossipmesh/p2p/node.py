@@ -1,4 +1,4 @@
-""P2P Node implementation incorporating entropy-based churn defense and Sybil mitigation."""
+"""P2P Node implementation incorporating entropy-based churn defense and Sybil mitigation."""
 
 import time
 import threading
