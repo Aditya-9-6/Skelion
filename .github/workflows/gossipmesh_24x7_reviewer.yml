@@ -222,7 +222,7 @@ jobs:
           if [ -n "$OPEN_ISSUES" ] || [ -n "$OPEN_PRS" ]; then
             echo "[⚡ TURBO RE-DISPATCH] Active items remain in backlog (Issues: $OPEN_ISSUES, PRs: $OPEN_PRS)."
             echo "Re-dispatching next engine cycle immediately to bypass GitHub Actions cron queue lag..."
-            sleep 10
+            sleep 60
             gh workflow run gossipmesh_24x7_reviewer.yml --ref main || true
           else
             echo "[✓] Backlog clear. Falling back to 5-minute cron schedule."
