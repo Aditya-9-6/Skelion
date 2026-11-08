@@ -14,3 +14,6 @@ pytest>=8.1.0
 python-multipart>=0.0.9
 aiohttp>=3.9.3
 email-validator>=2.0.0
+cryptography>=42.0.0
+networkx>=3.0
+mmh3>=4.0.0
