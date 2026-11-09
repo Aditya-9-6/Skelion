@@ -43,48 +43,113 @@ class PlanTask:
         }
 
 
-def parse_implementation_plan(workspace: Path) -> List[PlanTask]:
-    """Extracts all tasks defined in docs/ENTERPRISE_SAAS_IMPLEMENTATION_PLAN.md."""
-    plan_path = workspace / PLAN_FILE
-    if not plan_path.is_file():
-        raise FileNotFoundError(f"Plan file not found: {plan_path}")
+def find_implementation_plans(workspace: Path) -> List[Path]:
+    """Finds all implementation plan files across the workspace."""
+    found = []
+    candidates = [
+        workspace / "VSCODE_EXTENSION_AND_BILLING_IMPLEMENTATION_PLAN.md",
+        workspace / "docs" / "ENTERPRISE_SAAS_IMPLEMENTATION_PLAN.md",
+        workspace / "docs" / "specs" / "VSCODE_EXTENSION_MASTER_PLAN.md",
+        workspace / "docs" / "specs" / "SKELION_SOFTWARE_DEV_PLATFORM.md",
+        workspace / "docs" / "specs" / "PHASE2.md",
+    ]
+    for c in candidates:
+        if c.is_file() and c not in found:
+            found.append(c)
 
-    content = plan_path.read_text(encoding="utf-8")
-    phases = re.split(r"\n# (Phase \d+ [^\n]+)", content)
+    for p in workspace.glob("*[pP][lL][aA][nN]*.md"):
+        if p.is_file() and p not in found:
+            found.append(p)
+
+    if (workspace / "docs").is_dir():
+        for p in (workspace / "docs").glob("**/*[pP][lL][aA][nN]*.md"):
+            if p.is_file() and p not in found:
+                found.append(p)
+
+    return found
+
+
+def parse_implementation_plan(workspace: Path, plan_path: Optional[Path] = None) -> List[PlanTask]:
+    """Extracts tasks defined in implementation plans in the workspace."""
+    target_files = [plan_path] if plan_path else find_implementation_plans(workspace)
+    if not target_files:
+        return []
+
     tasks = []
+    seen_keys = set()
 
-    for i in range(1, len(phases), 2):
-        p_name = phases[i].strip()
-        p_body = phases[i + 1]
-        raw_tasks = re.split(r"\n## (Task \d+ [^\n]+)", p_body)
-        for j in range(1, len(raw_tasks), 2):
-            t_header = raw_tasks[j].strip()
-            t_spec = raw_tasks[j + 1].strip()
-            # Remove trailing summary headers if parsed into last task
-            if "\n---" in t_spec:
-                t_spec = t_spec.split("\n---")[0].strip()
+    for pf in target_files:
+        if not pf.is_file():
+            continue
+        try:
+            content = pf.read_text(encoding="utf-8", errors="replace")
+            # Parse phases or top-level headers
+            phases = re.split(r"\n# (Phase \d+ [^\n]+)", content)
+            if len(phases) > 1:
+                for i in range(1, len(phases), 2):
+                    p_name = phases[i].strip()
+                    p_body = phases[i + 1]
+                    raw_tasks = re.split(r"\n## (Task \d+ [^\n]+)", p_body)
+                    for j in range(1, len(raw_tasks), 2):
+                        t_header = raw_tasks[j].strip()
+                        t_spec = raw_tasks[j + 1].strip()
+                        if "\n---" in t_spec:
+                            t_spec = t_spec.split("\n---")[0].strip()
 
-            m = re.match(r"Task (\d+)\s*[—–-]\s*(.+)", t_header)
-            if m:
-                t_num = int(m.group(1))
-                t_name = m.group(2).strip()
-                tasks.append(
-                    PlanTask(
-                        num=t_num,
-                        name=t_name,
-                        phase=p_name,
-                        header=t_header,
-                        spec=t_spec,
-                    )
+                        m = re.match(r"Task (\d+)\s*[—–-]\s*(.+)", t_header)
+                        if m:
+                            t_num = int(m.group(1))
+                            t_name = m.group(2).strip()
+                            key = (t_num, t_name.lower())
+                            if key not in seen_keys:
+                                seen_keys.add(key)
+                                tasks.append(
+                                    PlanTask(
+                                        num=t_num,
+                                        name=t_name,
+                                        phase=p_name,
+                                        header=t_header,
+                                        spec=t_spec,
+                                    )
+                                )
+            else:
+                # Flexible task matching for plans without # Phase headers
+                task_pattern = re.compile(
+                    r"(?:^|\n)(?:##+|###|\- \[[ ]\])\s*(?:Task|TASK)\s*(\d+)[:\s\-—–]+([^\n]+)",
+                    re.IGNORECASE,
                 )
+                matches = list(task_pattern.finditer(content))
+                for i, match in enumerate(matches):
+                    t_num = int(match.group(1))
+                    t_name = match.group(2).strip()
+                    start_pos = match.end()
+                    end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+                    t_spec = content[start_pos:end_pos].strip()
+                    if "\n---" in t_spec:
+                        t_spec = t_spec.split("\n---")[0].strip()
+                    key = (t_num, t_name.lower())
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        tasks.append(
+                            PlanTask(
+                                num=t_num,
+                                name=t_name,
+                                phase=pf.stem,
+                                header=f"Task {t_num} — {t_name}",
+                                spec=t_spec,
+                            )
+                        )
+        except Exception:
+            pass
 
     return tasks
 
 
-def audit_codebase_completion(tasks: List[PlanTask], workspace: Path):
+def audit_codebase_completion(tasks: List[PlanTask], workspace: Path, repo: Optional[str] = None):
     """
     Inspects git commit history, PRs, and workspace files to identify completed tasks.
     """
+    target_repo = repo or os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY") or "Aditya-9-6/GossipMesh"
     # 1. Fetch merged and open PRs
     merged_prs = {}
     open_prs = {}
@@ -94,7 +159,7 @@ def audit_codebase_completion(tasks: List[PlanTask], workspace: Path):
             "pr",
             "list",
             "--repo",
-            "Aditya-9-6/GossipMesh",
+            target_repo,
             "--state",
             "all",
             "--limit",
@@ -125,7 +190,7 @@ def audit_codebase_completion(tasks: List[PlanTask], workspace: Path):
             "issue",
             "list",
             "--repo",
-            "Aditya-9-6/GossipMesh",
+            target_repo,
             "--state",
             "open",
             "--limit",
@@ -785,8 +850,10 @@ def get_next_pending_task(tasks: List[PlanTask]) -> Optional[PlanTask]:
     return None
 
 
-def format_issue_content(task: PlanTask) -> Tuple[str, str]:
-    """Formats issue title and Markdown body strictly conforming to the Jules plan standards."""
+def format_issue_content(task: PlanTask, repo: Optional[str] = None) -> Tuple[str, str]:
+    """Formats issue title and Markdown body strictly conforming to plan standards."""
+    target_repo = repo or os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY") or "Aditya-9-6/GossipMesh"
+    repo_url = f"https://github.com/{target_repo}"
     title = f"feat(plan): Task {task.num} — {task.name}"
     body = f"""## 🚀 Enterprise SaaS Implementation Task: Task {task.num} — {task.name}
 
@@ -801,7 +868,7 @@ def format_issue_content(task: PlanTask) -> Tuple[str, str]:
 ---
 
 ### ⚙️ Jules Task Operating Rules & Mandate
-> **Repository**: https://github.com/Aditya-9-6/GossipMesh
+> **Repository**: {repo_url}
 >
 > Work only on this task. First inspect the existing repository and explain the relevant files. Do not rewrite unrelated code. Do not remove existing functionality without documenting a migration path. Add tests for all new behavior. Run the complete test suite before finishing. If the task cannot be safely completed, stop and explain why instead of creating fake implementations.
 
@@ -816,26 +883,33 @@ def format_issue_content(task: PlanTask) -> Tuple[str, str]:
 - [ ] Verify zero regressions in linting or typing (`ruff`, `mypy`).
 
 ---
+
+💬 **Maintainer Approval**:
+Comment **`accept`** or **`/solve`** on this issue to trigger the autonomous development loop to synthesize code, pass pre-flight checks, and open a Pull Request.
+Token quota will be automatically deducted from your organization's subscription quota upon acceptance.
+
+---
 *Created autonomously by GossipMesh Plan Advancement Engine*
 """
     return title, body
 
 
-def create_github_issue(task: PlanTask, workspace: Path) -> Optional[int]:
+def create_github_issue(task: PlanTask, workspace: Path, repo: Optional[str] = None) -> Optional[int]:
     """Submits the task as a new GitHub issue and attaches auto-solve labels."""
-    title, body = format_issue_content(task)
+    target_repo = repo or os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY") or "Aditya-9-6/GossipMesh"
+    title, body = format_issue_content(task, repo=target_repo)
     cmd = [
         "gh",
         "issue",
         "create",
         "--repo",
-        "Aditya-9-6/GossipMesh",
+        target_repo,
         "--title",
         title,
         "--body",
         body,
         "--label",
-        "advancement,auto-solve,enterprise-plan",
+        "advancement,awaiting-approval,enterprise-plan",
     ]
     res = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace)
     if res.returncode == 0:
@@ -858,6 +932,11 @@ def main():
         description="GossipMesh Enterprise SaaS Plan Advancement Engine"
     )
     parser.add_argument("--workspace", default=".", help="Workspace path")
+    parser.add_argument(
+        "--repo",
+        default=os.environ.get("GH_REPO") or os.environ.get("GITHUB_REPOSITORY") or "Aditya-9-6/GossipMesh",
+        help="Target GitHub repository",
+    )
     parser.add_argument(
         "--status", action="store_true", help="Print status summary of all tasks"
     )
@@ -886,7 +965,7 @@ def main():
 
     workspace = Path(args.workspace).resolve()
     tasks = parse_implementation_plan(workspace)
-    audit_codebase_completion(tasks, workspace)
+    audit_codebase_completion(tasks, workspace, repo=args.repo)
 
     completed = [t for t in tasks if t.status == "COMPLETED"]
     in_progress = [t for t in tasks if t.status == "IN_PROGRESS"]
@@ -899,6 +978,7 @@ def main():
     print(
         "==============================================================================="
     )
+    print(f" Target Repository:     {args.repo}")
     print(f" Total Tasks Defined:   {len(tasks)}")
     print(
         f" Completed Tasks:       {len(completed)} (verified in codebase & merged PRs)"
@@ -929,34 +1009,20 @@ def main():
         print(
             f"🚀 Batch-advancing next {len(batch_tasks)} pending tasks in parallel...\n"
         )
-        dispatched = []
+        created_issues = []
         for t in batch_tasks:
             print(f"[*] Creating GitHub Issue for Task {t.num} — {t.name}...")
-            iss_num = create_github_issue(t, workspace)
+            iss_num = create_github_issue(t, workspace, repo=args.repo)
             if iss_num:
-                print(f"[*] Triggering AI Issue Solver Bot for Issue #{iss_num}...")
-                subprocess.run(
-                    [
-                        "gh",
-                        "workflow",
-                        "run",
-                        "ai-issue-solver.yml",
-                        "--repo",
-                        "Aditya-9-6/GossipMesh",
-                        "-f",
-                        f"issue_number={iss_num}",
-                    ],
-                    cwd=workspace,
-                )
-                dispatched.append((t.num, t.name, iss_num))
-                print(f"[OK] Dispatched solver for Issue #{iss_num} (Task {t.num})\n")
-            time.sleep(2)
+                created_issues.append((t.num, t.name, iss_num))
+                print(f"[+] Created Issue #{iss_num} (Task {t.num}) — awaiting maintainer 'accept' comment.\n")
+            time.sleep(1)
 
         print(
             "==============================================================================="
         )
-        print(f"🎉 Successfully dispatched {len(dispatched)} tasks concurrently:")
-        for t_num, t_name, iss_num in dispatched:
+        print(f"🎉 Successfully created {len(created_issues)} advancement issue(s) awaiting acceptance:")
+        for t_num, t_name, iss_num in created_issues:
             print(f"   - Task {t_num:>3}: {t_name} (Issue #{iss_num})")
         print(
             "==============================================================================="
@@ -976,7 +1042,7 @@ def main():
 
     if args.create_next or args.solve_next:
         print(f"[*] Creating GitHub Issue for Task {next_task.num}...")
-        iss_num = create_github_issue(next_task, workspace)
+        iss_num = create_github_issue(next_task, workspace, repo=args.repo)
         if iss_num and args.solve_next:
             print(f"[*] Triggering AI Issue Solver Bot for Issue #{iss_num}...")
             subprocess.run(
@@ -986,7 +1052,7 @@ def main():
                     "run",
                     "ai-issue-solver.yml",
                     "--repo",
-                    "Aditya-9-6/GossipMesh",
+                    args.repo,
                     "-f",
                     f"issue_number={iss_num}",
                 ],

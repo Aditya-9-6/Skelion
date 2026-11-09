@@ -68,6 +68,8 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
     topup_small: { name: 'Starter Pack', amountINR: 399, amountUSD: 5, credits: '500 Credits (500k Tokens)', creditsNum: 500 },
     topup_medium: { name: 'Growth Pack', amountINR: 999, amountUSD: 12, credits: '1,500 Credits (1.5M Tokens)', creditsNum: 1500 },
     topup_large: { name: 'Power Pack', amountINR: 2899, amountUSD: 35, credits: '5,000 Credits (5M Tokens)', creditsNum: 5000 },
+    autonomous_dev_loop: { name: 'Autonomous Dev Loop (24/7)', amountINR: 1499, amountUSD: 19, credits: '5,000 Credits (5M Tokens)', creditsNum: 5000 },
+    reverse_proxy_loop: { name: 'Reverse Proxy Loop (24/7)', amountINR: 999, amountUSD: 12, credits: '2,500 Credits (2.5M Tokens)', creditsNum: 2500 },
   };
 
   const isCustom = planId === 'custom' || typeof customAmount === 'number';

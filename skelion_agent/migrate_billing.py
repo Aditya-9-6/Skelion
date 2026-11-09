@@ -10,10 +10,11 @@ import os
 import sqlite3
 from pathlib import Path
 
-# Path to the SQLite DB – same as ``DATABASE_URI`` environment variable (sqlite:///./skelion.db)
-DB_PATH = Path(
-    os.getenv("DATABASE_URI", "sqlite:///./skelion.db").replace("sqlite:///", "")
-)
+from skelion_agent.config import settings
+
+# Path to the SQLite DB – resolve from env or settings (defaults to helios.db)
+DB_URL = os.getenv("DATABASE_URL", os.getenv("DATABASE_URI", settings.DATABASE_URL))
+DB_PATH = Path(DB_URL.replace("sqlite:///", ""))
 
 def ensure_columns(db_path: Path):
     if not db_path.is_file():
@@ -41,6 +42,8 @@ def ensure_columns(db_path: Path):
             ("github_id", "INTEGER", "NULL"),
             ("github_username", "TEXT", "NULL"),
             ("avatar_url", "TEXT", "NULL"),
+            ("addon_autonomous_dev_loop", "INTEGER", "0"),
+            ("addon_reverse_proxy_loop", "INTEGER", "0"),
         ]
 
         for name, col_type, default in columns:

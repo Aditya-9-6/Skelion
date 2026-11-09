@@ -54,6 +54,9 @@ def test_token_deduction_and_agent_run_ledger(test_engine_instance):
     test_org_id = "test_auto_org_1"
 
     with Session(engine) as db:
+        from skelion_agent.models import CreditLedger
+        for row in db.exec(select(CreditLedger).where(CreditLedger.org_id == test_org_id)).all():
+            db.delete(row)
         existing = db.get(Organization, test_org_id)
         if not existing:
             org = Organization(
@@ -78,6 +81,11 @@ def test_token_deduction_and_agent_run_ledger(test_engine_instance):
     )
     assert ok is True
     assert rem == 8750  # (10000 - 1000 - 250)
+
+    # Verify zero double deduction: used should be exactly 1250 (not 1500)
+    with Session(engine) as db:
+        org_check = db.get(Organization, test_org_id)
+        assert org_check.autofix_tokens_used == 1250
 
     # Verify AgentRun & Incident in DB
     with Session(engine) as db:
@@ -114,3 +122,243 @@ def test_insufficient_tokens_rejection(test_engine_instance):
     assert ok is False
     assert rem == 0
     assert "Insufficient" in msg
+
+
+def test_scan_repo_for_plan_tasks(test_engine_instance):
+    tasks = test_engine_instance.scan_repo_for_plan_tasks()
+    assert isinstance(tasks, list)
+    if tasks:
+        first = tasks[0]
+        assert "task_number" in first
+        assert "title" in first
+        assert "spec" in first
+        assert "target_path" in first
+
+
+def test_batch_dual_engine_accept_comment_detection():
+    from scripts.gossipmesh.batch_dual_engine import check_issue_accepted_by_comment
+
+    mock_accepted_res = {
+        "comments": [
+            {"author": {"login": "maintainer1"}, "body": "This looks ready to implement. accept"}
+        ]
+    }
+    with patch("scripts.gossipmesh.batch_dual_engine.run_cmd") as mock_cmd:
+        from subprocess import CompletedProcess
+        mock_cmd.return_value = CompletedProcess(
+            args=["gh", "issue", "view"], returncode=0, stdout=json.dumps(mock_accepted_res)
+        )
+        is_acc, author = check_issue_accepted_by_comment("42")
+        assert is_acc is True
+        assert author == "maintainer1"
+
+    mock_unaccepted_res = {
+        "comments": [
+            {"author": {"login": "user2"}, "body": "Need more context on this issue"}
+        ]
+    }
+    with patch("scripts.gossipmesh.batch_dual_engine.run_cmd") as mock_cmd:
+        mock_cmd.return_value = CompletedProcess(
+            args=["gh", "issue", "view"], returncode=0, stdout=json.dumps(mock_unaccepted_res)
+        )
+        is_acc, author = check_issue_accepted_by_comment("43")
+        assert is_acc is False
+        assert author is None
+
+
+def test_batch_dual_engine_token_deduction():
+    from scripts.gossipmesh.batch_dual_engine import deduct_issue_tokens
+    from skelion_agent.credit_ledger import get_ledger_balances
+
+    engine = get_engine()
+    test_org_id = "test_dual_org"
+    with Session(engine) as db:
+        from skelion_agent.models import CreditLedger
+        for row in db.exec(select(CreditLedger).where(CreditLedger.ref_id == "99")).all():
+            db.delete(row)
+        org = db.get(Organization, test_org_id)
+        if not org:
+            org = Organization(
+                id=test_org_id,
+                name="Dual Engine Org",
+                token="skl_live_dual_engine_token",
+                plan="team",
+                autofix_tokens_total=5000,
+                autofix_tokens_used=500,
+            )
+            db.add(org)
+            db.commit()
+        else:
+            org.autofix_tokens_total = 5000
+            org.autofix_tokens_used = 500
+            db.add(org)
+            db.commit()
+
+    ok, msg = deduct_issue_tokens("99", token_cost=250, org_id=test_org_id)
+    assert ok is True
+    assert "Deducted 250 tokens" in msg or "Dev Mode" in msg
+
+
+def test_plan_advancement_engine_formatting():
+    from pathlib import Path
+    from scripts.gossipmesh.plan_advancement_engine import (
+        PlanTask,
+        format_issue_content,
+        find_implementation_plans,
+    )
+
+    dummy_task = PlanTask(
+        num=99,
+        name="Build Epoll Edge Loop",
+        phase="Phase 1",
+        header="Task 99 — Build Epoll Edge Loop",
+        spec="Implement non-blocking edge reactor.",
+    )
+    title, body = format_issue_content(dummy_task, repo="Aditya-9-6/Skelion")
+    assert "Task 99 — Build Epoll Edge Loop" in title
+    assert "https://github.com/Aditya-9-6/Skelion" in body
+    assert "accept" in body.lower()
+    assert "Maintainer Approval" in body
+
+    plans = find_implementation_plans(Path("."))
+    assert isinstance(plans, list)
+    assert len(plans) > 0
+
+
+def test_check_issue_accepted_negation_guarded(test_engine_instance):
+    mock_gh_data = {
+        "state": "OPEN",
+        "title": "feat(plan): Implement Async Channel Tracker",
+        "comments": [
+            {"author": {"login": "lead_dev"}, "body": "Please do not accept this yet, waiting for security review."}
+        ],
+    }
+    with patch("skelion_agent.autonomous_engine.run_cmd") as mock_run:
+        mock_run.return_value = (0, json.dumps(mock_gh_data), "")
+        is_acc, author, target = test_engine_instance.check_issue_accepted(105)
+        assert is_acc is False
+        assert author is None
+
+
+def test_batch_dual_engine_accept_comment_negation():
+    from scripts.gossipmesh.batch_dual_engine import check_issue_accepted_by_comment
+    from subprocess import CompletedProcess
+
+    mock_neg_res = {
+        "comments": [
+            {"author": {"login": "reviewer"}, "body": "I cannot accept this implementation until we fix memory leaks."}
+        ]
+    }
+    with patch("scripts.gossipmesh.batch_dual_engine.run_cmd") as mock_cmd:
+        mock_cmd.return_value = CompletedProcess(
+            args=["gh", "issue", "view"], returncode=0, stdout=json.dumps(mock_neg_res)
+        )
+        is_acc, author = check_issue_accepted_by_comment("55")
+        assert is_acc is False
+        assert author is None
+
+
+def test_batch_dual_engine_unaccepted_advancement_is_not_auto_approved():
+    from scripts.gossipmesh.batch_dual_engine import process_single_issue
+    from subprocess import CompletedProcess
+
+    unaccepted_plan_issue = {
+        "number": 120,
+        "title": "feat(plan): Task 15 — Build Distributed Ring Buffer",
+        "body": "Specification content",
+        "labels": [{"name": "advancement"}, {"name": "enterprise-plan"}],
+    }
+
+    # Mock check_issue_accepted_by_comment returning no acceptance
+    mock_comments_res = {"comments": [{"author": {"login": "user"}, "body": "Initial discussion"}]}
+    with patch("scripts.gossipmesh.batch_dual_engine.run_cmd") as mock_cmd:
+        mock_cmd.return_value = CompletedProcess(
+            args=["gh", "issue", "view"], returncode=0, stdout=json.dumps(mock_comments_res)
+        )
+        task_type, item_id, status, details = process_single_issue(unaccepted_plan_issue)
+        assert task_type == "ISSUE"
+        assert item_id == "120"
+        assert status == "AWAITING_ACCEPTANCE"
+        assert "Awaiting maintainer 'accept' comment" in details
+
+
+def test_batch_dual_engine_deterministic_idempotency():
+    from scripts.gossipmesh.batch_dual_engine import deduct_issue_tokens
+
+    engine = get_engine()
+    test_org_id = "test_idempotent_org"
+    with Session(engine) as db:
+        from skelion_agent.models import CreditLedger
+        for row in db.exec(select(CreditLedger).where(CreditLedger.ref_id == "202")).all():
+            db.delete(row)
+        org = db.get(Organization, test_org_id)
+        if not org:
+            org = Organization(
+                id=test_org_id,
+                name="Idempotent Org",
+                token="skl_live_idempotent_token",
+                plan="team",
+                autofix_tokens_total=5000,
+                autofix_tokens_used=0,
+            )
+            db.add(org)
+            db.commit()
+        else:
+            org.autofix_tokens_total = 5000
+            org.autofix_tokens_used = 0
+            db.add(org)
+            db.commit()
+
+    # First deduction: should deduct 250
+    ok1, msg1 = deduct_issue_tokens("202", token_cost=250, org_id=test_org_id)
+    assert ok1 is True
+    assert "Deducted 250" in msg1
+
+    # Second deduction for same issue: MUST be idempotent and NOT deduct again
+    ok2, msg2 = deduct_issue_tokens("202", token_cost=250, org_id=test_org_id)
+    assert ok2 is True
+    assert "idempotent" in msg2.lower()
+
+    # Verify database: used should still be 250, not 500
+    with Session(engine) as db:
+        org = db.get(Organization, test_org_id)
+        assert org.autofix_tokens_used == 250
+
+
+def test_autonomous_routes_entitlement_gating():
+    import os
+    from fastapi import HTTPException
+    from skelion_agent.autonomous_routes import check_autonomous_loop_entitlement
+
+    # Ensure not bypassed by TESTING env var
+    old_test = os.environ.pop("TESTING", None)
+    old_env = os.environ.pop("ENV", None)
+
+    try:
+        # Org without add-on and on pilot plan should be rejected
+        unentitled_org = Organization(
+            id="org_unentitled",
+            name="Unentitled Org",
+            token="skl_live_unentitled",
+            plan="pilot",
+            addon_autonomous_dev_loop=False,
+        )
+        with pytest.raises(HTTPException) as exc:
+            check_autonomous_loop_entitlement(unentitled_org)
+        assert exc.value.status_code == 403
+
+        # Org with add-on active should pass
+        entitled_org = Organization(
+            id="org_entitled",
+            name="Entitled Org",
+            token="skl_live_entitled",
+            plan="pilot",
+            addon_autonomous_dev_loop=True,
+        )
+        check_autonomous_loop_entitlement(entitled_org)  # Should not raise
+    finally:
+        if old_test is not None:
+            os.environ["TESTING"] = old_test
+        if old_env is not None:
+            os.environ["ENV"] = old_env
+

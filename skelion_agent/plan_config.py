@@ -172,6 +172,48 @@ SERVICES: Dict[str, int] = {
     "setup_multi_service_inr": 15000,
 }
 
+# Pricing Add-ons (Autonomous Dev Loop & Reverse Proxy Loop)
+ADDONS: Dict[str, Dict[str, Any]] = {
+    "autonomous_dev_loop": {
+        "id": "autonomous_dev_loop",
+        "name": "Autonomous Dev Loop (24/7)",
+        "subtitle": "Continuous Plan-to-Issue-to-PR Engine",
+        "price_inr": 1499,
+        "annual_price_inr": 14990,
+        "price_usd": 19,
+        "annual_price_usd": 190,
+        "credits": 5000,
+        "description": "24/7 continuous autonomous loop: discovers implementation plans in repository, creates issues, generates verified PRs when maintainer comments 'accept', and consumes user quota.",
+        "features": [
+            "24/7 Background Plan Scanner across repo",
+            "Automatic GitHub Issue generation from pending plan tasks",
+            "One-word 'accept' comment trigger for automated PR creation",
+            "Multi-provider LLM failover chain & pre-flight test gates",
+            "Direct user token deduction via limits service & credit ledger",
+            "5,000 Monthly autonomous loop tokens included",
+        ],
+    },
+    "reverse_proxy_loop": {
+        "id": "reverse_proxy_loop",
+        "name": "Reverse Proxy Loop (24/7)",
+        "subtitle": "Continuous Edge Health & Failover Mesh",
+        "price_inr": 999,
+        "annual_price_inr": 9990,
+        "price_usd": 12,
+        "annual_price_usd": 120,
+        "credits": 2500,
+        "description": "24/7 continuous fail-open reverse proxy loop: active canary latency probes, eBPF telemetry, sub-millisecond edge failover, PII scrub, and lock-free leaky bucket WAF.",
+        "features": [
+            "24/7 Sub-millisecond canary latency probes across edge nodes",
+            "eBPF Wasm Ring Buffer continuous monitoring",
+            "Zero-data-loss fail-open proxy interception",
+            "Real-time PII & secret sanitization",
+            "Lock-free leaky bucket WAF & stream scanner",
+            "2,500 Monthly telemetry tokens included",
+        ],
+    },
+}
+
 # Coupons & Special Offers
 COUPONS: Dict[str, Dict[str, Any]] = {
     "FOUNDING50": {

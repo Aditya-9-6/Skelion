@@ -74,6 +74,10 @@ class Organization(SQLModel, table=True):
     billing_state: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now)
 
+    # 24/7 Autonomous Loop Add-Ons
+    addon_autonomous_dev_loop: bool = Field(default=False)
+    addon_reverse_proxy_loop: bool = Field(default=False)
+
 
 class ProxyNode(SQLModel, table=True):
     __tablename__ = "proxy_nodes"

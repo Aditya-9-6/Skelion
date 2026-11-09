@@ -65,12 +65,25 @@ export const LimitsTab: React.FC<LimitsTabProps> = ({ onOpenCheckout }) => {
         </div>
 
         {onOpenCheckout && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onOpenCheckout('autonomous_dev_loop')}
+              className="px-3 py-2 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-800 text-xs font-bold hover:bg-cyan-100 flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5 text-cyan-600" />
+              <span>Dev Loop Add-On (₹1,499)</span>
+            </button>
+            <button
+              onClick={() => onOpenCheckout('reverse_proxy_loop')}
+              className="px-3 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-800 text-xs font-bold hover:bg-purple-100 flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+              <span>Proxy Loop Add-On (₹999)</span>
+            </button>
             <button
               onClick={() => onOpenCheckout('custom', undefined, 'INR', { customAmount: 500, customCredits: 500 })}
               className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 text-xs font-bold hover:bg-slate-50 flex items-center gap-1.5 transition shadow-xs cursor-pointer"
             >
-              <Zap className="w-3.5 h-3.5 text-cyan-600" />
               <span>Custom Refill</span>
             </button>
             <button
@@ -78,7 +91,7 @@ export const LimitsTab: React.FC<LimitsTabProps> = ({ onOpenCheckout }) => {
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-bold shadow-md shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 flex items-center gap-1.5 transition cursor-pointer"
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>Increase Token Quota</span>
+              <span>Upgrade Quota</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>

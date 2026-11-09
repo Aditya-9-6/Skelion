@@ -29,7 +29,7 @@ from skelion_agent.models import (
     Alert,
     utc_now,
 )
-from skelion_agent.plan_config import PLAN_DEFINITIONS
+from skelion_agent.plan_config import PLAN_DEFINITIONS, ADDONS
 from skelion_agent.razorpay_service import create_order, verify_signature
 from skelion_agent.limits_service import get_token_status
 from skelion_agent.credit_ledger import (
@@ -54,7 +54,7 @@ class TopUpCalculateRequest(BaseModel):
 
 @router.get("/plan")
 async def get_plan(org: Organization = Depends(get_org_from_jwt)):
-    """Return plan and Antigravity-style token status."""
+    """Return plan, Antigravity-style token status, and available 24/7 loop add-ons."""
     limits = get_token_status(org)
     return {
         "plan": org.plan,
@@ -73,6 +73,27 @@ async def get_plan(org: Organization = Depends(get_org_from_jwt)):
             }
             for k, v in PLAN_DEFINITIONS.items()
         ],
+        "addons": {
+            k: {
+                **v,
+                "active": getattr(org, f"addon_{k}", False),
+            }
+            for k, v in ADDONS.items()
+        },
+    }
+
+
+@router.get("/addons")
+async def get_addons(org: Organization = Depends(get_org_from_jwt)):
+    """Return available 24/7 autonomous loop add-ons and activation status."""
+    return {
+        "addons": [
+            {
+                **addon,
+                "active": getattr(org, f"addon_{addon['id']}", False),
+            }
+            for addon in ADDONS.values()
+        ]
     }
 
 
@@ -160,6 +181,15 @@ async def checkout(
         amount_paise = int(pack_info["price_inr"] * 100)
         tokens_granted = pack_info["credits"]
         item_name = f"Credit Pack: {pack_info['name']} ({tokens_granted:,} Credits)"
+    elif token_type in ["addon", "addon_autonomous_dev_loop", "addon_reverse_proxy_loop"] or plan in ADDONS:
+        addon_key = plan if plan in ADDONS else ("autonomous_dev_loop" if "autonomous" in token_type else "reverse_proxy_loop")
+        if addon_key not in ADDONS:
+            raise HTTPException(status_code=400, detail="Invalid addon name")
+        addon_info = ADDONS[addon_key]
+        base_price = addon_info["annual_price_inr"] if period == "annual" else addon_info["price_inr"]
+        amount_paise = int(base_price * 100)
+        tokens_granted = addon_info["credits"]
+        item_name = f"Add-on ({period.capitalize()}): {addon_info['name']}"
     else:
         raise HTTPException(status_code=400, detail="Invalid token_type")
 
@@ -168,7 +198,7 @@ async def checkout(
     order_row = PaymentOrder(
         org_id=org.id,
         user_id=org.owner_user_id or org.id,
-        plan_id=plan if token_type == "plan" else None,
+        plan_id=plan if (token_type == "plan" or plan in ADDONS or token_type.startswith("addon")) else None,
         kind=token_type,
         amount_paise=amount_paise,
         currency="INR",
@@ -268,6 +298,50 @@ async def instant_topup(
         raise HTTPException(status_code=400, detail="Invalid token_type")
 
 
+class InstantAddonRequest(BaseModel):
+    addon_id: str = "autonomous_dev_loop"  # "autonomous_dev_loop" or "reverse_proxy_loop"
+    active: bool = True
+
+
+@router.post("/addon-instant")
+async def instant_addon(
+    req: InstantAddonRequest,
+    org: Organization = Depends(get_org_from_jwt),
+    db: Session = Depends(get_db),
+):
+    """Enable or disable 24/7 loop add-on instantly and credit tokens."""
+    if req.addon_id not in ADDONS:
+        raise HTTPException(status_code=400, detail="Invalid addon_id. Choose 'autonomous_dev_loop' or 'reverse_proxy_loop'")
+
+    if req.addon_id == "autonomous_dev_loop":
+        org.addon_autonomous_dev_loop = req.active
+    elif req.addon_id == "reverse_proxy_loop":
+        org.addon_reverse_proxy_loop = req.active
+
+    db.add(org)
+    tokens_credited = 0
+    if req.active:
+        tokens_credited = ADDONS[req.addon_id]["credits"]
+        activate_token_pack(
+            session=db,
+            org_id=org.id,
+            token_type="topup_autofix",
+            tokens=tokens_credited,
+            payment_id=f"addon_instant_{uuid.uuid4().hex[:8]}",
+        )
+
+    db.commit()
+    db.refresh(org)
+    return {
+        "status": "activated" if req.active else "deactivated",
+        "addon_id": req.addon_id,
+        "name": ADDONS[req.addon_id]["name"],
+        "active": req.active,
+        "tokens_credited": tokens_credited,
+        "description": f"{ADDONS[req.addon_id]['name']} {'enabled with ' + str(tokens_credited) + ' tokens' if req.active else 'disabled'}.",
+    }
+
+
 @router.post("/verify")
 def verify_payment(req: VerifyPaymentRequest, db: Session = Depends(get_db)):
     """Fast-path client signature verification with idempotent activation."""
@@ -345,6 +419,24 @@ def verify_payment(req: VerifyPaymentRequest, db: Session = Depends(get_db)):
             session=db,
             org_id=order.org_id,
             token_type=order.kind,
+            tokens=tokens,
+            payment_id=req.razorpay_payment_id,
+        )
+    elif order.kind.startswith("addon") or (order.plan_id and order.plan_id in ADDONS):
+        addon_key = order.plan_id if (order.plan_id and order.plan_id in ADDONS) else ("autonomous_dev_loop" if "autonomous" in order.kind else "reverse_proxy_loop")
+        org = db.get(Organization, order.org_id)
+        if org:
+            if addon_key == "autonomous_dev_loop":
+                org.addon_autonomous_dev_loop = True
+            elif addon_key == "reverse_proxy_loop":
+                org.addon_reverse_proxy_loop = True
+            db.add(org)
+        addon_info = ADDONS.get(addon_key, {})
+        tokens = addon_info.get("credits", 5000 if "autonomous" in addon_key else 2500)
+        activate_token_pack(
+            session=db,
+            org_id=order.org_id,
+            token_type="topup_autofix",
             tokens=tokens,
             payment_id=req.razorpay_payment_id,
         )
@@ -544,6 +636,24 @@ async def webhook(request: Request):
                     session=db,
                     org_id=order.org_id,
                     token_type=order.kind,
+                    tokens=tokens,
+                    payment_id=provider_payment_id,
+                )
+            elif order.kind.startswith("addon") or (order.plan_id and order.plan_id in ADDONS):
+                addon_key = order.plan_id if (order.plan_id and order.plan_id in ADDONS) else ("autonomous_dev_loop" if "autonomous" in order.kind else "reverse_proxy_loop")
+                org = db.get(Organization, order.org_id)
+                if org:
+                    if addon_key == "autonomous_dev_loop":
+                        org.addon_autonomous_dev_loop = True
+                    elif addon_key == "reverse_proxy_loop":
+                        org.addon_reverse_proxy_loop = True
+                    db.add(org)
+                addon_info = ADDONS.get(addon_key, {})
+                tokens = addon_info.get("credits", 5000 if "autonomous" in addon_key else 2500)
+                activate_token_pack(
+                    session=db,
+                    org_id=order.org_id,
+                    token_type="topup_autofix",
                     tokens=tokens,
                     payment_id=provider_payment_id,
                 )

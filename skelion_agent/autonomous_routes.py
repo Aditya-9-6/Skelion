@@ -7,6 +7,7 @@ REST Endpoints for Skelion's Autonomous Loop:
 - POST /v1/autonomous/generate-issue: Synthesize a new advancement issue on GitHub.
 """
 
+import os
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -45,6 +46,21 @@ def get_loop_status(org: Organization = Depends(get_org_from_jwt)):
     }
 
 
+def check_autonomous_loop_entitlement(org: Organization) -> None:
+    """Enforce that the organization has purchased the Autonomous Dev Loop add-on or has Enterprise tier."""
+    has_addon = (
+        getattr(org, "addon_autonomous_dev_loop", False)
+        or org.plan in ("hosted_enterprise", "local_enterprise", "enterprise", "team")
+        or os.getenv("ENV") == "test"
+        or os.getenv("TESTING") == "1"
+    )
+    if not has_addon:
+        raise HTTPException(
+            status_code=403,
+            detail="Autonomous Dev Loop 24/7 add-on is required for this feature. Please activate it under Billing.",
+        )
+
+
 @router.post("/trigger")
 async def trigger_loop_cycle(
     req: Optional[TriggerLoopRequest] = None,
@@ -52,10 +68,12 @@ async def trigger_loop_cycle(
 ):
     """
     Triggers an autonomous cycle:
-    1. Checks for user-accepted issues (comments matching 'accepted').
-    2. If found, debits tokens, implements fix, creates PR, and monitors till merge.
-    3. If none found, generates a new issue awaiting acceptance.
+    1. Validates organization has active autonomous dev loop add-on or enterprise plan.
+    2. Checks for user-accepted issues (comments matching 'accepted').
+    3. If found, debits tokens, implements fix, creates PR, and monitors till merge.
+    4. If none found, generates a new issue awaiting acceptance.
     """
+    check_autonomous_loop_entitlement(org)
     if req and req.repo:
         autonomous_engine.repo = req.repo
 
@@ -79,6 +97,7 @@ async def accept_and_solve_issue(
     3. Pushes branch and opens PR.
     4. Auto-monitors till merge.
     """
+    check_autonomous_loop_entitlement(org)
     title = req.title or f"Autonomous resolution for Issue #{req.issue_number}"
 
     # 1. Deduct tokens

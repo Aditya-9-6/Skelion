@@ -476,6 +476,145 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
           })}
         </div>
 
+        {/* 24/7 Autonomous Loop Add-Ons */}
+        <div className="mt-14 glass-panel p-6 sm:p-8 rounded-3xl border border-cyan-200/90 shadow-md bg-gradient-to-br from-cyan-50/40 via-white to-blue-50/30">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-100 text-cyan-800 border border-cyan-300 mb-2">
+                <Sparkles className="w-3 h-3 text-cyan-600" />
+                <span>24/7 AUTONOMOUS LOOP ADD-ONS</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-950">
+                Continuous Autonomous Dev &amp; Reverse Proxy Loops
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl mt-1">
+                Run 24/7 background loops that scan implementation plans, auto-create issues, solve them on your 'accept' comment into verified PRs, and maintain zero-downtime edge proxies.
+              </p>
+            </div>
+            <div className="text-right shrink-0 bg-white/80 px-3.5 py-2 rounded-xl border border-cyan-200 text-xs font-mono">
+              <span className="text-slate-500 block text-[10px]">COUPON APPLICABLE</span>
+              <span className="text-cyan-700 font-bold">{appliedCoupon ? `${appliedCoupon.code} (${appliedCoupon.percent}% OFF)` : 'AVAILABLE'}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Autonomous Dev Loop Card */}
+            <div className="p-6 rounded-2xl bg-white border border-cyan-200/80 shadow-xs flex flex-col justify-between relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-gradient-to-l from-cyan-500 to-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl font-mono">
+                POPULAR ADD-ON
+              </div>
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+                  24/7 Cloud Dev Loop
+                </span>
+                <h4 className="text-lg font-bold text-slate-950 mt-2">Autonomous Dev Loop</h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Discovers implementation plans in repo, generates issues, and auto-solves into verified PRs when you comment "accept".
+                </p>
+
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-slate-950">
+                    {currencySymbol}{calculateFinalPrice(1499, 19).toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-xs text-slate-500 font-mono">
+                    / {billingCycle === 'annual' ? 'month (billed annually)' : 'month'}
+                  </span>
+                </div>
+                <div className="text-xs text-cyan-700 font-mono font-semibold mt-1">
+                  Includes 5,000 Autonomous Loop Tokens / mo
+                </div>
+
+                <ul className="mt-5 space-y-2 text-xs text-slate-700">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Scans implementation plans across entire repo 24/7</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Auto-creates GitHub issues for all pending tasks</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Triggers AI solver &amp; creates PR on maintainer "accept" comment</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Deducts tokens directly from user quota via limits service &amp; credit ledger</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Pre-flight code verification &amp; regression gatekeeping</span>
+                  </li>
+                </ul>
+              </div>
+
+              <button
+                onClick={() => onSelectPlan('autonomous_dev_loop', appliedCoupon?.code, currency)}
+                className="mt-6 w-full py-3 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white transition flex items-center justify-center gap-1.5 shadow-md shadow-cyan-600/20 cursor-pointer"
+              >
+                <span>Add Autonomous Dev Loop</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Reverse Proxy Loop Card */}
+            <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex flex-col justify-between relative overflow-hidden">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                  24/7 Edge Health Mesh
+                </span>
+                <h4 className="text-lg font-bold text-slate-950 mt-2">Reverse Proxy Loop</h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Continuous edge failover, sub-millisecond canary latency probes, eBPF telemetry, and zero-allocation WAF stream scanner.
+                </p>
+
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-slate-950">
+                    {currencySymbol}{calculateFinalPrice(999, 12).toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-xs text-slate-500 font-mono">
+                    / {billingCycle === 'annual' ? 'month (billed annually)' : 'month'}
+                  </span>
+                </div>
+                <div className="text-xs text-purple-700 font-mono font-semibold mt-1">
+                  Includes 2,500 Edge Telemetry Tokens / mo
+                </div>
+
+                <ul className="mt-5 space-y-2 text-xs text-slate-700">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Continuous sub-millisecond canary latency probes</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>eBPF Wasm Ring Buffer real-time telemetry</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Zero-data-loss fail-open proxy interception &amp; PII scrub</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Lock-free leaky bucket WAF &amp; stream signature scanner</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Seamless integration with Skelion Console &amp; VS Code</span>
+                  </li>
+                </ul>
+              </div>
+
+              <button
+                onClick={() => onSelectPlan('reverse_proxy_loop', appliedCoupon?.code, currency)}
+                className="mt-6 w-full py-3 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <span>Add Reverse Proxy Loop</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Top-up Packs & Add-ons Grid */}
         <div className="mt-14 glass-panel p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-md bg-white/90">
           <div className="max-w-2xl mb-6">

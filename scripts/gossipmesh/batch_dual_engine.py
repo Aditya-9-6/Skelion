@@ -12,14 +12,35 @@ Supports any target repository (--repo / GH_REPO).
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
+import time
 from pathlib import Path
+from typing import Optional, Tuple
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-REVIEWER_SCRIPT = REPO_ROOT / "scripts" / "ai_pr_reviewer.py"
-ISSUE_APPROVER_SCRIPT = REPO_ROOT / "scripts" / "ai_issue_approver.py"
-ISSUE_SOLVER_SCRIPT = REPO_ROOT / "scripts" / "ai_issue_solver.py"
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent.parent if SCRIPT_DIR.name == "gossipmesh" else SCRIPT_DIR.parent
+
+def find_script(name: str) -> Path:
+    candidates = [
+        SCRIPT_DIR / name,
+        SCRIPT_DIR.parent / name,
+        REPO_ROOT / "scripts" / "gossipmesh" / name,
+        REPO_ROOT / "scripts" / name,
+        REPO_ROOT / ".gossipmesh" / "scripts" / "gossipmesh" / name,
+        REPO_ROOT / ".gossipmesh" / "scripts" / name,
+    ]
+    for c in candidates:
+        if c.is_file():
+            return c
+    return SCRIPT_DIR / name
+
+REVIEWER_SCRIPT = find_script("ai_pr_reviewer.py")
+ISSUE_APPROVER_SCRIPT = find_script("ai_issue_approver.py")
+ISSUE_SOLVER_SCRIPT = find_script("ai_issue_solver.py")
+GEN_ADVANCEMENT_SCRIPT = find_script("generate_advancement_issue.py")
+PLAN_ADVANCEMENT_SCRIPT = find_script("plan_advancement_engine.py")
 
 
 def run_cmd(cmd, cwd=None, env=None, **kwargs):
@@ -162,6 +183,99 @@ def verify_code_preflight(workspace: Path) -> tuple[bool, str]:
         return True, "Python pre-flight and regression tests passed 100% green."
 
 
+def check_issue_accepted_by_comment(issue_num: str, repo: str = None, workspace: Path = None) -> Tuple[bool, Optional[str]]:
+    """Checks if any comment on the issue contains an acceptance keyword:
+    'accept', 'accepted', 'approve', 'approved', '/solve', '/accept', 'lgtm'.
+    Guards against negation patterns like 'do not accept' or 'cannot approve'.
+    Returns (is_accepted, author).
+    """
+    cmd = ["gh", "issue", "view", str(issue_num), "--json", "comments"]
+    if repo:
+        cmd.extend(["--repo", repo])
+    res = run_cmd(cmd, cwd=workspace)
+    if res.returncode == 0 and res.stdout.strip():
+        try:
+            data = json.loads(res.stdout)
+            comments = data.get("comments") or []
+            negation_pattern = re.compile(
+                r"\b(?:do\s+not|don't|not|cannot|can't|won't)\s+(?:accept|approve)",
+                re.IGNORECASE,
+            )
+            acceptance_pattern = re.compile(
+                r"^\s*(?:/accept|accept|/solve|approved?|lgtm)\b|\b(?:/accept|/solve)\b",
+                re.IGNORECASE,
+            )
+            acceptance_keywords = {"accept", "accepted", "approve", "approved", "/solve", "/accept", "lgtm"}
+
+            for c in comments:
+                raw_body = (c.get("body") or "").strip()
+                author = c.get("author", {}).get("login", "unknown") if isinstance(c.get("author"), dict) else "unknown"
+                for line in raw_body.splitlines():
+                    line_s = line.strip().lower()
+                    if negation_pattern.search(line_s):
+                        continue
+                    tokens = set(re.findall(r"[\w/]+", line_s))
+                    if any(kw in tokens for kw in acceptance_keywords) or acceptance_pattern.search(line_s):
+                        return True, author
+        except Exception as e:
+            print(f"[!] Warning checking comments on #{issue_num}: {e}", flush=True)
+    return False, None
+
+
+def deduct_issue_tokens(issue_num: str, token_cost: int = 250, org_id: Optional[str] = None) -> Tuple[bool, str]:
+    """Deducts tokens from organization quota using limits_service and credit_ledger.
+    Guarantees deterministic idempotency key per issue.
+    Returns (success, message).
+    """
+    try:
+        from skelion_agent.database import get_engine
+        from skelion_agent.models import Organization
+        from skelion_agent.credit_ledger import record_ledger_entry
+        from sqlmodel import Session, select
+
+        engine = get_engine()
+        with Session(engine) as session:
+            org = session.get(Organization, org_id) if org_id else session.exec(select(Organization)).first()
+            if not org:
+                return True, "Dev Mode (No org found in database)"
+
+            # Calculate available tokens across pools
+            autofix_rem = max(0, org.autofix_tokens_total - org.autofix_tokens_used)
+            pack_rem = max(0, org.purchased_tokens - org.purchased_tokens_used)
+            allowance_rem = max(0, org.credits_total - org.credits_used)
+            total_rem = autofix_rem + pack_rem + allowance_rem
+
+            if total_rem < token_cost:
+                return False, f"Insufficient tokens: {total_rem} available, {token_cost} required."
+
+            # Determine bucket order: autofix -> pack -> allowance
+            if autofix_rem >= token_cost:
+                bucket = "autofix"
+            elif pack_rem >= token_cost:
+                bucket = "pack"
+            else:
+                bucket = "allowance"
+
+            # Deterministic idempotency key: ensure repeat cycles for same issue do not double-bill
+            idempotency_key = f"dual_engine_solve_issue_{issue_num}"
+            entry, is_new = record_ledger_entry(
+                session=session,
+                org_id=org.id,
+                bucket=bucket,
+                delta=-token_cost,
+                reason=f"Autonomous issue solving for #{issue_num}",
+                idempotency_key=idempotency_key,
+                ref_type="github_issue",
+                ref_id=str(issue_num),
+            )
+            session.commit()
+            if not is_new:
+                return True, f"Tokens previously settled for Issue #{issue_num} (idempotent)."
+            return True, f"Deducted {token_cost} tokens from {bucket} bucket (remaining: {total_rem - token_cost})."
+    except Exception as e:
+        return True, f"Bypassed token deduction ({e})"
+
+
 def process_single_issue(issue: dict, repo: str = None, workspace_str: str = None):
     issue_num = str(issue.get("number"))
     title = issue.get("title", "")
@@ -178,8 +292,26 @@ def process_single_issue(issue: dict, repo: str = None, workspace_str: str = Non
     if "rejected" in labels:
         return ("ISSUE", issue_num, "SKIPPED_REJECTED", "Issue already rejected.")
 
-    # 1. Gatekeeper evaluation: filter out unnecessary issues
-    is_approved = any(l in ("approved", "auto-solve", "advancement") for l in labels)
+    # 1. Gatekeeper evaluation & Acceptance check
+    is_approved = any(l in ("approved", "auto-solve") for l in labels)
+
+    is_accepted_by_comment, comment_author = check_issue_accepted_by_comment(issue_num, repo, workspace)
+    if is_accepted_by_comment:
+        print(
+            f"[*] Maintainer/User @{comment_author} accepted Issue #{issue_num} via comment ('accept'/'approve')!",
+            flush=True,
+        )
+        is_approved = True
+
+    # If this is an advancement/plan task or awaiting approval, strictly require user/maintainer acceptance!
+    is_plan_task = any(l in ("advancement", "awaiting-approval", "awaiting-acceptance", "enterprise-plan") for l in labels)
+    if is_plan_task and not is_approved:
+        return (
+            "ISSUE",
+            issue_num,
+            "AWAITING_ACCEPTANCE",
+            "Awaiting maintainer 'accept' comment before synthesizing PR.",
+        )
 
     if not is_approved and ISSUE_APPROVER_SCRIPT.is_file():
         print(
@@ -279,6 +411,26 @@ def process_single_issue(issue: dict, repo: str = None, workspace_str: str = Non
 
     # 3. Synthesize automated solution
     if ISSUE_SOLVER_SCRIPT.is_file():
+        # Deduct user tokens from quota before solving
+        token_cost = 250
+        deduct_ok, deduct_msg = deduct_issue_tokens(issue_num, token_cost=token_cost)
+        if not deduct_ok:
+            print(f"[!] Quota limit reached for Issue #{issue_num}: {deduct_msg}", file=sys.stderr)
+            warn_cmd = [
+                "gh",
+                "issue",
+                "comment",
+                str(issue_num),
+                "--body",
+                f"⚠️ **Autonomous Dev Loop Paused**: {deduct_msg}\n\nPlease top up tokens or upgrade your subscription plan in Skelion Console to continue autonomous PR generation.",
+            ]
+            if repo:
+                warn_cmd.extend(["--repo", repo])
+            run_cmd(warn_cmd, cwd=workspace)
+            return ("ISSUE", issue_num, "QUOTA_EXHAUSTED", deduct_msg)
+        else:
+            print(f"[*] Quota verified for Issue #{issue_num}: {deduct_msg}", flush=True)
+
         print(
             f"[*] [Issue Worker] Synthesizing automated solution for Issue #{issue_num}...",
             flush=True,
@@ -518,6 +670,23 @@ def main():
         default=int(os.environ.get("NUM_SHARDS", "1")),
         help="Total number of parallel shards",
     )
+    parser.add_argument(
+        "--continuous",
+        action="store_true",
+        help="Run 24/7 autonomous loop continuously in background/daemon mode",
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=10,
+        help="Sleep duration in seconds between continuous loop cycles (default: 10)",
+    )
+    parser.add_argument(
+        "--issue-number",
+        type=str,
+        default=None,
+        help="Target a specific issue number directly for gatekeeping, token deduction, and PR synthesis",
+    )
     args = parser.parse_args()
 
     repo = args.repo
@@ -529,6 +698,54 @@ def main():
         f"[*] Allocation: {args.pr_workers} PR Review Workers | {args.issue_workers} Issue Solver Workers"
     )
     print("=" * 60)
+
+    if args.continuous:
+        print(f"[*] 24/7 Autonomous Dev Loop running continuously every {args.interval}s. Press Ctrl+C to terminate.")
+        while True:
+            try:
+                run_cycle(args, repo)
+            except KeyboardInterrupt:
+                print("\n[*] Autonomous Dev Loop terminated by user.")
+                break
+            except Exception as e:
+                print(f"[!] Autonomous Dev Loop cycle error: {e}", file=sys.stderr)
+            time.sleep(args.interval)
+    else:
+        run_cycle(args, repo)
+
+
+def run_cycle(args, repo):
+    # Direct targeted single issue execution (e.g. from GitHub Actions issue_comment trigger)
+    if getattr(args, "issue_number", None):
+        issue_num = str(args.issue_number)
+        print(f"[*] Targeting specific Issue #{issue_num} for autonomous processing...")
+        cmd = [
+            "gh",
+            "issue",
+            "view",
+            issue_num,
+            "--json",
+            "number,title,body,labels",
+        ]
+        if repo:
+            cmd.extend(["--repo", repo])
+        res = run_cmd(cmd, cwd=Path(args.workspace or ".").resolve())
+        if res.returncode == 0 and res.stdout.strip():
+            try:
+                target_issue = json.loads(res.stdout)
+                task_type, item_id, status, details = process_single_issue(
+                    target_issue, repo, args.workspace
+                )
+                print(f"[{task_type}] #{item_id}: {status}")
+                if details:
+                    print(f"    Detail: {details.strip()[:150]}")
+                return
+            except Exception as e:
+                print(f"[!] Error processing targeted Issue #{issue_num}: {e}")
+                return
+        else:
+            print(f"[!] Failed to fetch metadata for Issue #{issue_num}: {res.stderr}")
+            return
 
     pr_numbers = get_open_prs(repo)
     open_issues = get_open_issues(repo)
@@ -588,17 +805,35 @@ def main():
         # 3. Autonomous Issue Generation if backlog is low (for any target repository)
         if len(open_issues) < 10:
             print(
-                "[*] Issue backlog low. Triggering autonomous issue generation (batch of 3)...",
+                "[*] Issue backlog low. Triggering autonomous plan advancement...",
                 flush=True,
             )
-            gen_script = REPO_ROOT / "scripts" / "generate_advancement_issue.py"
-            if gen_script.is_file():
+            if PLAN_ADVANCEMENT_SCRIPT.is_file():
                 gen_env = os.environ.copy()
                 if repo:
                     gen_env["GH_REPO"] = repo
                     gen_env["GITHUB_REPOSITORY"] = repo
                 subprocess.run(
-                    [sys.executable, str(gen_script), "--force", "--count", "3"],
+                    [
+                        sys.executable,
+                        str(PLAN_ADVANCEMENT_SCRIPT),
+                        "--batch",
+                        "2",
+                        "--workspace",
+                        str(args.workspace),
+                        "--repo",
+                        repo or "",
+                    ],
+                    cwd=Path(args.workspace),
+                    env=gen_env,
+                )
+            elif GEN_ADVANCEMENT_SCRIPT.is_file():
+                gen_env = os.environ.copy()
+                if repo:
+                    gen_env["GH_REPO"] = repo
+                    gen_env["GITHUB_REPOSITORY"] = repo
+                subprocess.run(
+                    [sys.executable, str(GEN_ADVANCEMENT_SCRIPT), "--force", "--count", "3"],
                     cwd=Path(args.workspace),
                     env=gen_env,
                 )

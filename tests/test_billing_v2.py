@@ -3,6 +3,7 @@
 import pytest
 from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy.pool import StaticPool
 
 from skelion_agent.models import Organization
 from skelion_agent.credit_ledger import (
@@ -15,7 +16,12 @@ from skelion_agent.credit_ledger import (
 
 @pytest.fixture
 def test_db():
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine(
+        "sqlite:///:memory:",
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         org = Organization(
@@ -121,3 +127,63 @@ def test_plan_renewal_extends_period(test_db):
     # Expiry must extend by 30 days from the previous period end
     expected_end = first_end + timedelta(days=30)
     assert abs((org_renewed.plan_period_end - expected_end).total_seconds()) < 5
+
+
+def test_addon_definitions():
+    from skelion_agent.plan_config import ADDONS
+
+    assert "autonomous_dev_loop" in ADDONS
+    assert "reverse_proxy_loop" in ADDONS
+    dev_loop = ADDONS["autonomous_dev_loop"]
+    assert dev_loop["price_inr"] == 1499
+    assert dev_loop["price_usd"] == 19
+    assert dev_loop["credits"] == 5000
+
+    proxy_loop = ADDONS["reverse_proxy_loop"]
+    assert proxy_loop["price_inr"] == 999
+    assert proxy_loop["price_usd"] == 12
+    assert proxy_loop["credits"] == 2500
+
+
+def test_addon_billing_api_routes(test_db):
+    from fastapi.testclient import TestClient
+    from skelion_agent.control_plane import app
+    from skelion_agent.database import get_db
+    from skelion_agent.auth_routes import get_org_from_jwt
+
+    def _get_test_db():
+        yield test_db
+
+    app.dependency_overrides[get_db] = _get_test_db
+    app.dependency_overrides[get_org_from_jwt] = lambda: test_db.get(Organization, "org_test_1")
+    client = TestClient(app)
+
+    # 1. GET /v1/billing/addons
+    res = client.get("/v1/billing/addons")
+    assert res.status_code == 200
+    addons_data = res.json()["addons"]
+    addon_ids = [a["id"] for a in addons_data]
+    assert "autonomous_dev_loop" in addon_ids
+    assert "reverse_proxy_loop" in addon_ids
+
+    # 2. POST /v1/billing/addon-instant
+    activate_res = client.post(
+        "/v1/billing/addon-instant",
+        json={"addon_id": "autonomous_dev_loop", "active": True},
+    )
+    assert activate_res.status_code == 200
+    res_json = activate_res.json()
+    assert res_json["active"] is True
+    assert res_json["addon_id"] == "autonomous_dev_loop"
+
+    # 3. GET /v1/billing/plan
+    plan_res = client.get("/v1/billing/plan")
+    assert plan_res.status_code == 200
+    plan_data = plan_res.json()
+    assert "addons" in plan_data
+    assert plan_data["addons"]["autonomous_dev_loop"]["active"] is True
+    assert plan_data["addons"]["reverse_proxy_loop"]["active"] is False
+
+    app.dependency_overrides.clear()
+
+

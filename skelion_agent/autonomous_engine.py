@@ -120,19 +120,119 @@ class AutonomousLoopEngine:
     # =========================================================================
     # 1. ISSUE GENERATION & SYNTHESIS
     # =========================================================================
+    def scan_repo_for_plan_tasks(self) -> List[Dict[str, Any]]:
+        """
+        Discovers implementation plans (*PLAN*.md) across the repository,
+        audits pending tasks, and returns uncompleted task specifications.
+        """
+        self.log(f"Scanning repository {self.workspace} for implementation plans...")
+        plan_files: List[Path] = []
+
+        # Check standard root and docs locations
+        for p in [
+            self.workspace / "VSCODE_EXTENSION_AND_BILLING_IMPLEMENTATION_PLAN.md",
+            self.workspace / "docs" / "ENTERPRISE_SAAS_IMPLEMENTATION_PLAN.md",
+            self.workspace / "docs" / "specs" / "VSCODE_EXTENSION_MASTER_PLAN.md",
+            self.workspace / "docs" / "specs" / "SKELION_SOFTWARE_DEV_PLATFORM.md",
+            self.workspace / "docs" / "specs" / "PHASE2.md",
+        ]:
+            if p.is_file() and p not in plan_files:
+                plan_files.append(p)
+
+        # Also dynamically discover any plan markdown files in workspace and docs
+        for p in self.workspace.glob("*[pP][lL][aA][nN]*.md"):
+            if p.is_file() and p not in plan_files:
+                plan_files.append(p)
+        if (self.workspace / "docs").is_dir():
+            for p in (self.workspace / "docs").glob("**/*[pP][lL][aA][nN]*.md"):
+                if p.is_file() and p not in plan_files:
+                    plan_files.append(p)
+
+        tasks: List[Dict[str, Any]] = []
+
+        # Fetch open GitHub issues to avoid duplicating existing issues
+        existing_issue_titles: List[str] = []
+        code, out, _ = run_cmd(
+            ["gh", "issue", "list", "--repo", self.repo, "--state", "all", "--limit", "100", "--json", "title"],
+            cwd=self.workspace
+        )
+        if code == 0 and out:
+            try:
+                issues_data = json.loads(out)
+                existing_issue_titles = [i.get("title", "").lower() for i in issues_data]
+            except Exception:
+                pass
+
+        for pf in plan_files:
+            try:
+                content = pf.read_text(encoding="utf-8", errors="replace")
+                try:
+                    rel_path = pf.relative_to(self.workspace)
+                except ValueError:
+                    rel_path = pf.name
+
+                task_pattern = re.compile(
+                    r"(?:^|\n)(?:##+|###|\- \[[ ]\])\s*(?:Task|TASK)\s*(\d+)[:\s\-—–]+([^\n]+)",
+                    re.IGNORECASE
+                )
+                matches = list(task_pattern.finditer(content))
+                for i, match in enumerate(matches):
+                    t_num = int(match.group(1))
+                    t_name = match.group(2).strip()
+                    start_pos = match.end()
+                    end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+                    t_body = content[start_pos:end_pos].strip()
+
+                    target_match = re.findall(r"`([a-zA-Z0-9_\-\./\\]+\.[a-zA-Z0-9]+)`", t_body)
+                    target_files = [f for f in target_match if "/" in f or "\\" in f or f.endswith((".py", ".go", ".ts", ".js"))]
+                    primary_target = target_files[0] if target_files else "skelion_agent/core/advancement.py"
+
+                    title = f"feat(plan): Task {t_num} — {t_name}"
+                    if any(f"task {t_num}" in it or t_name.lower() in it for it in existing_issue_titles):
+                        continue
+
+                    full_target = self.workspace / primary_target
+                    if full_target.is_file() and full_target.stat().st_size > 500 and not any(k in t_body.lower() for k in ["todo", "fixme", "bug"]):
+                        continue
+
+                    tasks.append({
+                        "task_number": t_num,
+                        "title": title,
+                        "raw_name": t_name,
+                        "spec": t_body[:1200] if len(t_body) > 1200 else t_body,
+                        "target_path": primary_target,
+                        "plan_file": str(rel_path),
+                    })
+            except Exception as e:
+                self.log(f"Error reading plan file {pf}: {e}", level="WARN")
+
+        self.log(f"Discovered {len(tasks)} pending implementation plan task(s) across repository.")
+        return tasks
+
     def generate_advancement_issue(
         self, title: Optional[str] = None, spec: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
-        """Create a new architectural advancement issue on GitHub."""
+        """Create a new architectural advancement issue on GitHub from implementation plans or catalog."""
         self.log(f"Generating new architectural advancement issue for {self.repo}...")
 
-        # Select from catalog or default
-        item = SKELION_CATALOG[int(time.time()) % len(SKELION_CATALOG)]
-        issue_title = title or item["title"]
-        issue_spec = spec or item["spec"]
-        target_path = item.get("target_path", "skelion_agent/core/advancement.py")
+        # Select from discovered implementation plans or domain catalog fallback
+        plan_tasks = self.scan_repo_for_plan_tasks()
+        if plan_tasks:
+            next_task = plan_tasks[0]
+            issue_title = title or next_task["title"]
+            issue_spec = spec or next_task["spec"]
+            target_path = next_task["target_path"]
+            plan_source = next_task["plan_file"]
+            self.log(f"Selected pending task from plan '{plan_source}': {issue_title}")
+        else:
+            item = SKELION_CATALOG[int(time.time()) % len(SKELION_CATALOG)]
+            issue_title = title or item["title"]
+            issue_spec = spec or item["spec"]
+            target_path = item.get("target_path", "skelion_agent/core/advancement.py")
+            plan_source = "Skelion Architectural Catalog"
 
         body = f"""### 🚀 Skelion Architectural Advancement Proposal
+**Source**: `{plan_source}`
 
 #### 📋 Specification
 {issue_spec}
@@ -214,24 +314,40 @@ class AutonomousLoopEngine:
                 return False, None, "skelion_agent/core/advancement.py"
 
             comments = data.get("comments") or []
-            acceptance_keywords = [
+            negation_pattern = re.compile(
+                r"\b(?:do\s+not|don't|not|cannot|can't|won't)\s+(?:accept|approve)",
+                re.IGNORECASE,
+            )
+            acceptance_pattern = re.compile(
+                r"^\s*(?:/accept|accept|/solve|approved?|lgtm)\b|\b(?:/accept|/solve)\b",
+                re.IGNORECASE,
+            )
+            acceptance_keywords = {
                 "accepted",
                 "accept",
                 "/accept",
                 "approved",
                 "approve",
                 "/solve",
-            ]
+                "lgtm",
+            }
 
             author_found = None
             for c in comments:
-                body = (c.get("body") or "").lower()
-                author = c.get("author", {}).get("login", "unknown")
-                if any(k in body for k in acceptance_keywords):
-                    self.log(
-                        f"Detected acceptance keyword by @{author} in issue #{issue_number} comment!"
-                    )
-                    author_found = author
+                raw_body = (c.get("body") or "").strip()
+                author = c.get("author", {}).get("login", "unknown") if isinstance(c.get("author"), dict) else "unknown"
+                for line in raw_body.splitlines():
+                    line_s = line.strip().lower()
+                    if negation_pattern.search(line_s):
+                        continue
+                    tokens = set(re.findall(r"[\w/]+", line_s))
+                    if any(kw in tokens for kw in acceptance_keywords) or acceptance_pattern.search(line_s):
+                        self.log(
+                            f"Detected acceptance keyword by @{author} in issue #{issue_number} comment!"
+                        )
+                        author_found = author
+                        break
+                if author_found:
                     break
 
             if not author_found:
@@ -285,14 +401,40 @@ class AutonomousLoopEngine:
                 )
                 return True, 50000, "Dev Org Active"
 
-            remaining = max(0, org.autofix_tokens_total - org.autofix_tokens_used)
-            if remaining < token_cost:
-                msg = f"Insufficient Skelion tokens: {remaining} remaining, but {token_cost} required."
-                self.log(msg, level="WARN")
-                return False, remaining, msg
+            # Calculate available tokens in dedicated autonomous autofix pool and packs
+            autofix_rem = max(0, org.autofix_tokens_total - org.autofix_tokens_used)
+            pack_rem = max(0, org.purchased_tokens - org.purchased_tokens_used)
 
-            deduct_autofix_tokens(org, token_cost, db)
+            if autofix_rem < token_cost and pack_rem < token_cost:
+                msg = f"Insufficient Skelion tokens: {autofix_rem} remaining, but {token_cost} required."
+                self.log(msg, level="WARN")
+                return False, autofix_rem, msg
+
+            bucket = "autofix" if autofix_rem >= token_cost else "pack"
+
+            # Record in append-only credit ledger (Billing v2 consistency)
+            # Note: record_ledger_entry automatically updates org cached summary without double-deduction
+            try:
+                from skelion_agent.credit_ledger import record_ledger_entry
+                record_ledger_entry(
+                    session=db,
+                    org_id=org.id,
+                    bucket=bucket,
+                    delta=-token_cost,
+                    reason=f"autonomous_solve_{task_id}",
+                    idempotency_key=f"solve:{task_id}",
+                    ref_type="autonomous_loop",
+                    ref_id=task_id,
+                )
+            except Exception as ex:
+                self.log(f"Credit ledger sync note: {ex}", level="WARN")
+
+            db.commit()
+            db.refresh(org)
             new_remaining = max(0, org.autofix_tokens_total - org.autofix_tokens_used)
+            self.log(
+                f"Deducted {token_cost} tokens from Org '{org.name}' ({bucket} bucket). Remaining balance: {new_remaining}"
+            )
 
             # Ensure parent incident exists to satisfy foreign key constraint
             inc = db.get(Incident, task_id)
@@ -818,9 +960,21 @@ Closes #{issue_number}
                     "monitor": res,
                 }
 
-        # 3. If no accepted issues exist, replenish backlog by generating a new issue
+        # 3. If no accepted issues exist, replenish backlog only if backlog is low
+        open_count = len(issues) if ('issues' in locals() and isinstance(issues, list)) else 0
+        if open_count >= 3:
+            self.log(
+                f"Backlog has {open_count} open issue(s) awaiting maintainer 'accept' comment. Waiting for acceptance before generating more."
+            )
+            self.last_status = "AWAITING_USER_ACCEPTANCE"
+            return {
+                "status": "awaiting_user_acceptance",
+                "open_backlog_count": open_count,
+                "instruction": "Comment 'accepted' on an open issue to trigger autonomous resolution and PR generation.",
+            }
+
         self.log(
-            "No pending accepted issues in backlog. Generating fresh architectural advancement issue..."
+            "Backlog low and no pending accepted issues. Generating fresh architectural advancement issue from repo plans..."
         )
         new_issue = self.generate_advancement_issue()
         self.last_status = "AWAITING_USER_ACCEPTANCE"
