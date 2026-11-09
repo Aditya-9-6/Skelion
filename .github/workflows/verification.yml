@@ -90,7 +90,7 @@ jobs:
       - name: Run Python Unit Tests with Coverage
         run: |
           mkdir -p coverage/python
-          pytest tests/test_razorpay_webhook.py --cov=skelion_agent.billing_routes --cov-report=xml:coverage/python/coverage.xml --cov-fail-under=100 --cov-report=term
+          pytest tests/test_razorpay_webhook.py tests/test_billing_v2.py --cov=skelion_agent.billing_routes --cov-report=xml:coverage/python/coverage.xml --cov-fail-under=100 --cov-report=term
 
 
       - name: Run Front-end Unit Tests with Coverage (c8 + Node V8)

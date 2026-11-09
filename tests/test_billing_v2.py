@@ -184,6 +184,75 @@ def test_addon_billing_api_routes(test_db):
     assert plan_data["addons"]["autonomous_dev_loop"]["active"] is True
     assert plan_data["addons"]["reverse_proxy_loop"]["active"] is False
 
+    # 4. POST /v1/billing/addon-instant validation and reverse_proxy_loop
+    invalid_addon_res = client.post(
+        "/v1/billing/addon-instant",
+        json={"addon_id": "nonexistent_addon", "active": True},
+    )
+    assert invalid_addon_res.status_code == 400
+
+    proxy_addon_res = client.post(
+        "/v1/billing/addon-instant",
+        json={"addon_id": "reverse_proxy_loop", "active": True},
+    )
+    assert proxy_addon_res.status_code == 200
+    assert proxy_addon_res.json()["active"] is True
+
+    # 5. POST /v1/billing/checkout for addons
+    chk_res1 = client.post(
+        "/v1/billing/checkout?token_type=addon&plan=autonomous_dev_loop"
+    )
+    assert chk_res1.status_code == 200
+    chk_data1 = chk_res1.json()
+    assert "order_id" in chk_data1
+
+    chk_res2 = client.post(
+        "/v1/billing/checkout?token_type=addon&plan=reverse_proxy_loop&period=annual"
+    )
+    assert chk_res2.status_code == 200
+
+    chk_res3 = client.post(
+        "/v1/billing/checkout?token_type=addon_autonomous_dev_loop"
+    )
+    assert chk_res3.status_code == 200
+
+    chk_res4 = client.post(
+        "/v1/billing/checkout?token_type=addon_reverse_proxy_loop"
+    )
+    assert chk_res4.status_code == 200
+
+    chk_res_inv = client.post(
+        "/v1/billing/checkout?token_type=addon&plan=unknown_addon"
+    )
+    assert chk_res_inv.status_code == 400
+
+    # 6. POST /v1/billing/verify for addon order
+    order_id = chk_data1["order_id"]
+    verify_res = client.post(
+        "/v1/billing/verify",
+        json={
+            "razorpay_order_id": order_id,
+            "razorpay_payment_id": "pay_addon_test_123",
+            "razorpay_signature": "sig_dummy",
+        },
+    )
+    assert verify_res.status_code == 200
+    assert verify_res.json()["status"] == "activated"
+
+    order_id2 = chk_res2.json()["order_id"]
+    verify_res2 = client.post(
+        "/v1/billing/verify",
+        json={
+            "razorpay_order_id": order_id2,
+            "razorpay_payment_id": "pay_addon_test_456",
+            "razorpay_signature": "sig_dummy",
+        },
+    )
+    assert verify_res2.status_code == 200
+    assert verify_res2.json()["status"] == "activated"
+
+
     app.dependency_overrides.clear()
+
 
 

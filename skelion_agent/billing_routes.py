@@ -182,8 +182,13 @@ async def checkout(
         tokens_granted = pack_info["credits"]
         item_name = f"Credit Pack: {pack_info['name']} ({tokens_granted:,} Credits)"
     elif token_type in ["addon", "addon_autonomous_dev_loop", "addon_reverse_proxy_loop"] or plan in ADDONS:
-        addon_key = plan if plan in ADDONS else ("autonomous_dev_loop" if "autonomous" in token_type else "reverse_proxy_loop")
-        if addon_key not in ADDONS:
+        if plan in ADDONS:
+            addon_key = plan
+        elif "autonomous" in token_type:
+            addon_key = "autonomous_dev_loop"
+        elif "reverse_proxy" in token_type:
+            addon_key = "reverse_proxy_loop"
+        else:
             raise HTTPException(status_code=400, detail="Invalid addon name")
         addon_info = ADDONS[addon_key]
         base_price = addon_info["annual_price_inr"] if period == "annual" else addon_info["price_inr"]

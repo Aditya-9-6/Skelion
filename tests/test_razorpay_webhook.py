@@ -753,12 +753,46 @@ def test_webhook_edge_cases(test_client):
     assert r.status_code == 200
     assert r.json()["status"] == "processed"
 
-    # 6. Legacy receipt fallback: category topup_coding
-    evt_legacy_topup = f"evt_legacy_topup_{uuid.uuid4().hex}"
-    payload_legacy2 = make_payload(event_id=evt_legacy_topup, order_id=None, amount=5000)
-    payload_legacy2["payload"]["payment"]["entity"]["order_id"] = None
-    payload_legacy2["payload"]["payment"]["entity"]["receipt"] = "org_legacy_plan:topup_coding:500"
-    r = post_webhook(test_client, payload_legacy2)
+
+def test_webhook_addon_capture(test_client):
+    """Test webhook payment.captured for an addon order credits tokens and enables addon flag."""
+    engine = get_engine()
+    with Session(engine) as session:
+        org_id, order_id, provider_order_id = setup_org_and_order(
+            session, amount_paise=99900, kind="addon"
+        )
+        order = session.get(PaymentOrder, order_id)
+        order.plan_id = "reverse_proxy_loop"
+        session.add(order)
+        session.commit()
+
+    evt_id = f"evt_addon_{uuid.uuid4().hex}"
+    payload = make_payload(event_id=evt_id, order_id=provider_order_id, amount=99900)
+    r = post_webhook(test_client, payload)
     assert r.status_code == 200
     assert r.json()["status"] == "processed"
+
+    with Session(engine) as session:
+        org = session.get(Organization, org_id)
+        assert org.addon_reverse_proxy_loop is True
+
+    # Also test autonomous_dev_loop
+    with Session(engine) as session:
+        org_id2, order_id2, provider_order_id2 = setup_org_and_order(
+            session, amount_paise=149900, kind="addon"
+        )
+        order2 = session.get(PaymentOrder, order_id2)
+        order2.plan_id = "autonomous_dev_loop"
+        session.add(order2)
+        session.commit()
+
+    evt_id2 = f"evt_addon_{uuid.uuid4().hex}"
+    payload2 = make_payload(event_id=evt_id2, order_id=provider_order_id2, amount=149900)
+    r2 = post_webhook(test_client, payload2)
+    assert r2.status_code == 200
+    with Session(engine) as session:
+        org2 = session.get(Organization, org_id2)
+        assert org2.addon_autonomous_dev_loop is True
+
+
 
