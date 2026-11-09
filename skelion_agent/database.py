@@ -8,6 +8,33 @@ from sqlalchemy.engine import Engine
 from sqlalchemy import event
 
 from skelion_agent.config import settings
+from skelion_agent.pr_review_models import (
+    Installation,
+    Repository,
+    PullRequest,
+    ReviewRun,
+    Finding,
+    Evidence,
+    Fix,
+    Feedback,
+    Suppression,
+    LLMCache,
+    Command,
+    WebhookDelivery,
+    Installations,
+    Repositories,
+    PullRequests,
+    ReviewRuns,
+    Findings,
+    Evidences,
+    Fixes,
+    Feedbacks,
+    FeedbackRecords,
+    Suppressions,
+    LLMCaches,
+    Commands,
+    WebhookDeliveries,
+)
 
 # Resolve database URL – fallback to Settings or default SQLite for dev
 DATABASE_URL = os.getenv(

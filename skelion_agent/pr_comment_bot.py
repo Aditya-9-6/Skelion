@@ -516,39 +516,17 @@ async def merge_pr_endpoint(pr_number: int, req: Optional[MergePRRequest] = None
 @router.post("/v1/webhooks/github")
 async def github_webhook(
     request: Request,
-    x_hub_signature_256: Optional[str] = Header(None),
-    x_github_event: Optional[str] = Header(None),
     db: Session = Depends(get_db),
+    x_github_delivery: Optional[str] = Header(None, alias="X-GitHub-Delivery"),
+    x_github_event: Optional[str] = Header(None, alias="X-GitHub-Event"),
+    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
 ):
-    """Handle incoming GitHub App webhooks (pull_request, issue_comment, issues)."""
-    body = await request.body()
-    webhook_secret = os.getenv("GITHUB_WEBHOOK_SECRET", "skl_gh_secret_test")
-
-    # In production, verify signature if configured
-    if x_hub_signature_256 and not verify_github_signature(
-        body, x_hub_signature_256, webhook_secret
-    ):
-        raise HTTPException(status_code=401, detail="Invalid GitHub webhook signature")
-
-    payload = await request.json() if body else {}
-    action = payload.get("action")
-    event_type = x_github_event or "pull_request"
-
-    # Automated Bot trigger for comments like "@skelion-bot fix" or "/fix"
-    if event_type == "issue_comment" and action == "created":
-        comment_body = payload.get("comment", {}).get("body", "").lower()
-        if any(cmd in comment_body for cmd in ["@skelion", "/fix", "@skelion-bot fix"]):
-            issue_url = payload.get("issue", {}).get("html_url", "")
-            return {
-                "status": "triggered_bot",
-                "command": "autofix",
-                "issue_url": issue_url,
-                "message": "Skelion Agent Bot initiated autonomous sandbox replay & PR synthesis.",
-            }
-
-    return {
-        "status": "received",
-        "event": event_type,
-        "action": action,
-        "idempotent": True,
-    }
+    """Handle incoming GitHub App webhooks via pr_review_routes."""
+    from skelion_agent.pr_review_routes import handle_github_webhook
+    return await handle_github_webhook(
+        request=request,
+        db=db,
+        x_github_delivery=x_github_delivery,
+        x_github_event=x_github_event,
+        x_hub_signature_256=x_hub_signature_256,
+    )

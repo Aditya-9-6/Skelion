@@ -25,6 +25,7 @@ from skelion_agent.license_routes import router as license_router
 from skelion_agent.ingest_routes import router as ingest_router
 from skelion_agent.customer_portal import router as customer_portal_router
 from skelion_agent.public_web import router as public_web_router
+from skelion_agent.pr_review_routes import router as pr_review_router
 
 # Global redis client placeholder (will be set on startup)
 redis_client = None
@@ -60,6 +61,7 @@ app.include_router(auth_router)
 app.include_router(ingest_router)
 app.include_router(customer_portal_router)
 app.include_router(metrics_router)
+app.include_router(pr_review_router)
 app.include_router(pr_comment_bot_router)
 app.include_router(admin_router)
 app.include_router(admin_dashboard_router)
