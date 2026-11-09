@@ -4,8 +4,7 @@ import { Hero } from './components/Hero';
 import { StatsBar } from './components/StatsBar';
 import { Features } from './components/Features';
 import { ArchitectureFlow } from './components/ArchitectureFlow';
-import { ExtensionShowcase } from './components/ExtensionShowcase';
-import { SdkQuickstart } from './components/SdkQuickstart';
+import { WhyChooseUs } from './components/WhyChooseUs';
 import { PricingCalculator } from './components/PricingCalculator';
 import { Faq } from './components/Faq';
 import { Footer } from './components/Footer';
@@ -46,23 +45,36 @@ const AppInner: React.FC = () => {
 
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash || '#home';
-      setCurrentRoute(hash);
+      const rawHash = window.location.hash || '#home';
+      const cleanAnchor = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash;
+      setCurrentRoute(rawHash);
       const user = getStoredUser();
       setCurrentUser(user);
-      if (hash === '#landing') {
+
+      const landingAnchors = ['home', 'features', 'simulator', 'architecture', 'pricing', 'docs', 'faq', 'why-us', 'comparison'];
+      const isLandingAnchor = landingAnchors.includes(cleanAnchor);
+
+      if (rawHash === '#landing' || isLandingAnchor) {
         setViewLandingPageOverride(true);
+        if (isLandingAnchor) {
+          setTimeout(() => {
+            const el = document.getElementById(cleanAnchor);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 60);
+          return;
+        }
       } else if (
-        hash === '#console' ||
-        hash === '#dashboard' ||
-        hash === '#ask' ||
-        hash === '#incidents' ||
-        hash === '#fixes' ||
-        hash === '#history' ||
-        hash === '#limits' ||
-        hash === '#loop' ||
-        hash === '#plugins' ||
-        hash === '#pricing'
+        rawHash === '#console' ||
+        rawHash === '#dashboard' ||
+        rawHash === '#ask' ||
+        rawHash === '#incidents' ||
+        rawHash === '#fixes' ||
+        rawHash === '#history' ||
+        rawHash === '#limits' ||
+        rawHash === '#loop' ||
+        rawHash === '#plugins'
       ) {
         setViewLandingPageOverride(false);
       }
@@ -203,8 +215,7 @@ const AppInner: React.FC = () => {
         <StatsBar />
         <Features />
         <ArchitectureFlow />
-        <ExtensionShowcase />
-        <SdkQuickstart />
+        <WhyChooseUs />
         <PricingCalculator onSelectPlan={(plan, coupon, currency) => handleOpenCheckout(plan, coupon, currency)} />
         <Faq />
       </main>

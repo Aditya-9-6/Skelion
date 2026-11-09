@@ -17,28 +17,31 @@ export const Features: React.FC = () => {
   const features = [
     {
       id: 'proxy',
-      title: 'Fail-Open Resilience Proxy',
-      category: 'EDGE INFRASTRUCTURE',
+      title: 'Reverse Proxy Threat Detector Loop',
+      category: 'EDGE RESILIENCE & THREAT DEFENSE',
       icon: ShieldAlert,
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-50',
       borderColor: 'border-cyan-200',
-      tagline: 'Never drop production requests on internal telemetry hiccups.',
+      tagline: 'Zero-downtime reverse proxy with live prompt-injection & threat defense.',
       description:
-        'Skelion sits transparently between your ingress gateway and upstream services. With its strict fail-open contract, any unexpected proxy exception, network timeout, or downstream stall immediately bypasses the engine, delivering the original payload unharmed.',
+        'Skelion sits transparently between your ingress gateway and upstream services. With its strict fail-open contract, any unexpected proxy exception or downstream stall immediately bypasses the engine, delivering the original payload unharmed while actively intercepting prompt-injections, toxic payload patterns, and token burn rate spikes.',
       bullets: [
-        'Sub-5ms hot-path request proxying with zero memory buffering bloat',
+        'Sub-5ms hot-path request proxying with strict zero-downtime fail-open contract',
+        'Active prompt-injection detection and malicious payload filtering at the edge',
         'Automatic circuit breaking with jittered backoff on saturated backends',
-        'Configurable error-rate threshold triggers with auto-drain mechanisms',
-        'Transparent reverse proxy support for FastAPI, Node.js, Go, and Ruby',
+        'Available on Pro Developer Tier and higher for continuous edge protection',
       ],
-      codeSnippet: `# skelion_edge/proxy.py: Fail-open guarantee
+      codeSnippet: `# skelion_edge/threat_proxy.py: Threat scan & fail-open
+threat = threat_detector.scan_payload(request.body)
+if threat.is_malicious:
+    return threat.respond_sanitized(reason=threat.detection_type)
+
 try:
-    response = await skelion_inspect_and_forward(request)
-except Exception as exc:
-    # Fail-open: log metric, bypass telemetry, return authentic request
-    prometheus.rate_limits_saved_total.inc()
-    return await raw_upstream_forward(request)`,
+    return await forward_resilient_upstream(request)
+except Exception:
+    # Fail-open guarantee: bypass telemetry, deliver raw payload unharmed
+    return await raw_upstream_fallback(request)`,
     },
     {
       id: 'incident',
@@ -63,29 +66,30 @@ except Exception as exc:
 [GitHub] PR #142 submitted with automated review card`,
     },
     {
-      id: 'keypool',
-      title: 'Shared Multi-Provider LLM Key Pool',
-      category: 'AI TOKEN ORCHESTRATION',
+      id: 'autonomous-loop',
+      title: 'Autonomous Dev Loop (24/7)',
+      category: 'AUTONOMOUS REPO REMEDIATION',
       icon: Cpu,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
       borderColor: 'border-emerald-200',
-      tagline: 'Eliminate HTTP 429 rate limits across distributed agent nodes.',
+      tagline: 'Scans roadmap plans, creates GitHub issues, and opens verified PRs.',
       description:
-        'Stop waking up to exhausted TPM/RPM limits. Skelion pools API infrastructure across high-throughput resilient edge nodes, applying exponential backoff and transparent key rotation without dropping a single user prompt.',
+        'Skelion continuously monitors repository implementation plans and markdown specifications. It automatically extracts pending tasks into tracked GitHub issues, waits for a one-word "accept" maintainer trigger, and autonomously generates AST-verified PRs with passing regression tests 24/7.',
       bullets: [
-        'Zero 429 dropped requests across high-volume burst traffic',
-        'Dynamic failover from tier-limited keys to warm standby keys',
-        'Strict Cost + 30% margin ledger accounting ensuring predictable gross margins',
-        'Supports both Hosted shared pools and Bring-Your-Own-Key (BYOK) local modes',
+        '24/7 background plan scanner turns markdown roadmap tasks into GitHub issues',
+        'One-word "accept" maintainer review comment triggers automated PR synthesis',
+        'Pre-flight sandbox test gates guarantee 100% green test passes before PR',
+        'Available exclusively on Engineering Team Tier and Custom Tier',
       ],
-      codeSnippet: `# Dynamic resilient node rotation
-node = await key_pool.acquire(tier="resilient_mesh")
-try:
-    return await agent_generate(prompt, node=node)
-except RateLimitError:
-    key_pool.penalize(node, cooldown_secs=30)
-    return await key_pool.retry_transparent(prompt)`,
+      codeSnippet: `# skelion_agent/autonomous_engine.py
+# Maintainer comments "accept" on issue #183
+engine = AutonomousLoopEngine(default_repo="owner/repo")
+is_accepted, author, target = engine.check_issue_accepted(183)
+if is_accepted:
+    # Synthesizes patch, verifies in micro-sandbox, opens PR
+    pr = await engine.execute_task_pipeline(issue_id=183)
+    logger.info(f"PR #{pr.number} generated with zero regressions")`,
     },
     {
       id: 'redact',
@@ -148,7 +152,7 @@ https://skelion.dev/#console
         'Skelion exposes production-grade Prometheus metrics on /metrics. Track rate limits saved, proxy latencies, sandbox execution times, and automated PR success rates with turnkey Grafana dashboards and instant Slack notifications.',
       bullets: [
         'Standard Prometheus metrics: rate_limits_saved_total, proxy_latency_ms',
-        'Instant Slack, Discord, and PagerDuty alert dispatches on anomaly spikes',
+        'Instant Slack, PagerDuty, and webhook alert dispatches on anomaly spikes',
         'Audit log with append-only ledger entries for all remediation actions',
         'Structured JSON logging with request tracing IDs across microservices',
       ],
@@ -161,7 +165,7 @@ skelion_incident_resolved_total 89`,
   ];
 
   return (
-    <section id="features" className="py-24 relative overflow-hidden">
+    <section id="features" className="py-24 relative overflow-hidden scroll-mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-50 border border-cyan-200 text-cyan-800 mb-3 shadow-sm">

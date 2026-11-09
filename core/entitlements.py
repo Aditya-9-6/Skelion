@@ -9,7 +9,7 @@ from typing import Dict, Any
 PLAN_ENTITLEMENTS: Dict[str, Dict[str, Any]] = {
     # Hosted SKUs
     "hosted_community": {
-        "name": "Community (Free)",
+        "name": "Developer Tier (Free)",
         "sku": "hosted",
         "limits": {
             "projects": 1,
@@ -45,8 +45,30 @@ PLAN_ENTITLEMENTS: Dict[str, Dict[str, Any]] = {
             "email_alerts",
         ],
     },
+    "pro_developer": {
+        "name": "Pro Developer Tier",
+        "sku": "hosted",
+        "limits": {
+            "projects": 10,
+            "seats": 1,
+            "monthly_credits": 3500,
+            "requests_quota": 25000,
+            "retention_days": 30,
+        },
+        "features": [
+            "proxy_capture",
+            "redaction",
+            "incident_fingerprinting",
+            "replay_preview",
+            "fix_generation",
+            "replay_verify",
+            "key_pooling",
+            "email_alerts",
+            "reverse_proxy_loop",
+        ],
+    },
     "hosted_team": {
-        "name": "Team Tier",
+        "name": "Engineering Team Tier",
         "sku": "hosted",
         "limits": {
             "projects": 10,
@@ -68,10 +90,12 @@ PLAN_ENTITLEMENTS: Dict[str, Dict[str, Any]] = {
             "slack",
             "mcp",
             "team_dashboard",
+            "reverse_proxy_loop",
+            "autonomous_dev_loop",
         ],
     },
     "hosted_business": {
-        "name": "Business Tier",
+        "name": "Engineering Team Tier (Scale)",
         "sku": "hosted",
         "limits": {
             "projects": 50,
@@ -96,6 +120,41 @@ PLAN_ENTITLEMENTS: Dict[str, Dict[str, Any]] = {
             "sso_mfa",
             "audit_log",
             "auto_merge_guardrails",
+            "reverse_proxy_loop",
+            "autonomous_dev_loop",
+        ],
+    },
+    "hosted_enterprise": {
+        "name": "Custom Tier",
+        "sku": "hosted",
+        "limits": {
+            "projects": 999,
+            "seats": 999,
+            "monthly_credits": 100000,
+            "requests_quota": 1000000,
+            "retention_days": 365,
+        },
+        "features": [
+            "proxy_capture",
+            "redaction",
+            "incident_fingerprinting",
+            "replay_preview",
+            "fix_generation",
+            "replay_verify",
+            "key_pooling",
+            "email_alerts",
+            "pr_bot",
+            "slack",
+            "mcp",
+            "team_dashboard",
+            "sso_mfa",
+            "audit_log",
+            "auto_merge_guardrails",
+            "reverse_proxy_loop",
+            "autonomous_dev_loop",
+            "dedicated_bridges",
+            "ip_allowlisting",
+            "custom_contracts",
         ],
     },
     # Local SKUs (Customer's LLM key or Local Model, No credits, Offline License)
@@ -191,10 +250,16 @@ PLAN_ENTITLEMENTS: Dict[str, Dict[str, Any]] = {
 # Aliases for backward compatibility with v1 plan identifiers
 PLAN_ALIASES: Dict[str, str] = {
     "pilot": "hosted_community",
+    "community": "hosted_community",
+    "developer": "hosted_developer",
     "starter": "hosted_developer",
-    "pro": "hosted_team",
+    "pro": "pro_developer",
+    "pro_developer": "pro_developer",
     "team": "hosted_team",
-    "enterprise": "hosted_business",
+    "hosted_team": "hosted_team",
+    "business": "hosted_business",
+    "enterprise": "hosted_enterprise",
+    "custom": "hosted_enterprise",
 }
 
 

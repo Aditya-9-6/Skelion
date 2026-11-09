@@ -76,52 +76,29 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
   const plans = [
     {
       id: 'pilot',
-      name: 'Hosted Community',
-      subtitle: 'Free & Solo Exploration',
+      name: 'Developer Tier',
+      subtitle: 'Free Community & Solo Exploration',
       basePriceMonthlyINR: 0,
       basePriceMonthlyUSD: 0,
       credits: '50 Credits / mo',
       seats: '1 Seat',
       projects: '1 Project',
-      models: 'Skelion AI Agent (Mesh Evaluation)',
+      models: 'Skelion Edge Intelligence (Fail-Open)',
       popular: false,
       buttonText: 'Get Started Free',
       features: [
         '50 Credits included monthly (50,000 Tokens)',
-        'Fail-open edge proxy telemetry',
-        'Basic incident fingerprinting',
-        'Deterministic synthetic replay generation',
+        'Fail-open edge proxy telemetry & trace capture',
+        'Basic incident fingerprinting & trace isolation',
+        'Deterministic synthetic replay preview',
         '7-day trace & log retention',
-        'Community Discord support',
-      ],
-    },
-    {
-      id: 'hosted_lite',
-      name: 'Developer Lite',
-      subtitle: 'Solo Devs & Indie Hackers',
-      basePriceMonthlyINR: 749,
-      basePriceMonthlyUSD: 9,
-      originalPriceMonthlyINR: 999,
-      originalPriceMonthlyUSD: 12,
-      credits: '1,000 Credits / mo',
-      seats: '1 Seat',
-      projects: '3 Projects',
-      models: 'Skelion AI Agent (Autonomous Mesh)',
-      popular: false,
-      buttonText: 'Upgrade to Lite',
-      features: [
-        '1,000 Credits included monthly (1,000,000 Tokens)',
-        'Autonomous AST self-healing unlocked',
-        'Full fail-open proxy with PII redaction',
-        'Turnkey pytest/jest test synthesizer',
-        '30-day trace & audit retention',
-        'Standard email support',
+        'Responsive email & in-app console support',
       ],
     },
     {
       id: 'pro',
-      name: 'Pro Developer',
-      subtitle: 'Full-Featured Autonomous IDE',
+      name: 'Pro Developer Tier',
+      subtitle: 'Solo Engineers & Production Services',
       basePriceMonthlyINR: 1349,
       basePriceMonthlyUSD: 16,
       originalPriceMonthlyINR: 1899,
@@ -131,22 +108,22 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
       projects: '10 Projects',
       models: 'Skelion Multi-Provider Concurrency Mesh',
       popular: true,
-      buttonText: 'Upgrade to Pro',
+      buttonText: 'Upgrade to Pro Tier',
       badge: 'MOST POPULAR · 20% LOWER THAN CURSOR',
       features: [
         '3,500 Credits included monthly (3,500,000 Tokens)',
-        'Full-screen Antigravity-style IDE workspace',
+        '🛡️ Reverse Proxy Threat Detector Loop (Included)',
+        'Live prompt-injection defense & token burn rate shield',
         'Automated GitHub PR diagnostic cards & 1-click merge',
-        'Shared multi-provider key-pool with 0ms 429 failover',
-        'Monaco Editor with live syntax & AST validation',
-        '90-day trace & audit retention',
-        'Priority email & Discord response',
+        'Full cloud agent console with syntax & AST validation',
+        '30-day trace & audit log retention',
+        'Priority engineering email support (support@skelion.dev)',
       ],
     },
     {
       id: 'hosted_team',
-      name: 'Engineering Team',
-      subtitle: 'High-Velocity Product Teams',
+      name: 'Engineering Team Tier',
+      subtitle: 'High-Velocity Engineering Teams',
       basePriceMonthlyINR: 3799,
       basePriceMonthlyUSD: 45,
       originalPriceMonthlyINR: 4999,
@@ -156,61 +133,44 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
       projects: '25 Projects',
       models: 'Skelion Team Concurrency Mesh',
       popular: false,
-      buttonText: 'Upgrade to Team',
+      buttonText: 'Upgrade to Team Tier',
+      badge: 'FULL 24/7 AUTONOMY',
       features: [
         '12,000 Credits included monthly (12,000,000 Tokens)',
+        '🚀 Autonomous Dev Loop (24/7 Plan-to-Issue-to-PR Engine)',
+        '🛡️ Reverse Proxy Threat Detector Loop (Included)',
+        'Continuous roadmap markdown scanning & auto GitHub issues',
+        'One-word "accept" maintainer trigger for automated PR creation',
         '5 Developer seats included (add more at ₹599 / $7 per seat)',
-        'Autonomous PR fix generation with CI verification',
-        'Slack & Discord automated incident alerts',
-        'Centralized team API keys & usage telemetry',
-        '180-day audit ledger retention',
+        '90-day trace & audit ledger retention',
+        'Centralized team API keys & Slack incident alerts',
         'Dedicated onboarding session',
       ],
     },
     {
-      id: 'hosted_business',
-      name: 'Business Scale',
-      subtitle: 'High-Volume Enterprise Systems',
-      basePriceMonthlyINR: 9999,
-      basePriceMonthlyUSD: 119,
-      originalPriceMonthlyINR: 13999,
-      originalPriceMonthlyUSD: 169,
-      credits: '35,000 Credits / mo',
-      seats: '20 Seats Included',
-      projects: 'Unlimited Projects',
-      models: 'Skelion Enterprise Intelligence Mesh',
-      popular: false,
-      buttonText: 'Upgrade to Business',
-      features: [
-        '35,000 Credits included monthly (35,000,000 Tokens)',
-        '20 Developer seats included',
-        'Priority reasoning queues & custom AST rules',
-        'Immutable 365-day audit log retention & JSON export',
-        'Custom error rate thresholds & webhook triggers',
-        'Dedicated webhook & telemetry bridges',
-        'High-priority engineering email & Discord assistance',
-      ],
-    },
-    {
       id: 'enterprise',
-      name: 'Enterprise Custom',
-      subtitle: 'Bespoke Scale & Enterprise Governance',
-      basePriceMonthlyINR: 39999,
-      basePriceMonthlyUSD: 499,
-      credits: '100,000+ Credits',
+      name: 'Custom Tier',
+      subtitle: 'Custom Enterprise Scale & Bespoke Governance',
+      basePriceMonthlyINR: 25000,
+      basePriceMonthlyUSD: 299,
+      originalPriceMonthlyINR: 35000,
+      originalPriceMonthlyUSD: 420,
+      credits: 'Custom Credits (100k+)',
       seats: 'Unlimited Seats',
       projects: 'Unlimited Projects',
       models: 'Dedicated Multi-Region AI Mesh',
       popular: false,
-      buttonText: 'Contact Enterprise Sales',
+      buttonText: 'Contact Custom Sales',
+      badge: '100% CUSTOMIZABLE',
       features: [
-        '100,000+ Credits included monthly (100,000,000+ Tokens)',
+        '₹25,000+ ($299+) starting base — all parameters fully customizable',
+        '🚀 Autonomous Dev Loop (Dedicated high-concurrency workers)',
+        '🛡️ Reverse Proxy Threat Detector Loop with custom rules',
         'Custom credit quotas & volume scale pricing',
         'Custom SAML SSO & Team Access Governance',
-        'Auto-merge for verified non-breaking patches',
         'Dedicated proxy egress bridges & IP allowlisting',
-        'Custom enterprise contract & dedicated support channel',
-        'Annual invoicing with GST / Net-30 terms',
+        '365-day immutable trace & audit retention with JSON export',
+        'Annual invoicing with GST / Net-30 payment terms',
       ],
     },
   ];
@@ -268,7 +228,7 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
   const calculatedCustomTokens = calculatedCustomCredits * 1000;
 
   return (
-    <section id="pricing" className="py-24 relative overflow-hidden">
+    <section id="pricing" className="py-24 relative overflow-hidden scroll-mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-12">
@@ -378,7 +338,7 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6 items-stretch">
           {plans.map((plan) => {
             const finalMonthlyPrice = calculateFinalPrice(
               plan.basePriceMonthlyINR,
@@ -388,7 +348,7 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
             return (
               <div
                 key={plan.id}
-                className={`glass-panel rounded-3xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-300 relative border ${
+                className={`glass-panel rounded-3xl p-5 sm:p-6 flex flex-col justify-between transition-all duration-300 relative border ${
                   plan.popular
                     ? 'border-cyan-400/80 shadow-[0_16px_40px_rgba(6,182,212,0.12)] ring-1 ring-cyan-300/60 bg-gradient-to-b from-white via-cyan-50/20 to-white'
                     : 'border-slate-200/90 shadow-sm hover:border-slate-300 hover:shadow-md bg-white/90'
@@ -414,7 +374,7 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
                       <span className="text-3xl sm:text-4xl font-black tracking-tight text-slate-950">
                         {finalMonthlyPrice === 0 
                           ? 'Free' 
-                          : `${plan.id === 'enterprise' ? '+' : ''}${currencySymbol}${finalMonthlyPrice.toLocaleString('en-IN')}`}
+                          : `${plan.id === 'enterprise' ? '+' : ''}${currencySymbol}${finalMonthlyPrice.toLocaleString('en-IN')}${plan.id === 'enterprise' ? '+' : ''}`}
                       </span>
                       {finalMonthlyPrice > 0 && (
                         <span className="text-xs text-slate-500 font-medium">/ month</span>
@@ -599,7 +559,7 @@ export const PricingCalculator: React.FC<PricingCalculatorProps> = ({ onSelectPl
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Seamless integration with Skelion Console &amp; VS Code</span>
+                    <span>Seamless integration with Skelion Web Platform &amp; CI/CD</span>
                   </li>
                 </ul>
               </div>

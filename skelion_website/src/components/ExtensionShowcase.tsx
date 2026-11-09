@@ -36,13 +36,13 @@ export const ExtensionShowcase: React.FC = () => {
             </div>
 
             <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-950 tracking-tight leading-tight">
-              Skelion Agent Inside Your Browser
+              Continuous Cloud Intelligence &amp; Resilience
             </h2>
 
             <p className="text-base text-slate-600 leading-relaxed">
-              Supercharge your workflow with the official Skelion Web Platform.
-              Inspect live edge telemetry, run the Impeccable Validator, explore REA dependency graphs,
-              and synthesize verified PR fixes directly in your browser.
+              Supercharge your engineering workflow with the Skelion Web Platform.
+              Inspect live edge telemetry, run the Impeccable Validator, monitor autonomous roadmap PR execution,
+              and manage reverse proxy threat detection directly from your cloud console.
             </p>
 
             {/* URL / Launch Box */}
@@ -76,7 +76,7 @@ export const ExtensionShowcase: React.FC = () => {
                     <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
                   ))}
                 </div>
-                <span className="text-slate-500 ml-1 font-mono">v0.1.4 Verified</span>
+                <span className="text-slate-500 ml-1 font-mono">Platform Verified</span>
               </div>
             </div>
           </div>

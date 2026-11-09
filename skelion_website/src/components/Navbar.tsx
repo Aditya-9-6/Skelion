@@ -149,24 +149,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCheckout, currentUser, onU
     onLogout?.();
   };
 
+  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    e.preventDefault();
+    setMobileMenuOpen(false);
+    const element = document.getElementById(targetId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+      window.history.pushState(null, '', `#${targetId}`);
+    } else {
+      window.location.hash = `#${targetId}`;
+    }
+  };
+
   return (
     <>
-      {/* Top Notification Announcement Banner */}
-      <div className="bg-gradient-to-r from-cyan-100/80 via-purple-100/70 to-cyan-100/80 border-b border-cyan-200/80 py-2.5 px-4 text-center text-xs sm:text-sm text-cyan-950 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-center flex-wrap gap-x-2.5 gap-y-1">
-          <Sparkles className="w-3.5 h-3.5 text-cyan-600 animate-pulse shrink-0" />
-          <span>
-            <strong className="font-semibold">Skelion Platform v0.1.4 is now live!</strong> Autonomous Incident Intelligence, Zero-429 LLM Key Pooling &amp; Live Cloud Console.
-          </span>
-          <a
-            href="#console"
-            className="underline font-bold hover:text-cyan-700 transition-colors inline-flex items-center gap-1 shrink-0"
-          >
-            Open Console <ChevronRight className="w-3 h-3" />
-          </a>
-        </div>
-      </div>
-
       {/* Auth Error Banner if any */}
       {authError && (
         <div className="bg-red-50 border-b border-red-200 py-1.5 px-4 text-center text-xs text-red-700 flex items-center justify-center gap-2">
@@ -186,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCheckout, currentUser, onU
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Brand Logo */}
-          <a href={user ? "#console" : "#"} className="flex items-center gap-2.5 sm:gap-3 group shrink-0">
+          <a href={user ? "#console" : "#home"} onClick={(e) => !user && handleAnchorClick(e, 'home')} className="flex items-center gap-2.5 sm:gap-3 group shrink-0">
             <div className="relative shrink-0 w-8 h-8 flex items-center justify-center">
               <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg blur opacity-30 group-hover:opacity-75 transition duration-300"></div>
               <img
@@ -204,7 +200,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCheckout, currentUser, onU
                   SKELION
                 </span>
                 <span className="text-[10px] leading-tight px-1.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 font-mono font-medium shrink-0">
-                  v0.1.4
+                  PLATFORM
                 </span>
               </div>
               <span className="text-[9px] sm:text-[10px] text-slate-400 font-mono tracking-wider mt-1 hidden sm:block">
@@ -217,20 +213,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCheckout, currentUser, onU
           <nav className="hidden lg:flex items-center gap-4 xl:gap-6 2xl:gap-7 text-xs xl:text-sm font-medium text-slate-600 shrink-0">
             {!user ? (
               <>
-                <a href="#features" className="hover:text-cyan-600 transition-colors whitespace-nowrap">
+                <a href="#features" onClick={(e) => handleAnchorClick(e, 'features')} className="hover:text-cyan-600 transition-colors whitespace-nowrap cursor-pointer">
                   Features
                 </a>
-                <a href="#simulator" className="hover:text-cyan-600 transition-colors whitespace-nowrap">
+                <a href="#simulator" onClick={(e) => handleAnchorClick(e, 'simulator')} className="hover:text-cyan-600 transition-colors whitespace-nowrap cursor-pointer">
                   Live Simulator
                 </a>
-                <a href="#architecture" className="hover:text-cyan-600 transition-colors whitespace-nowrap">
+                <a href="#architecture" onClick={(e) => handleAnchorClick(e, 'architecture')} className="hover:text-cyan-600 transition-colors whitespace-nowrap cursor-pointer">
                   Architecture
                 </a>
-                <a href="#pricing" className="hover:text-cyan-600 transition-colors whitespace-nowrap">
+                <a href="#why-us" onClick={(e) => handleAnchorClick(e, 'why-us')} className="hover:text-cyan-600 transition-colors whitespace-nowrap cursor-pointer">
+                  Why Skelion
+                </a>
+                <a href="#pricing" onClick={(e) => handleAnchorClick(e, 'pricing')} className="hover:text-cyan-600 transition-colors whitespace-nowrap cursor-pointer">
                   Pricing
                 </a>
-                <a href="#docs" className="hover:text-cyan-600 transition-colors whitespace-nowrap">
-                  SDKs &amp; Docs
+                <a href="#faq" onClick={(e) => handleAnchorClick(e, 'faq')} className="hover:text-cyan-600 transition-colors whitespace-nowrap cursor-pointer">
+                  FAQ
                 </a>
               </>
             ) : (
@@ -263,15 +262,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCheckout, currentUser, onU
 
           {/* Action CTAs */}
           <div className="hidden sm:flex items-center gap-2 sm:gap-2.5 lg:gap-3 shrink-0">
-            <a
-              href="https://github.com/Aditya-9-6/Skelion"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white/90 border border-slate-200 hover:border-slate-300 hover:text-slate-900 transition-all shadow-sm shrink-0 whitespace-nowrap"
-            >
-              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-              <span>GitHub</span>
-            </a>
 
             {user ? (
               <>
@@ -440,38 +430,45 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCheckout, currentUser, onU
               <>
                 <a
                   href="#features"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium"
+                  onClick={(e) => handleAnchorClick(e, 'features')}
+                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium cursor-pointer"
                 >
                   Features
                 </a>
                 <a
                   href="#simulator"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium"
+                  onClick={(e) => handleAnchorClick(e, 'simulator')}
+                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium cursor-pointer"
                 >
                   Live Simulator
                 </a>
                 <a
                   href="#architecture"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium"
+                  onClick={(e) => handleAnchorClick(e, 'architecture')}
+                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium cursor-pointer"
                 >
                   Architecture
                 </a>
                 <a
+                  href="#why-us"
+                  onClick={(e) => handleAnchorClick(e, 'why-us')}
+                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium cursor-pointer"
+                >
+                  Why Skelion
+                </a>
+                <a
                   href="#pricing"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium"
+                  onClick={(e) => handleAnchorClick(e, 'pricing')}
+                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium cursor-pointer"
                 >
                   Pricing
                 </a>
                 <a
-                  href="#docs"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium"
+                  href="#faq"
+                  onClick={(e) => handleAnchorClick(e, 'faq')}
+                  className="block text-slate-700 hover:text-cyan-600 py-1.5 font-medium cursor-pointer"
                 >
-                  SDKs &amp; Docs
+                  FAQ
                 </a>
               </>
             )}

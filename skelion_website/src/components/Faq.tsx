@@ -26,13 +26,17 @@ export const Faq: React.FC = () => {
       a: 'Absolutely. We enforce a zero-retention, zero-training agreement across all upstream model providers. Furthermore, the PII Redaction Engine masks authorization tokens, secrets, cookies, and database connection strings before traces are evaluated.',
     },
     {
+      q: 'How does Skelion handle trace and log retention?',
+      a: 'Skelion enforces tiered, privacy-first retention policies with automated epoch-based garbage collection: 7 days on Developer Tier, 30 days on Pro Developer Tier, 90 days on Engineering Team Tier, and 365 days of immutable append-only audit logs on Custom Tier. All traces undergo strict zero-trust PII redaction at the edge before storage, masking Authorization tokens, API keys, cookies, and personal identifiers. Logs and traces can be exported as structured JSON or purged immediately via self-service privacy controls.',
+    },
+    {
       q: 'How does the Web Platform synchronize incident state with the cloud?',
       a: 'The Skelion Cloud Console communicates with the control plane and edge proxy via authenticated WebSockets and real-time streams. Quota refills, model gate unlocks, and incident diagnostic reviews reflect live instantly without needing to refresh.',
     },
   ];
 
   return (
-    <section className="py-24 relative overflow-hidden">
+    <section id="faq" className="py-24 relative overflow-hidden scroll-mt-20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-50 border border-cyan-200 text-cyan-800 mb-3 shadow-sm">

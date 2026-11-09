@@ -30,7 +30,6 @@ interface IncidentStep {
 }
 
 export const Hero: React.FC<HeroProps> = ({ onOpenCheckout }) => {
-  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const [activeScenario, setActiveScenario] = useState<'500' | '429' | 'leak'>('500');
   const [stepIndex, setStepIndex] = useState<number>(4);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -144,44 +143,18 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCheckout }) => {
     return () => clearInterval(timer);
   }, [isPlaying, currentSteps.length]);
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedCmd(label);
-    setTimeout(() => setCopiedCmd(null), 2000);
-  };
-
   return (
-    <section className="relative pt-12 pb-20 md:pt-20 md:pb-32 overflow-hidden">
+    <section id="home" className="relative pt-6 pb-12 md:pt-8 md:pb-16 overflow-hidden">
       {/* Background Cyber Glow & Radial Grid */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-gradient-radial from-cyan-300/25 via-purple-300/15 to-transparent blur-3xl pointer-events-none -z-10" />
       <div className="absolute top-1/3 right-10 w-96 h-96 bg-purple-300/20 rounded-full blur-3xl pointer-events-none -z-10" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Badges Bar */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-50 border border-cyan-200 text-cyan-800 shadow-sm">
-            <ShieldCheck className="w-3.5 h-3.5 text-cyan-600" />
-            <span>Autonomous Incident Intelligence</span>
-          </div>
-
-          <a
-            href="#console"
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/90 border border-slate-200 text-slate-700 hover:text-slate-900 hover:border-slate-300 transition shadow-sm"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>Cloud Platform Live</span>
-          </a>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono bg-purple-50 border border-purple-200 text-purple-700">
-            <span>pip install skelion</span>
-          </div>
-        </div>
-
         {/* Hero Logo Emblem */}
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-4">
           <div className="relative group">
             <div className="absolute -inset-3 bg-gradient-to-r from-cyan-400/40 via-purple-400/30 to-blue-500/40 rounded-3xl blur-xl opacity-70 group-hover:opacity-100 transition duration-500 animate-pulse"></div>
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/90 backdrop-blur-xl p-2.5 border border-white/80 shadow-xl flex items-center justify-center">
+            <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/90 backdrop-blur-xl p-2 border border-white/80 shadow-xl flex items-center justify-center">
               <img
                 src="/icon.svg"
                 alt="Skelion Emblem"
@@ -195,22 +168,22 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCheckout }) => {
         </div>
 
         {/* Hero Main Heading & Copy */}
-        <div className="text-center max-w-4xl mx-auto mb-12">
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-950 mb-6">
+        <div className="text-center max-w-4xl mx-auto mb-8">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-950 mb-3.5 leading-tight">
             Zero-Downtime Resilience.{' '}
             <span className="gradient-text-purple block sm:inline">Autonomous Self-Healing.</span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
             Skelion intercepts latency spikes, redacts PII at the edge, and automatically synthesizes
             verified PR fixes in isolated micro-sandboxes — before your users even notice.
           </p>
 
           {/* Call to Actions */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <a
               href="#console"
-              className="px-6 py-3.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-cyan-500 via-cyan-400 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/35 transition-all flex items-center gap-2 group"
+              className="px-5 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-cyan-500 via-cyan-400 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/35 transition-all flex items-center gap-2 group cursor-pointer"
             >
               <Terminal className="w-4 h-4 text-white" />
               <span>Launch Web Console</span>
@@ -219,45 +192,16 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCheckout }) => {
 
             <button
               onClick={() => onOpenCheckout('pilot')}
-              className="px-6 py-3.5 rounded-xl text-sm font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 hover:border-cyan-500/50 transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+              className="px-5 py-3 rounded-xl text-sm font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 hover:border-cyan-500/50 transition-all shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
             >
               <Zap className="w-4 h-4 text-cyan-600" />
               <span>Start Free Pilot (50 Credits)</span>
-            </button>
-
-            <a
-              href="https://github.com/Aditya-9-6/Skelion"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-5 py-3.5 rounded-xl text-sm font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition flex items-center gap-2"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Explore GitHub Repo</span>
-            </a>
-          </div>
-
-          {/* Command Copy Quick Bar */}
-          <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-3 text-xs text-slate-500 font-mono">
-            <span className="text-slate-400 font-sans">Quick Install:</span>
-            <button
-              onClick={() => copyToClipboard('pip install skelion', 'pip')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-cyan-400 text-slate-700 hover:text-slate-900 transition shadow-sm"
-            >
-              <span>pip install skelion</span>
-              {copiedCmd === 'pip' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-            </button>
-            <button
-              onClick={() => copyToClipboard('npm install skelion-node', 'npm')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-cyan-400 text-slate-700 hover:text-slate-900 transition shadow-sm"
-            >
-              <span>npm install skelion-node</span>
-              {copiedCmd === 'npm' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
             </button>
           </div>
         </div>
 
         {/* Interactive Live Incident Simulator */}
-        <div id="simulator" className="max-w-5xl mx-auto">
+        <div id="simulator" className="max-w-5xl mx-auto scroll-mt-20">
           <div className="glass-panel rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
             {/* Terminal Top Window Chrome */}
             <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -377,10 +321,10 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCheckout }) => {
                       <CheckCircle2 className="w-3 h-3" /> CI Passed
                     </span>
                     <button
-                      onClick={() => onOpenCheckout('pro')}
+                      onClick={() => onOpenCheckout('hosted_team')}
                       className="text-xs px-3 py-1 rounded bg-cyan-400 text-slate-950 font-bold hover:bg-cyan-300 transition"
                     >
-                      Auto-Merge in Pro
+                      Auto-Merge in Team Tier
                     </button>
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 # tests/test_autonomous_loop.py — Comprehensive Automated Test for Autonomous Loop
 import json
+import uuid
 import pytest
 from unittest.mock import patch
 from sqlmodel import Session, select
@@ -442,23 +443,18 @@ def test_bounded_queue_at_three_open_issues(tmp_path):
 def test_full_autonomous_loop_issue_to_pr_lifecycle(tmp_path):
     # Setup test organization with token allowance
     engine_db = get_engine()
-    test_org_id = "test_lifecycle_org_1"
+    unique_id = uuid.uuid4().hex[:6]
+    test_org_id = f"test_lifecycle_org_{unique_id}"
     with Session(engine_db) as db:
-        org = db.get(Organization, test_org_id)
-        if not org:
-            org = Organization(
-                id=test_org_id,
-                name="Lifecycle Org",
-                token="skl_live_lifecycle_token",
-                plan="pro",
-                autofix_tokens_total=10000,
-                autofix_tokens_used=1000,
-            )
-            db.add(org)
-        else:
-            org.autofix_tokens_total = 10000
-            org.autofix_tokens_used = 1000
-            db.add(org)
+        org = Organization(
+            id=test_org_id,
+            name="Lifecycle Org",
+            token=f"skl_live_lifecycle_{unique_id}",
+            plan="pro",
+            autofix_tokens_total=10000,
+            autofix_tokens_used=1000,
+        )
+        db.add(org)
         db.commit()
 
     # 1. Setup workspace with real plan file
@@ -482,20 +478,21 @@ Implement thread-safe rate limiter.
         assert tasks[0]["task_number"] == 1
 
     # Step 2: Generate Issue
+    issue_num = 4200 + int(unique_id, 16) % 1000
     with patch("skelion_agent.autonomous_engine.run_cmd") as mock_run:
-        mock_run.return_value = (0, "https://github.com/client-org/app/issues/42", "")
+        mock_run.return_value = (0, f"https://github.com/client-org/app/issues/{issue_num}", "")
         issue = loop_engine.generate_advancement_issue()
         assert issue is not None
-        assert issue["issue_number"] == 42
+        assert issue["issue_number"] == issue_num
         assert "awaiting_acceptance" in issue["status"]
 
     # Step 3 & 4: Maintainer comments 'accept', single cycle runs, solves issue, and opens PR
-    mock_gh_issue_list = json.dumps([{"number": 42, "title": "feat(plan): Task 1 — Implement Distributed Token Bucket"}])
+    mock_gh_issue_list = json.dumps([{"number": issue_num, "title": "feat(plan): Task 1 — Implement Distributed Token Bucket"}])
     mock_pr_result = {
         "pr_number": 88,
         "pr_url": "https://github.com/client-org/app/pull/88",
-        "branch": "skelion/solve-issue-42",
-        "issue_number": 42,
+        "branch": f"skelion/solve-issue-{issue_num}",
+        "issue_number": issue_num,
     }
 
     with patch("skelion_agent.autonomous_engine.run_cmd") as mock_run:
@@ -509,9 +506,9 @@ Implement thread-safe rate limiter.
                 with patch.object(loop_engine, "monitor_and_auto_merge_pr", return_value={"status": "monitoring"}):
                     cycle_res = loop_engine.run_single_cycle(org_id=test_org_id)
                     assert cycle_res["status"] == "completed"
-                    assert cycle_res["issue_number"] == 42
+                    assert cycle_res["issue_number"] == issue_num
                     assert cycle_res["pr"]["pr_number"] == 88
-                    assert cycle_res["pr"]["branch"] == "skelion/solve-issue-42"
+                    assert cycle_res["pr"]["branch"] == f"skelion/solve-issue-{issue_num}"
 
     # Step 5: Verify tokens were debited in database
     with Session(engine_db) as db:

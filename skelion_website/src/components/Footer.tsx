@@ -21,8 +21,8 @@ export const Footer: React.FC = () => {
                 />
               </div>
               <span className="text-xl font-bold tracking-tight text-slate-950">SKELION</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 font-mono">
-                v0.1.4
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 font-mono font-medium">
+                PLATFORM
               </span>
             </div>
             <p className="text-slate-600 text-xs leading-relaxed max-w-sm">
@@ -31,7 +31,7 @@ export const Footer: React.FC = () => {
             </p>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-mono text-[11px]">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Edge Telemetry & Key-Pool Operational</span>
+              <span>Edge Telemetry & Threat Proxy Operational</span>
             </div>
           </div>
 
@@ -48,7 +48,7 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <a href="#features" className="hover:text-cyan-600 transition">
-                  Fail-Open Proxy
+                  Threat Detector Proxy
                 </a>
               </li>
               <li>
@@ -57,13 +57,13 @@ export const Footer: React.FC = () => {
                 </a>
               </li>
               <li>
-                <a href="#architecture" className="hover:text-cyan-600 transition">
-                  Multi-LLM Key Pool
+                <a href="#why-us" className="hover:text-cyan-600 transition">
+                  Autonomous Dev Loop
                 </a>
               </li>
               <li>
                 <a href="#pricing" className="hover:text-cyan-600 transition">
-                  Razorpay Subscriptions
+                  Developer & Team Tiers
                 </a>
               </li>
             </ul>
@@ -72,9 +72,17 @@ export const Footer: React.FC = () => {
           {/* Ecosystem / Packages */}
           <div className="space-y-3">
             <span className="text-slate-900 font-bold uppercase tracking-wider text-[11px] font-mono block">
-              Ecosystem & SDKs
+              Ecosystem & Support
             </span>
             <ul className="space-y-2">
+              <li>
+                <a
+                  href="mailto:support@skelion.dev"
+                  className="hover:text-cyan-600 transition flex items-center gap-1"
+                >
+                  <span>Email: support@skelion.dev</span>
+                </a>
+              </li>
               <li>
                 <a
                   href="https://pypi.org/project/skelion/"
@@ -98,26 +106,9 @@ export const Footer: React.FC = () => {
                 </a>
               </li>
               <li>
-                <a
-                  href="https://github.com/Aditya-9-6/Skelion"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-cyan-600 transition flex items-center gap-1"
-                >
-                  <span>Core GitHub Repo</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/Aditya-9-6/Skelion_website"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-cyan-600 transition flex items-center gap-1"
-                >
-                  <span>Website Repo</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                <span className="text-slate-400">
+                  Community Forum (Coming Soon)
+                </span>
               </li>
             </ul>
           </div>
@@ -149,13 +140,8 @@ export const Footer: React.FC = () => {
                 </a>
               </li>
               <li>
-                <a
-                  href="https://github.com/Aditya-9-6/Skelion/blob/main/LICENSE"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-cyan-600 transition"
-                >
-                  Apache 2.0 / MIT License
+                <a href="#terms" className="hover:text-cyan-600 transition">
+                  Software License (Apache 2.0 / MIT)
                 </a>
               </li>
             </ul>
@@ -170,7 +156,7 @@ export const Footer: React.FC = () => {
           <div className="flex items-center gap-4 text-[11px] text-slate-500 font-mono">
             <span>Razorpay Active</span>
             <span>•</span>
-            <span>Web Platform v0.1.4</span>
+            <span>Web Platform Live</span>
             <span>•</span>
             <span>Fail-Open Guarantee</span>
           </div>

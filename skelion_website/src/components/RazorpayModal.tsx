@@ -58,13 +58,13 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
   }, []);
 
   const planPrices: Record<string, { name: string; amountINR: number; amountUSD: number; credits: string; creditsNum: number }> = {
-    pilot: { name: 'Hosted Community', amountINR: 0, amountUSD: 0, credits: '50 Credits (50k Tokens)', creditsNum: 50 },
-    hosted_lite: { name: 'Developer Lite', amountINR: 749, amountUSD: 9, credits: '1,000 Credits (1M Tokens)', creditsNum: 1000 },
-    hosted_developer: { name: 'Developer Lite', amountINR: 749, amountUSD: 9, credits: '1,000 Credits (1M Tokens)', creditsNum: 1000 },
-    pro: { name: 'Pro Developer', amountINR: 1349, amountUSD: 16, credits: '3,500 Credits (3.5M Tokens)', creditsNum: 3500 },
-    hosted_team: { name: 'Engineering Team', amountINR: 3799, amountUSD: 45, credits: '12,000 Credits (12M Tokens)', creditsNum: 12000 },
-    hosted_business: { name: 'Business Scale', amountINR: 9999, amountUSD: 119, credits: '35,000 Credits (35M Tokens)', creditsNum: 35000 },
-    enterprise: { name: 'Enterprise Custom', amountINR: 39999, amountUSD: 499, credits: '100,000+ Credits (100M+ Tokens)', creditsNum: 100000 },
+    pilot: { name: 'Developer Tier', amountINR: 0, amountUSD: 0, credits: '50 Credits (50k Tokens)', creditsNum: 50 },
+    hosted_lite: { name: 'Developer Tier', amountINR: 749, amountUSD: 9, credits: '1,000 Credits (1M Tokens)', creditsNum: 1000 },
+    hosted_developer: { name: 'Developer Tier', amountINR: 749, amountUSD: 9, credits: '1,000 Credits (1M Tokens)', creditsNum: 1000 },
+    pro: { name: 'Pro Developer Tier', amountINR: 1349, amountUSD: 16, credits: '3,500 Credits (3.5M Tokens)', creditsNum: 3500 },
+    hosted_team: { name: 'Engineering Team Tier', amountINR: 3799, amountUSD: 45, credits: '12,000 Credits (12M Tokens)', creditsNum: 12000 },
+    hosted_business: { name: 'Engineering Team Tier (Scale)', amountINR: 9999, amountUSD: 119, credits: '35,000 Credits (35M Tokens)', creditsNum: 35000 },
+    enterprise: { name: 'Custom Tier', amountINR: 25000, amountUSD: 299, credits: 'Custom Credits (100k+)', creditsNum: 100000 },
     topup_small: { name: 'Starter Pack', amountINR: 399, amountUSD: 5, credits: '500 Credits (500k Tokens)', creditsNum: 500 },
     topup_medium: { name: 'Growth Pack', amountINR: 999, amountUSD: 12, credits: '1,500 Credits (1.5M Tokens)', creditsNum: 1500 },
     topup_large: { name: 'Power Pack', amountINR: 2899, amountUSD: 35, credits: '5,000 Credits (5M Tokens)', creditsNum: 5000 },

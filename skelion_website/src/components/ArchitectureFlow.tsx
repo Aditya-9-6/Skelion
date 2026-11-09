@@ -62,7 +62,7 @@ export const ArchitectureFlow: React.FC = () => {
   ];
 
   return (
-    <section id="architecture" className="py-24 relative overflow-hidden">
+    <section id="architecture" className="py-24 relative overflow-hidden scroll-mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 border border-purple-200 text-purple-700 mb-3 shadow-sm">

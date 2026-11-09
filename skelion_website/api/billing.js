@@ -8,16 +8,19 @@ const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_TwvOwcT2gnvSnv'
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
 
 const PLAN_PRICES = {
-  pilot: { name: 'Hosted Community', amountINR: 0, amountUSD: 0, credits: '50 Credits', creditsNum: 50 },
-  hosted_lite: { name: 'Developer Lite', amountINR: 749, amountUSD: 9, credits: '1,000 Credits', creditsNum: 1000 },
-  hosted_developer: { name: 'Developer Lite', amountINR: 749, amountUSD: 9, credits: '1,000 Credits', creditsNum: 1000 },
-  pro: { name: 'Pro Developer', amountINR: 1349, amountUSD: 16, credits: '3,500 Credits', creditsNum: 3500 },
-  hosted_team: { name: 'Engineering Team', amountINR: 3799, amountUSD: 45, credits: '12,000 Credits', creditsNum: 12000 },
-  hosted_business: { name: 'Business Scale', amountINR: 9999, amountUSD: 119, credits: '35,000 Credits', creditsNum: 35000 },
-  enterprise: { name: 'Enterprise Custom', amountINR: 39999, amountUSD: 499, credits: '100,000+ Credits', creditsNum: 100000 },
+  pilot: { name: 'Developer Tier', amountINR: 0, amountUSD: 0, credits: '50 Credits', creditsNum: 50 },
+  hosted_lite: { name: 'Developer Tier', amountINR: 749, amountUSD: 9, credits: '1,000 Credits', creditsNum: 1000 },
+  hosted_developer: { name: 'Developer Tier', amountINR: 749, amountUSD: 9, credits: '1,000 Credits', creditsNum: 1000 },
+  pro: { name: 'Pro Developer Tier', amountINR: 1349, amountUSD: 16, credits: '3,500 Credits', creditsNum: 3500 },
+  hosted_team: { name: 'Engineering Team Tier', amountINR: 3799, amountUSD: 45, credits: '12,000 Credits', creditsNum: 12000 },
+  hosted_business: { name: 'Engineering Team Tier (Scale)', amountINR: 9999, amountUSD: 119, credits: '35,000 Credits', creditsNum: 35000 },
+  enterprise: { name: 'Custom Tier', amountINR: 25000, amountUSD: 299, credits: 'Custom Credits (100k+)', creditsNum: 100000 },
+  custom: { name: 'Custom Tier', amountINR: 25000, amountUSD: 299, credits: 'Custom Credits (100k+)', creditsNum: 100000 },
   topup_small: { name: 'Starter Pack (500 Credits)', amountINR: 399, amountUSD: 5, credits: '500 Credits', creditsNum: 500 },
   topup_medium: { name: 'Growth Pack (1,500 Credits)', amountINR: 999, amountUSD: 12, credits: '1,500 Credits', creditsNum: 1500 },
   topup_large: { name: 'Power Pack (5,000 Credits)', amountINR: 2899, amountUSD: 35, credits: '5,000 Credits', creditsNum: 5000 },
+  autonomous_dev_loop: { name: 'Autonomous Dev Loop (24/7)', amountINR: 1499, amountUSD: 19, credits: '5,000 Credits', creditsNum: 5000 },
+  reverse_proxy_loop: { name: 'Reverse Proxy Loop (24/7)', amountINR: 999, amountUSD: 12, credits: '2,500 Credits', creditsNum: 2500 },
 };
 
 const COUPONS = {

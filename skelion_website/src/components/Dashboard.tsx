@@ -816,7 +816,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" /> Autonomous PR fix + CI
                       </li>
                       <li className="flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" /> Slack & Discord alerts
+                        <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" /> Slack &amp; Webhook alerts
                       </li>
                     </ul>
                   </div>
@@ -834,7 +834,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-1.5">
                         <img src="/icon.svg" alt="Skelion" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/icon.png'; }} />
-                        <span className="text-[11px] font-mono font-semibold text-slate-800 uppercase">Business</span>
+                        <span className="text-[11px] font-mono font-semibold text-slate-800 uppercase">Team Scale</span>
                       </div>
                     </div>
                     <div className="flex items-baseline gap-1.5 mb-1">
@@ -861,7 +861,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     onClick={() => onOpenCheckout('hosted_business')}
                     className="w-full py-1.5 rounded-lg text-xs font-bold text-slate-900 bg-slate-100 hover:bg-slate-200 transition border border-slate-300"
                   >
-                    Upgrade Business
+                    Upgrade Team Scale
                   </button>
                 </div>
               </div>
@@ -873,8 +873,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     SSO
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Sovereign Air-Gapped / On-Prem Enterprise (+₹39,999/mo / +$499/mo)</div>
-                    <div className="text-[11px] text-slate-500">Custom enterprise contracts, SAML SSO, dedicated proxy bridges, and custom volume quotas.</div>
+                    <div className="text-xs font-bold text-slate-900">Custom Tier (+₹25,000+/mo / +$299+/mo) [base: +₹39,999/mo]</div>
+                    <div className="text-[11px] text-slate-500">Custom enterprise contracts, SAML SSO, dedicated proxy bridges, and customizable volume quotas.</div>
                   </div>
                 </div>
                 <button
