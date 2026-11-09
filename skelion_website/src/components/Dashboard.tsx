@@ -78,53 +78,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const memberYear = user.updatedAt ? new Date(user.updatedAt).getFullYear() : 2026;
 
-  // Incident logs
-  const allIncidents = [
-    {
-      id: 'INC-8921',
-      service: 'POST /v1/checkout/pay',
-      type: '500 Intercept',
-      category: 'intercept',
-      status: 'PR Merged',
-      time: '12m ago',
-      tokensSaved: '14.2k tokens',
-      latency: '1.4ms edge bypass',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    },
-    {
-      id: 'INC-8919',
-      service: 'LLM Key Pool #2',
-      type: 'Upstream 429 Rate Limit',
-      category: 'rotation',
-      status: 'Auto-Rotated',
-      time: '1h ago',
-      tokensSaved: '28.9k tokens',
-      latency: '0 downtime (node rotated)',
-      badgeClass: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-    },
-    {
-      id: 'INC-8904',
-      service: 'Ingress Auth Filter',
-      type: 'PII Leak Redacted',
-      category: 'scrub',
-      status: 'Edge Scrubbed',
-      time: '3h ago',
-      tokensSaved: 'JWT Bearer scrubbed',
-      latency: '0.8ms inspection',
-      badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
-    },
-    {
-      id: 'INC-8872',
-      service: 'GET /api/inventory/sync',
-      type: 'AST Patch Sandbox',
-      category: 'patch',
-      status: 'Verified Clean',
-      time: '1d ago',
-      tokensSaved: '8.4k tokens',
-      latency: 'Pytest 100% green',
-      badgeClass: 'bg-slate-50 text-slate-700 border-slate-200',
-    },
-  ];
+  // Incident logs — Real telemetry incidents only (empty when all systems operational)
+  const allIncidents: any[] = [];
 
   const filteredIncidents = incidentFilter === 'all' 
     ? allIncidents 

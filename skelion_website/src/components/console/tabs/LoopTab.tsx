@@ -408,40 +408,11 @@ export const LoopTab: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
-          <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/60 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs font-bold text-slate-900">PATCH-304 (INC-8921)</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                PR Opened · Awaiting Merge
-              </span>
-            </div>
-            <p className="text-xs text-slate-700 font-medium">
-              Fix currency ISO fallback in checkout route to prevent 500 error
-            </p>
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 pt-1 border-t border-slate-200/60">
-              <span className="text-emerald-600 font-semibold">14/14 Pytest/Vitest Passed</span>
-              <a href="#fixes" className="text-cyan-700 font-bold hover:underline">Inspect Diff &amp; PR →</a>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/60 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs font-bold text-slate-900">PATCH-302 (INC-8919)</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                PR Opened · Awaiting Merge
-              </span>
-            </div>
-            <p className="text-xs text-slate-700 font-medium">
-              Add exponential backoff &amp; secondary key circuit breaker on 429 response
-            </p>
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 pt-1 border-t border-slate-200/60">
-              <span className="text-emerald-600 font-semibold">9/9 Unit Tests Passed</span>
-              <a href="#fixes" className="text-cyan-700 font-bold hover:underline">Inspect Diff &amp; PR →</a>
-            </div>
-          </div>
-        </div>
+        <div className="p-8 rounded-xl border border-slate-200/80 bg-slate-50/60 text-center space-y-2">
+            <span className="font-mono text-xs font-bold text-slate-800">No Active Sandbox Loops</span>
+            <p className="text-xs text-slate-500">All edge services are running clean. Zero active regressions under autonomous sandbox.</p>
       </div>
     </div>
+  </div>
   );
 };

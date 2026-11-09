@@ -41,69 +41,8 @@ export const FixesTab: React.FC<FixesTabProps> = ({ onOpenPRUrl }) => {
   const [exportedPatch, setExportedPatch] = useState(false);
   const [prCreated, setPrCreated] = useState<string | null>(null);
 
-  const patches: PatchCandidate[] = [
-    {
-      id: 'PATCH-304',
-      incidentRef: 'INC-8921',
-      title: 'Fix currency ISO fallback in checkout route to prevent 500 error',
-      branch: 'skelion/fix-checkout-currency-500',
-      filename: 'src/services/payment.ts',
-      unitTestsStatus: '14/14 Unit Tests Passed (Pytest & Vitest)',
-      diffStats: { additions: 7, deletions: 2 },
-      originalCode: [
-        'export function validateCurrency(currency?: string): string {',
-        '  // Unhandled undefined causes TypeError',
-        '  const normalized = currency.toUpperCase();',
-        '  if (!SUPPORTED_CURRENCIES.includes(normalized)) {',
-        '    throw new Error(`Unsupported currency: ${normalized}`);',
-        '  }',
-        '  return normalized;',
-        '}'
-      ],
-      patchedCode: [
-        'export function validateCurrency(currency?: string): string {',
-        '  // Safe fallback to default USD if currency is undefined or blank',
-        '  const cleanCurrency = (currency || "USD").trim();',
-        '  const normalized = cleanCurrency.toUpperCase();',
-        '  if (!SUPPORTED_CURRENCIES.includes(normalized)) {',
-        '    console.warn(`[Skelion Interceptor] Unsupported currency ${normalized}, falling back to USD`);',
-        '    return "USD";',
-        '  }',
-        '  return normalized;',
-        '}'
-      ],
-      prUrl: 'https://github.com/Aditya-9-6/Skelion/pull/42'
-    },
-    {
-      id: 'PATCH-302',
-      incidentRef: 'INC-8919',
-      title: 'Add exponential backoff & secondary key circuit breaker on 429 response',
-      branch: 'skelion/circuit-breaker-429-fallback',
-      filename: 'src/mesh/circuitBreaker.ts',
-      unitTestsStatus: '9/9 Unit Tests Passed (Mock Throttler)',
-      diffStats: { additions: 9, deletions: 3 },
-      originalCode: [
-        'export async function callUpstreamLLM(req: LLMRequest) {',
-        '  const response = await fetch(req.endpoint, { headers: req.headers });',
-        '  return await response.json();',
-        '}'
-      ],
-      patchedCode: [
-        'export async function callUpstreamLLM(req: LLMRequest) {',
-        '  try {',
-        '    return await primaryPool.dispatchWithBackoff(req, { maxRetries: 3 });',
-        '  } catch (error: any) {',
-        '    if (error?.status === 429) {',
-        '      console.warn("[Skelion] Shifting traffic to secondary standby node");',
-        '      return await secondaryPool.dispatch(req);',
-        '    }',
-        '    throw error;',
-        '  }',
-        '}'
-      ],
-      prUrl: 'https://github.com/Aditya-9-6/Skelion/pull/41'
-    }
-  ];
+  // Real verified patch candidates only (empty when no active regressions exist)
+  const [patches] = useState<PatchCandidate[]>([]);
 
   const currentPatch = patches.find((p) => p.id === selectedPatchId) || patches[0];
 
