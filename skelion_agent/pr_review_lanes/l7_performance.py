@@ -102,20 +102,25 @@ class L7PerformanceLane(BaseLane):
             return findings
 
         # Visitor to inspect AST
+        reported_n1_lines: Set[int] = set()
+
         for node in ast.walk(tree):
-            # 1. Detect N+1 queries: DB queries inside loops (for / while)
-            if isinstance(node, (ast.For, ast.While)):
+            # 1. Detect N+1 queries: DB queries inside loops or comprehensions
+            if isinstance(node, (ast.For, ast.While, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
                 for inner_node in ast.walk(node):
                     if isinstance(inner_node, ast.Call):
                         if isinstance(inner_node.func, ast.Attribute):
                             attr_name = inner_node.func.attr
                             if attr_name in DB_QUERY_METHODS:
                                 line_no = inner_node.lineno
+                                if line_no in reported_n1_lines:
+                                    continue
+                                reported_n1_lines.add(line_no)
                                 snip = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
                                 sym = resolve_enclosing_symbol(file_path, line_no, repo_path, snip)
                                 ev = Evidence(
                                     type="ast",
-                                    description=f"Database query invocation '.{attr_name}()' inside loop structure.",
+                                    description=f"Database query invocation '.{attr_name}()' inside loop or comprehension structure.",
                                     file_path=file_path,
                                     line_number=line_no,
                                     snippet=snip,

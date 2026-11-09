@@ -843,3 +843,227 @@ def test_custom_severity_weights_ranking():
     assert res.all_ranked_findings[1].rule_id == "R2"
     assert res.all_ranked_findings[1].score == 1.0
 
+
+def test_diff_parser_no_newline_marker_does_not_shift_lines():
+    diff_with_no_newline = """diff --git a/file.py b/file.py
+--- a/file.py
++++ b/file.py
+@@ -1,2 +1,3 @@
+ context 1
+-old_line
+\\ No newline at end of file
++new_line_2
++new_line_3
+\\ No newline at end of file
+"""
+    diff_map = DiffParser.parse(diff_with_no_newline)
+    assert "file.py" in diff_map
+    # Lines 2 and 3 should be added, NOT lines 3 and 4!
+    assert 2 in diff_map["file.py"]
+    assert 3 in diff_map["file.py"]
+    assert 4 not in diff_map["file.py"]
+
+
+def test_citation_filter_path_boundary_no_false_suffix_matches():
+    diff = """diff --git a/file.py b/file.py
+--- a/file.py
++++ b/file.py
+@@ -10,1 +10,1 @@
++modified line 10
+"""
+    # 1. Finding on unrelated file that happens to end with "file.py" (e.g. test_file.py)
+    f_unrelated = Finding(
+        rule_id="RULE/WRONG",
+        category="quality",
+        file_path="test_file.py",
+        line_number=10,
+        evidence=[Evidence(description="unrelated file", snippet="something")],
+    )
+    # 2. Finding on same file inside subfolder (valid boundary)
+    f_subfolder = Finding(
+        rule_id="RULE/VALID",
+        category="quality",
+        file_path="src/components/file.py",
+        line_number=10,
+        evidence=[Evidence(description="valid subpath", snippet="modified line 10")],
+    )
+
+    ranker = CitationFilterAndRanker()
+    # f_unrelated must be rejected
+    assert ranker.is_line_in_diff(f_unrelated.file_path, f_unrelated.line_number, DiffParser.parse(diff)) is False
+    # f_subfolder has directory separator boundary
+    assert ranker.is_line_in_diff(f_subfolder.file_path, f_subfolder.line_number, DiffParser.parse(diff)) is True
+
+
+def test_semver_vulnerability_version_comparison():
+    lane = L3DependenciesLane()
+    # 2.9.0 <= 2.31.0 is TRUE (vulnerable)
+    # 2.100.0 <= 2.31.0 is FALSE (not vulnerable)
+    diff_vuln = """diff --git a/requirements.txt b/requirements.txt
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,1 +1,2 @@
++requests==2.9.0
+"""
+    diff_fixed = """diff --git a/requirements.txt b/requirements.txt
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,1 +1,2 @@
++requests==2.100.0
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        req_file = os.path.join(tmpdir, "requirements.txt")
+
+        # Test vulnerable version 2.9.0
+        with open(req_file, "w") as f:
+            f.write("requests==2.9.0\n")
+        res1 = lane.run(repo_path=tmpdir, diff=diff_vuln)
+        assert any("OSV/CVE-2023-32681" in item.rule_id for item in res1.findings)
+
+        # Test fixed version 2.100.0
+        with open(req_file, "w") as f:
+            f.write("requests==2.100.0\n")
+        res2 = lane.run(repo_path=tmpdir, diff=diff_fixed)
+        assert not any("OSV/CVE-2023-32681" in item.rule_id for item in res2.findings)
+
+
+def test_l9_runtime_only_flags_diff_modified_symbols():
+    code = """def untouched_payment_flow():
+    return "critical payments"
+
+def modified_helper():
+    return "helper update"
+"""
+    # Diff ONLY modifies modified_helper (lines 4-5), NOT untouched_payment_flow (lines 1-2)
+    diff = """diff --git a/pay.py b/pay.py
+--- a/pay.py
++++ b/pay.py
+@@ -4,2 +4,2 @@
+-def modified_helper():
+-    return "helper update"
++def modified_helper():
++    return "helper update v2"
+"""
+    context = {
+        "runtime_data": {
+            "routes": {
+                "POST /pay": {
+                    "traffic_share": 0.50,
+                    "error_spike_rate": 0.10,
+                    "symbol_mappings": ["untouched_payment_flow"],
+                }
+            }
+        }
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p_file = os.path.join(tmpdir, "pay.py")
+        with open(p_file, "w") as f:
+            f.write(code)
+
+        lane = L9RuntimeLane()
+        res = lane.run(repo_path=tmpdir, diff=diff, context=context)
+        assert res.status == "ran"
+        # Since untouched_payment_flow was NOT touched by the diff, no finding should be created for it!
+        assert len(res.findings) == 0
+
+
+def test_comprehension_and_nested_loop_n_plus_one():
+    code = """def batch_process(items):
+    # N+1 inside list comprehension
+    users = [session.exec(f"SELECT * FROM u WHERE id={x}") for x in items]
+
+    # Nested loops calling same query should produce 1 finding, not 2
+    for a in items:
+        for b in items:
+            session.exec(f"SELECT * FROM items WHERE a={a} AND b={b}")
+"""
+    diff = """diff --git a/comp.py b/comp.py
+--- a/comp.py
++++ b/comp.py
+@@ -1,1 +1,9 @@
++def batch_process(items):
++    users = [session.exec(f"SELECT * FROM u WHERE id={x}") for x in items]
++    for a in items:
++        for b in items:
++            session.exec(f"SELECT * FROM items WHERE a={a} AND b={b}")
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        c_file = os.path.join(tmpdir, "comp.py")
+        with open(c_file, "w") as f:
+            f.write(code)
+
+        lane = L7PerformanceLane()
+        res = lane.run(repo_path=tmpdir, diff=diff)
+        assert res.status == "ran"
+        n1_findings = [f for f in res.findings if f.rule_id == "PERF/n-plus-one-query"]
+        # Exactly 2 findings: one for list comprehension, one for nested loop (deduplicated)
+        assert len(n1_findings) == 2
+
+
+def test_pre_prompt_redaction_duplicate_secrets_and_spans():
+    raw_prompt = """Header
+Key1: skl_live_abcdef1234567890abcdef12
+Key2: skl_live_abcdef1234567890abcdef12
+Footer
+"""
+    redacted, findings = detect_and_redact_secrets(raw_prompt)
+    assert "skl_live_abcdef1234567890abcdef12" not in redacted
+    assert redacted.count("[REDACTED_SKELION_KEY]") == 2
+    assert len(findings) == 2
+    # Verify exact line numbers
+    assert findings[0].line_number == 2
+    assert findings[1].line_number == 3
+
+
+def test_l10_ai_sanity_pyproject_toml_and_datetime():
+    code = """import pydantic_core
+import datetime
+
+def parse_time():
+    t = datetime.parse("2023-01-01")
+    return t
+"""
+    diff = """diff --git a/time_util.py b/time_util.py
+--- a/time_util.py
++++ b/time_util.py
+@@ -1,1 +1,7 @@
++import pydantic_core
++import datetime
++def parse_time():
++    t = datetime.parse("2023-01-01")
++    return t
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Declare pydantic_core in pyproject.toml
+        pyproj = os.path.join(tmpdir, "pyproject.toml")
+        with open(pyproj, "w") as f:
+            f.write('[project]\ndependencies = ["pydantic_core>=2.0.0"]\n')
+
+        t_file = os.path.join(tmpdir, "time_util.py")
+        with open(t_file, "w") as f:
+            f.write(code)
+
+        lane = L10AiSanityLane()
+        res = lane.run(repo_path=tmpdir, diff=diff)
+        assert res.status == "ran"
+        rule_ids = [f.rule_id for f in res.findings]
+        # pydantic_core is in pyproject.toml -> not hallucinated
+        assert "AI/hallucinated-import" not in rule_ids
+        # datetime.parse() is a hallucinated method
+        assert "AI/non-existent-method" in rule_ids
+
+
+def test_finding_file_path_at_symbol_level():
+    f = Finding(
+        rule_id="TEST/01",
+        category="quality",
+        file_path="src\\utils.py",
+        enclosing_symbol="compute_hash",
+        code_snippet="def compute_hash(): pass",
+        evidence=[Evidence(description="test evidence", snippet="def compute_hash(): pass")],
+    )
+    assert f.file_path_at_symbol_level == "src/utils.py::compute_hash"
+    assert f.fingerprint != ""
+
+

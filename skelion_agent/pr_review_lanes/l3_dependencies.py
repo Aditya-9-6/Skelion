@@ -101,6 +101,20 @@ def levenshtein_distance(s1: str, s2: str) -> int:
     return v0[len(s2)]
 
 
+def parse_version_tuple(v: str) -> Tuple[Any, ...]:
+    """Parses a version string into a comparable tuple of ints and strings."""
+    if not v:
+        return ()
+    clean_v = v.strip().lstrip("v")
+    parts: List[Any] = []
+    for seg in re.split(r"[.\-+]", clean_v):
+        if seg.isdigit():
+            parts.append(int(seg))
+        elif seg:
+            parts.append(seg)
+    return tuple(parts)
+
+
 def check_typosquatting(pkg_name: str) -> Optional[Tuple[str, int]]:
     """
     Checks if pkg_name is a likely typosquat of a popular package.
@@ -225,10 +239,13 @@ class L3DependenciesLane(BaseLane):
             try:
                 cmd = [osv_path, "--format=sarif", f"--lockfile={abs_path}"]
                 proc = subprocess.run(cmd, cwd=repo_path, capture_output=True, encoding="utf-8", errors="replace", timeout=30)
-                if proc.stdout and proc.stdout.strip().startswith("{"):
-                    sarif_f = SarifNormalizer.normalize(proc.stdout, default_category="dependency", repo_path=repo_path)
-                    if sarif_f:
-                        return sarif_f
+                if proc.stdout and "{" in proc.stdout:
+                    s_idx = proc.stdout.find("{")
+                    e_idx = proc.stdout.rfind("}")
+                    if s_idx != -1 and e_idx != -1 and e_idx > s_idx:
+                        sarif_f = SarifNormalizer.normalize(proc.stdout[s_idx:e_idx + 1], default_category="dependency", repo_path=repo_path)
+                        if sarif_f:
+                            return sarif_f
             except Exception:
                 pass
 
@@ -250,8 +267,8 @@ class L3DependenciesLane(BaseLane):
 
                     if pkg_name in KNOWN_VULNERABLE_PACKAGES:
                         for vuln in KNOWN_VULNERABLE_PACKAGES[pkg_name]:
-                            # If version is lower or equal to max_version
-                            if pkg_ver <= vuln["max_version"]:
+                            # Semver comparison: If version is lower or equal to max_version
+                            if parse_version_tuple(pkg_ver) <= parse_version_tuple(vuln["max_version"]):
                                 cve = vuln["cve"]
                                 sev = vuln["severity"]
                                 fix = vuln["fix"]

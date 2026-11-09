@@ -128,11 +128,17 @@ class L1QualityLane(BaseLane):
         if py_files:
             ruff_findings = self._run_ruff_or_python_ast(repo_path, py_files)
             findings.extend(ruff_findings)
+            mypy_findings = self._run_mypy(repo_path, py_files)
+            findings.extend(mypy_findings)
 
         # 2. Run ESLint / JS-TS checks
         if js_ts_files:
             js_findings = self._run_eslint_or_js_checks(repo_path, js_ts_files)
             findings.extend(js_findings)
+            ts_files = [f for f in js_ts_files if f.endswith(".ts") or f.endswith(".tsx")]
+            if ts_files:
+                tsc_findings = self._run_tsc(repo_path, ts_files)
+                findings.extend(tsc_findings)
 
         return findings
 
@@ -333,4 +339,66 @@ class L1QualityLane(BaseLane):
             except Exception:
                 pass
 
+        return findings
+
+    def _run_mypy(self, repo_path: str, py_files: List[str]) -> List[Finding]:
+        findings: List[Finding] = []
+        mypy_path = shutil.which("mypy")
+        if not mypy_path or not py_files:
+            return findings
+
+        try:
+            cmd = [mypy_path, "--show-column-numbers", "--no-error-summary"] + py_files
+            proc = subprocess.run(cmd, cwd=repo_path, capture_output=True, encoding="utf-8", errors="replace", timeout=20)
+            for line in (proc.stdout or "").splitlines():
+                m = re.match(r"^(.+?):(\d+):(?:\d+:)?\s*(error|warning|note):\s*(.+?)(?:\s*\[(.+?)\])?$", line.strip())
+                if m:
+                    fpath, lineno, sev_raw, msg, err_code = m.groups()
+                    sev = "high" if sev_raw == "error" else "medium"
+                    rule = f"MYPY/{err_code}" if err_code else "MYPY/type-check"
+                    ev = Evidence(type="ast", description=msg, file_path=normalize_path(fpath), line_number=int(lineno))
+                    findings.append(Finding(
+                        rule_id=rule,
+                        category="quality",
+                        severity=sev,
+                        title=f"Mypy: {rule}",
+                        message=msg,
+                        file_path=normalize_path(fpath),
+                        line_number=int(lineno),
+                        evidence=[ev],
+                        confidence=1.0,
+                    ))
+        except Exception:
+            pass
+        return findings
+
+    def _run_tsc(self, repo_path: str, ts_files: List[str]) -> List[Finding]:
+        findings: List[Finding] = []
+        tsc_path = shutil.which("tsc")
+        if not tsc_path or not ts_files:
+            return findings
+
+        try:
+            cmd = [tsc_path, "--noEmit"] + ts_files
+            proc = subprocess.run(cmd, cwd=repo_path, capture_output=True, encoding="utf-8", errors="replace", timeout=20)
+            for line in (proc.stdout or "").splitlines():
+                m = re.match(r"^(.+?)\((\d+),\d+\):\s*(error|warning)\s*(TS\d+):\s*(.+)$", line.strip())
+                if m:
+                    fpath, lineno, sev_raw, ts_code, msg = m.groups()
+                    sev = "high" if sev_raw == "error" else "medium"
+                    rule = f"TSC/{ts_code}"
+                    ev = Evidence(type="ast", description=msg, file_path=normalize_path(fpath), line_number=int(lineno))
+                    findings.append(Finding(
+                        rule_id=rule,
+                        category="quality",
+                        severity=sev,
+                        title=f"TypeScript: {rule}",
+                        message=msg,
+                        file_path=normalize_path(fpath),
+                        line_number=int(lineno),
+                        evidence=[ev],
+                        confidence=1.0,
+                    ))
+        except Exception:
+            pass
         return findings

@@ -65,56 +65,77 @@ class SecretRedactor:
         """
         Detects secrets in text, masks them with safe placeholder tokens,
         and generates critical Finding instances for each detected secret.
+        Uses exact non-overlapping spans and right-to-left replacement.
         """
         if not text:
             return text, []
 
         findings: List[Finding] = []
-        redacted_text = text
+        matches: List[Tuple[int, int, str, str, str, int]] = []
 
         for sec_name, pattern, mask in SECRET_PATTERNS:
             for match in pattern.finditer(text):
-                matched_str = match.group(0)
-                # If group 1 exists (e.g. for assigned secrets), extract secret part
-                secret_value = match.group(1) if match.lastindex and match.lastindex >= 1 else matched_str
+                if match.lastindex and match.lastindex >= 1:
+                    start, end = match.span(1)
+                    secret_val = match.group(1)
+                else:
+                    start, end = match.span(0)
+                    secret_val = match.group(0)
 
-                # Calculate line number
-                line_offset = text[:match.start()].count("\n")
+                line_offset = text[:start].count("\n")
                 line_no = base_line + line_offset
-                masked_snippet = f"{sec_name}: {mask}"
+                matches.append((start, end, mask, sec_name, secret_val, line_no))
 
-                f_path = file_path or "prompt/llm_context"
-                rule_id = f"GITLEAKS/{sec_name}"
-                sym = f"prompt:{sec_name}"
+        # Sort matches by start position ascending
+        matches.sort(key=lambda m: m[0])
 
-                ev = Evidence(
-                    type="regex",
-                    description=f"Secret detected: {sec_name}. Redacted before LLM prompt transmission.",
-                    file_path=f_path,
-                    line_number=line_no,
-                    snippet=masked_snippet,
-                    metadata={"secret_type": sec_name},
-                )
+        # Filter out overlapping matches (keep earlier match)
+        non_overlapping: List[Tuple[int, int, str, str, str, int]] = []
+        last_end = -1
+        for m in matches:
+            start, end = m[0], m[1]
+            if start >= last_end:
+                non_overlapping.append(m)
+                last_end = end
 
-                finding = Finding(
-                    rule_id=rule_id,
-                    category="security",
-                    severity="critical",
-                    title=f"Hardcoded Secret Detected ({sec_name})",
-                    message=f"Detected high-entropy credential ({sec_name}). Pre-prompt redaction automatically masked it.",
-                    file_path=f_path,
-                    line_number=line_no,
-                    code_snippet=masked_snippet,
-                    enclosing_symbol=sym,
-                    evidence=[ev],
-                    confidence=1.0,
-                    evidence_strength=1.0,
-                    fix_suggestion="Move credential to an environment variable or secure vault.",
-                )
-                findings.append(finding)
+        # Build findings
+        for start, end, mask, sec_name, secret_val, line_no in non_overlapping:
+            masked_snippet = f"{sec_name}: {mask}"
+            f_path = file_path or "prompt/llm_context"
+            rule_id = f"GITLEAKS/{sec_name}"
+            sym = f"prompt:{sec_name}"
 
-                # Replace in redacted_text
-                redacted_text = redacted_text.replace(secret_value, mask)
+            ev = Evidence(
+                type="regex",
+                description=f"Secret detected: {sec_name}. Redacted before LLM prompt transmission.",
+                file_path=f_path,
+                line_number=line_no,
+                snippet=masked_snippet,
+                metadata={"secret_type": sec_name},
+            )
+
+            finding = Finding(
+                rule_id=rule_id,
+                category="security",
+                severity="critical",
+                title=f"Hardcoded Secret Detected ({sec_name})",
+                message=f"Detected high-entropy credential ({sec_name}). Pre-prompt redaction automatically masked it.",
+                file_path=f_path,
+                line_number=line_no,
+                code_snippet=masked_snippet,
+                enclosing_symbol=sym,
+                evidence=[ev],
+                confidence=1.0,
+                evidence_strength=1.0,
+                fix_suggestion="Move credential to an environment variable or secure vault.",
+            )
+            findings.append(finding)
+
+        # Replace text slices right-to-left
+        redacted_chars = list(text)
+        for start, end, mask, _, _, _ in reversed(non_overlapping):
+            redacted_chars[start:end] = list(mask)
+        redacted_text = "".join(redacted_chars)
 
         return redacted_text, findings
 
@@ -207,6 +228,22 @@ class L2SecurityLane(BaseLane):
     def _scan_secrets(self, repo_path: str, diff: Optional[str]) -> List[Finding]:
         findings: List[Finding] = []
 
+        # Try live Gitleaks CLI if available in environment
+        gitleaks_path = shutil.which("gitleaks")
+        if gitleaks_path:
+            try:
+                cmd = [gitleaks_path, "detect", "--no-git", f"--source={repo_path}", "--report-format=sarif", "--exit-code=0"]
+                proc = subprocess.run(cmd, cwd=repo_path, capture_output=True, encoding="utf-8", errors="replace", timeout=20)
+                if proc.stdout and "{" in proc.stdout:
+                    s_idx = proc.stdout.find("{")
+                    e_idx = proc.stdout.rfind("}")
+                    if s_idx != -1 and e_idx != -1 and e_idx > s_idx:
+                        sarif_f = SarifNormalizer.normalize(proc.stdout[s_idx:e_idx + 1], default_category="security", repo_path=repo_path)
+                        if sarif_f:
+                            return sarif_f
+            except Exception:
+                pass
+
         # Check diff directly if provided
         if diff is not None:
             diff_lines = DiffParser.parse(diff)
@@ -224,9 +261,25 @@ class L2SecurityLane(BaseLane):
                     except Exception:
                         pass
                 else:
-                    # Scan diff text directly
-                    _, diff_f = SecretRedactor.detect_and_redact(diff, file_path=fpath)
-                    findings.extend(diff_f)
+                    # Scan diff text specifically for added lines in this file
+                    curr_file = None
+                    curr_line = 0
+                    for d_line in diff.splitlines():
+                        if d_line.startswith("diff --git"):
+                            m = re.match(r"^diff --git a/(.*?) b/(.*?)$", d_line)
+                            if m:
+                                curr_file = normalize_path(m.group(2))
+                        elif d_line.startswith("@@"):
+                            m = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)", d_line)
+                            if m:
+                                curr_line = int(m.group(1))
+                        elif curr_file == normalize_path(fpath):
+                            if d_line.startswith("+") and not d_line.startswith("+++"):
+                                _, line_f = SecretRedactor.detect_and_redact(d_line[1:], file_path=fpath, base_line=curr_line)
+                                findings.extend(line_f)
+                                curr_line += 1
+                            elif not d_line.startswith("-"):
+                                curr_line += 1
             return findings
 
         # Scan workspace files
