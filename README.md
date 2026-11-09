@@ -1,5 +1,6 @@
 # Skelion 🚀
 
+![Verification](https://github.com/Aditya-9-6/Skelion/actions/workflows/verification.yml/badge.svg)
 [![PyPI version](https://img.shields.io/pypi/v/skelion.svg)](https://pypi.org/project/skelion/)
 [![npm version](https://img.shields.io/npm/v/skelion-node.svg)](https://www.npmjs.com/package/skelion-node)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/AdityaDnyaneshwarDahale.skelion-vscode?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=AdityaDnyaneshwarDahale.skelion-vscode)

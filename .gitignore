@@ -18,24 +18,26 @@ venv/
 # Python caches
 __pycache__/
 *.pyc
+.pytest_cache/
+.mypy_cache/
 
 # Node modules & packaging
 node_modules/
+skelion_website/node_modules/
+skelion_website/dist/
+skelion_website/.c8_tmp/
+skelion_website/coverage/
+coverage/
 *.vsix
-package-lock.json
 
 # Scratch
 scratch/
 .system_generated/
-skelion_website/
+*.log
+.git_website_remote/
+skelion_website/.git_website_remote/
 
 # Temporary build artefacts
 *.shm_*
-HARDENING_REPORT.md
-data/
-scripts/
-skelion_vscode_extension/
-tests/
-*.vsix
 .vscode/
-
+skelion_vscode_extension/

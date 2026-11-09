@@ -1,0 +1,138 @@
+/* New skeleton CSS using variables */
+/* Theme colour variable – set by skelion.theme */
+--skelion-theme-color: #ff6600; /* default fallback */
+
+.skeleton,
+.skeleton-card,
+.skeleton-text,
+.skeleton-circle {
+    background: var(--skelion-theme-color);
+    color: #fff;
+    /* other unchanged rules can be added as needed */
+}
+
+/* Preset classes – each adds a background image/gradient */
+.preset-youtube {
+    --skelion-theme-color: #ff0000; /* red */
+}
+.preset-twitch {
+    --skelion-theme-color: #6441a5; /* purple */
+}
+/* custom preset will be set via colour picker – no extra class */
+
+/* Dark mode and Web theme overrides */
+@media (prefers-color-scheme: dark) {
+  .skeleton,
+  .skeleton-card,
+  .skeleton-text,
+  .skeleton-circle {
+    background-color: var(--skelion-card-background, #1e1e1e);
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.12) 50%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+body.dark .skeleton,
+body.dark .skeleton-card,
+body.dark .skeleton-text,
+body.dark .skeleton-circle,
+body.high-contrast .skeleton,
+body.high-contrast .skeleton-card,
+body.high-contrast .skeleton-text,
+body.high-contrast .skeleton-circle {
+  background-color: var(--skelion-card-background, #1e1e1e);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Text line placeholder */
+.skeleton-text {
+  height: 0.9rem;
+  margin: 0.4rem 0;
+  border-radius: 4px;
+}
+
+/* Card placeholder (e.g., chat message, incident item, metric card) */
+.skeleton-card {
+  padding: 0.8rem;
+  margin-bottom: 0.6rem;
+  min-height: 50px;
+}
+
+/* Circular placeholder (e.g., avatars, badges) */
+.skeleton-circle {
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+}
+
+/* Loading overlay styles */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 9999;
+  transition: opacity 0.25s ease-out;
+}
+
+body.dark .loading-overlay {
+  background: rgba(30, 30, 30, 0.88);
+}
+
+/* Smooth fade-in transition for loaded content */
+.fade-in {
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Spinner Animation for Sync and Action buttons */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning {
+  display: inline-block;
+  animation: spin 0.8s linear infinite !important;
+  transform-origin: center center;
+}

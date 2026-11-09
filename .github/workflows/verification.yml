@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CONVERSATION_ID: "029bbdde-f11a-480e-99e1-3cacfc45da34"
-  BRAIN_DIR: "/tmp/antigravity_brain/029bbdde-f11a-480e-99e1-3cacfc45da34"
+  CONVERSATION_ID: "b1faa519-83ae-42f2-9fa8-65bfb5c1b076"
+  BRAIN_DIR: "/tmp/antigravity_brain/b1faa519-83ae-42f2-9fa8-65bfb5c1b076"
   DATABASE_URL: "sqlite:///test_db.sqlite"
   RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret_placeholder"
   PYTHONUNBUFFERED: "1"
@@ -43,8 +43,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
-          cache-dependency-path: "skelion_website/package.json"
 
       - name: Verify Frozen Requirements & Env Check
         run: |

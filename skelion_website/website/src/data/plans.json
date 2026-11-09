@@ -1,0 +1,70 @@
+{
+  "plans": [
+    {
+      "id": "pilot",
+      "name": "Pilot Community",
+      "price": 0,
+      "currency": "INR",
+      "interval": "month",
+      "credits": 100,
+      "description": "For solo developers & evaluation",
+      "features": [
+        "100 Credits quota",
+        "Fail-open edge proxy telemetry",
+        "Basic incident fingerprinting",
+        "Automated synthetic replay tests",
+        "Community support"
+      ]
+    },
+    {
+      "id": "developer",
+      "name": "Skelion Developer",
+      "price": 799,
+      "currency": "INR",
+      "interval": "month",
+      "credits": 800,
+      "description": "For active developers & small projects",
+      "features": [
+        "800 Credits quota",
+        "Economy & Standard AI models",
+        "3 Projects included",
+        "30-day log retention",
+        "Email support"
+      ]
+    },
+    {
+      "id": "pro",
+      "name": "Pro Team",
+      "price": 3999,
+      "currency": "INR",
+      "interval": "month",
+      "credits": 4500,
+      "description": "For fast-growing teams & startups",
+      "features": [
+        "4,500 Credits quota",
+        "Autonomous LLM incident fix generation",
+        "PR review bot diagnostic cards",
+        "Shared multi-provider LLM key-pooling",
+        "PII redaction on all payloads",
+        "5 Team seats included"
+      ]
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise Scale",
+      "price": 9999,
+      "currency": "INR",
+      "interval": "month",
+      "credits": 25000,
+      "description": "For large engineering orgs & enterprises",
+      "features": [
+        "25,000+ Credits quota (Expandable)",
+        "Custom enterprise contract terms & SLA",
+        "Auto-merge for verified non-breaking patches",
+        "SCIM directory sync & SSO (MFA TOTP)",
+        "Dedicated canary deployments",
+        "20 Team seats included"
+      ]
+    }
+  ]
+}

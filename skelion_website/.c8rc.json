@@ -1,0 +1,18 @@
+{
+  "all": false,
+  "include": [
+    "src/components/VerificationBadge.ts"
+  ],
+  "reporter": [
+    "text",
+    "lcov",
+    "html"
+  ],
+  "reports-dir": "./coverage",
+  "temp-directory": "./.c8_tmp",
+  "check-coverage": true,
+  "lines": 100,
+  "statements": 100,
+  "functions": 100,
+  "branches": 100
+}
