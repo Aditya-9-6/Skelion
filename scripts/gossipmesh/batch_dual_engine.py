@@ -802,10 +802,10 @@ def run_cycle(args, repo):
             except Exception as exc:
                 print(f"[!] Issue Worker exception: {exc}")
 
-        # 3. Autonomous Issue Generation if backlog is low (for any target repository)
-        if len(open_issues) < 10:
+        # 3. Autonomous Issue Generation only if backlog is low (< 3) and genuine plan tasks exist
+        if len(open_issues) < 3:
             print(
-                "[*] Issue backlog low. Triggering autonomous plan advancement...",
+                "[*] Issue backlog low (< 3). Checking repository for genuine implementation plan tasks...",
                 flush=True,
             )
             if PLAN_ADVANCEMENT_SCRIPT.is_file():
@@ -818,7 +818,7 @@ def run_cycle(args, repo):
                         sys.executable,
                         str(PLAN_ADVANCEMENT_SCRIPT),
                         "--batch",
-                        "2",
+                        "1",
                         "--workspace",
                         str(args.workspace),
                         "--repo",
@@ -827,16 +827,8 @@ def run_cycle(args, repo):
                     cwd=Path(args.workspace),
                     env=gen_env,
                 )
-            elif GEN_ADVANCEMENT_SCRIPT.is_file():
-                gen_env = os.environ.copy()
-                if repo:
-                    gen_env["GH_REPO"] = repo
-                    gen_env["GITHUB_REPOSITORY"] = repo
-                subprocess.run(
-                    [sys.executable, str(GEN_ADVANCEMENT_SCRIPT), "--force", "--count", "3"],
-                    cwd=Path(args.workspace),
-                    env=gen_env,
-                )
+            else:
+                print("[*] No plan advancement script found. Skipping issue generation.", flush=True)
 
     print("=" * 60)
     print(f"[✓] Dual-Pool cycle ({args.mode}) finished successfully.")

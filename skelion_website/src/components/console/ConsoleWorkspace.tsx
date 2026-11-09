@@ -71,6 +71,28 @@ export const ConsoleWorkspace: React.FC<ConsoleWorkspaceProps> = ({
 
   const [activeTab, setActiveTab] = useState<ConsoleTab>(getTabFromHash);
   const [deepDivePayload, setDeepDivePayload] = useState<IncidentDeepDivePayload | null>(null);
+  const [currentRepo, setCurrentRepo] = useState<string>(() => localStorage.getItem('skelion_selected_repo') || 'Skelion');
+  const [currentRepoOwner, setCurrentRepoOwner] = useState<string>(() => localStorage.getItem('skelion_selected_repo_owner') || user?.username || 'Aditya-9-6');
+
+  const handleSelectRepo = async (repoName: string, repoOwner?: string) => {
+    const owner = repoOwner || currentRepoOwner;
+    setCurrentRepo(repoName);
+    if (repoOwner) setCurrentRepoOwner(repoOwner);
+    localStorage.setItem('skelion_selected_repo', repoName);
+    if (repoOwner) localStorage.setItem('skelion_selected_repo_owner', repoOwner);
+
+    // Immediately trigger the autonomous loop on repo selection
+    try {
+      const fullRepo = `${owner}/${repoName}`;
+      await fetch('/v1/autonomous/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: fullRepo }),
+      });
+    } catch {
+      // Graceful local handling
+    }
+  };
 
   useEffect(() => {
     const syncTab = () => {
@@ -218,6 +240,9 @@ export const ConsoleWorkspace: React.FC<ConsoleWorkspaceProps> = ({
             onNavigateToFixes={handleNavigateToFixes}
             deepDivePayload={deepDivePayload}
             onClearDeepDive={() => setDeepDivePayload(null)}
+            currentRepo={currentRepo}
+            currentRepoOwner={currentRepoOwner}
+            onSelectRepo={handleSelectRepo}
           />
         )}
 
@@ -241,7 +266,11 @@ export const ConsoleWorkspace: React.FC<ConsoleWorkspaceProps> = ({
         )}
 
         {activeTab === 'loop' && (
-          <LoopTab />
+          <LoopTab
+            currentRepo={currentRepo}
+            currentRepoOwner={currentRepoOwner}
+            onSelectRepo={handleSelectRepo}
+          />
         )}
 
         {activeTab === 'plugins' && (

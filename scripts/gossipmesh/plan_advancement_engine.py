@@ -44,27 +44,22 @@ class PlanTask:
 
 
 def find_implementation_plans(workspace: Path) -> List[Path]:
-    """Finds all implementation plan files across the workspace."""
+    """Finds all implementation plan, roadmap, and todo files across the workspace."""
     found = []
-    candidates = [
-        workspace / "VSCODE_EXTENSION_AND_BILLING_IMPLEMENTATION_PLAN.md",
-        workspace / "docs" / "ENTERPRISE_SAAS_IMPLEMENTATION_PLAN.md",
-        workspace / "docs" / "specs" / "VSCODE_EXTENSION_MASTER_PLAN.md",
-        workspace / "docs" / "specs" / "SKELION_SOFTWARE_DEV_PLATFORM.md",
-        workspace / "docs" / "specs" / "PHASE2.md",
+    patterns = [
+        "*[pP][lL][aA][nN]*.md",
+        "*[rR][oO][aA][dD][mM][aA][pP]*.md",
+        "*[tT][oO][dD][oO]*.md",
     ]
-    for c in candidates:
-        if c.is_file() and c not in found:
-            found.append(c)
-
-    for p in workspace.glob("*[pP][lL][aA][nN]*.md"):
-        if p.is_file() and p not in found:
-            found.append(p)
-
-    if (workspace / "docs").is_dir():
-        for p in (workspace / "docs").glob("**/*[pP][lL][aA][nN]*.md"):
+    for pat in patterns:
+        for p in workspace.glob(pat):
             if p.is_file() and p not in found:
                 found.append(p)
+        docs_dir = workspace / "docs"
+        if docs_dir.is_dir():
+            for p in docs_dir.glob(f"**/{pat}"):
+                if p.is_file() and p not in found:
+                    found.append(p)
 
     return found
 
@@ -909,7 +904,7 @@ def create_github_issue(task: PlanTask, workspace: Path, repo: Optional[str] = N
         "--body",
         body,
         "--label",
-        "advancement,awaiting-approval,enterprise-plan",
+        "awaiting-acceptance,plan-advancement",
     ]
     res = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace)
     if res.returncode == 0:
@@ -1032,7 +1027,7 @@ def main():
     next_task = get_next_pending_task(tasks)
     if not next_task:
         print(
-            "[🎉 100% COMPLETE] All 127 tasks in the Enterprise SaaS Plan are completed!"
+            f"[🎉 100% COMPLETE] All tasks in repository '{args.repo}' implementation plans are completed! Zero pending tasks."
         )
         sys.exit(0)
 

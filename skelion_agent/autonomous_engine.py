@@ -102,7 +102,16 @@ class AutonomousLoopEngine:
         )
         self.is_running = False
         self.last_status = "IDLE"
+        self.last_cycle_start: float = 0.0
         self.activity_log: List[Dict[str, Any]] = []
+
+    def set_active_repo(self, repo: str) -> None:
+        """Dynamically switch active target repository for autonomous dev loop."""
+        clean_repo = repo.strip()
+        if clean_repo and clean_repo != self.repo:
+            self.repo = clean_repo
+            self.last_status = "SWITCHED_REPO"
+            self.log(f"Autonomous Dev Loop switched target repository to '{self.repo}'.")
 
     def log(self, message: str, level: str = "INFO"):
         entry = {
@@ -118,104 +127,184 @@ class AutonomousLoopEngine:
         )
 
     # =========================================================================
-    # 1. ISSUE GENERATION & SYNTHESIS
+    # 1. ISSUE GENERATION & SYNTHESIS (REAL PLANS ONLY - ZERO FAKE / SYNTHETIC)
     # =========================================================================
     def scan_repo_for_plan_tasks(self) -> List[Dict[str, Any]]:
         """
-        Discovers implementation plans (*PLAN*.md) across the repository,
-        audits pending tasks, and returns uncompleted task specifications.
+        Discovers authentic implementation plans (*PLAN*.md, ROADMAP.md, TODO.md)
+        across the repository, audits pending uncompleted tasks, and strictly
+        deduplicates against all existing issues and Pull Requests.
         """
-        self.log(f"Scanning repository {self.workspace} for implementation plans...")
+        self.log(f"Scanning repository '{self.repo}' ({self.workspace}) for genuine implementation plans...")
         plan_files: List[Path] = []
 
-        # Check standard root and docs locations
-        for p in [
-            self.workspace / "VSCODE_EXTENSION_AND_BILLING_IMPLEMENTATION_PLAN.md",
-            self.workspace / "docs" / "ENTERPRISE_SAAS_IMPLEMENTATION_PLAN.md",
-            self.workspace / "docs" / "specs" / "VSCODE_EXTENSION_MASTER_PLAN.md",
-            self.workspace / "docs" / "specs" / "SKELION_SOFTWARE_DEV_PLATFORM.md",
-            self.workspace / "docs" / "specs" / "PHASE2.md",
-        ]:
-            if p.is_file() and p not in plan_files:
-                plan_files.append(p)
-
-        # Also dynamically discover any plan markdown files in workspace and docs
-        for p in self.workspace.glob("*[pP][lL][aA][nN]*.md"):
-            if p.is_file() and p not in plan_files:
-                plan_files.append(p)
-        if (self.workspace / "docs").is_dir():
-            for p in (self.workspace / "docs").glob("**/*[pP][lL][aA][nN]*.md"):
+        # 1. Check root and docs locations for implementation plans, roadmaps, and todo lists
+        plan_globs = [
+            "*[pP][lL][aA][nN]*.md",
+            "*[rR][oO][aA][dD][mM][aA][pP]*.md",
+            "*[tT][oO][dD][oO]*.md",
+        ]
+        for pattern in plan_globs:
+            for p in self.workspace.glob(pattern):
                 if p.is_file() and p not in plan_files:
                     plan_files.append(p)
+            docs_dir = self.workspace / "docs"
+            if docs_dir.is_dir():
+                for p in docs_dir.glob(f"**/{pattern}"):
+                    if p.is_file() and p not in plan_files:
+                        plan_files.append(p)
+
+        # 2. If target repo is on GitHub and remote inspection is available, also check GitHub contents
+        remote_plan_data: List[Tuple[str, str]] = []  # (filename, content)
+        if "/" in self.repo:
+            code, out, _ = run_cmd(
+                ["gh", "api", f"repos/{self.repo}/contents", "--jq", ".[].name"],
+                cwd=self.workspace,
+            )
+            if code == 0 and out:
+                for line in out.splitlines():
+                    fname = line.strip()
+                    if (
+                        ("plan" in fname.lower() or "roadmap" in fname.lower() or "todo" in fname.lower())
+                        and fname.endswith(".md")
+                    ):
+                        c_code, c_out, _ = run_cmd(
+                            ["gh", "api", f"repos/{self.repo}/contents/{fname}", "--jq", ".content"],
+                            cwd=self.workspace,
+                        )
+                        if c_code == 0 and c_out.strip():
+                            import base64
+                            try:
+                                raw_bytes = base64.b64decode(c_out.strip())
+                                remote_plan_data.append((fname, raw_bytes.decode("utf-8", errors="replace")))
+                            except Exception:
+                                pass
 
         tasks: List[Dict[str, Any]] = []
 
-        # Fetch open GitHub issues to avoid duplicating existing issues
-        existing_issue_titles: List[str] = []
+        # 3. Query all open and closed issues & PRs to guarantee ZERO duplicate issues
+        existing_titles: List[str] = []
         code, out, _ = run_cmd(
-            ["gh", "issue", "list", "--repo", self.repo, "--state", "all", "--limit", "100", "--json", "title"],
-            cwd=self.workspace
+            ["gh", "issue", "list", "--repo", self.repo, "--state", "all", "--limit", "200", "--json", "title,number"],
+            cwd=self.workspace,
         )
         if code == 0 and out:
             try:
                 issues_data = json.loads(out)
-                existing_issue_titles = [i.get("title", "").lower() for i in issues_data]
+                existing_titles.extend([i.get("title", "").lower() for i in issues_data if i.get("title")])
             except Exception:
                 pass
 
+        pr_code, pr_out, _ = run_cmd(
+            ["gh", "pr", "list", "--repo", self.repo, "--state", "all", "--limit", "200", "--json", "title,number"],
+            cwd=self.workspace,
+        )
+        if pr_code == 0 and pr_out:
+            try:
+                prs_data = json.loads(pr_out)
+                existing_titles.extend([p.get("title", "").lower() for p in prs_data if p.get("title")])
+            except Exception:
+                pass
+
+        def is_already_tracked(title_to_check: str, task_name: str, task_number: Optional[int]) -> bool:
+            """Check if task was already created as an issue or PR."""
+            norm_name = re.sub(r"[^\w\s]", "", task_name.lower()).strip()
+            for ex in existing_titles:
+                norm_ex = re.sub(r"[^\w\s]", "", ex).strip()
+                if norm_name and (norm_name in norm_ex or norm_ex in norm_name):
+                    return True
+                if task_number is not None and f"task {task_number}" in ex:
+                    return True
+                if title_to_check.lower() in ex:
+                    return True
+            return False
+
+        # 4. Parse tasks from discovered local files
+        sources: List[Tuple[str, str]] = []
         for pf in plan_files:
             try:
                 content = pf.read_text(encoding="utf-8", errors="replace")
                 try:
-                    rel_path = pf.relative_to(self.workspace)
+                    rel_name = str(pf.relative_to(self.workspace))
                 except ValueError:
-                    rel_path = pf.name
-
-                task_pattern = re.compile(
-                    r"(?:^|\n)(?:##+|###|\- \[[ ]\])\s*(?:Task|TASK)\s*(\d+)[:\s\-—–]+([^\n]+)",
-                    re.IGNORECASE
-                )
-                matches = list(task_pattern.finditer(content))
-                for i, match in enumerate(matches):
-                    t_num = int(match.group(1))
-                    t_name = match.group(2).strip()
-                    start_pos = match.end()
-                    end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(content)
-                    t_body = content[start_pos:end_pos].strip()
-
-                    target_match = re.findall(r"`([a-zA-Z0-9_\-\./\\]+\.[a-zA-Z0-9]+)`", t_body)
-                    target_files = [f for f in target_match if "/" in f or "\\" in f or f.endswith((".py", ".go", ".ts", ".js"))]
-                    primary_target = target_files[0] if target_files else "skelion_agent/core/advancement.py"
-
-                    title = f"feat(plan): Task {t_num} — {t_name}"
-                    if any(f"task {t_num}" in it or t_name.lower() in it for it in existing_issue_titles):
-                        continue
-
-                    full_target = self.workspace / primary_target
-                    if full_target.is_file() and full_target.stat().st_size > 500 and not any(k in t_body.lower() for k in ["todo", "fixme", "bug"]):
-                        continue
-
-                    tasks.append({
-                        "task_number": t_num,
-                        "title": title,
-                        "raw_name": t_name,
-                        "spec": t_body[:1200] if len(t_body) > 1200 else t_body,
-                        "target_path": primary_target,
-                        "plan_file": str(rel_path),
-                    })
+                    rel_name = pf.name
+                sources.append((rel_name, content))
             except Exception as e:
                 self.log(f"Error reading plan file {pf}: {e}", level="WARN")
 
-        self.log(f"Discovered {len(tasks)} pending implementation plan task(s) across repository.")
+        # Include remote plan contents if not already in local sources
+        for r_name, r_content in remote_plan_data:
+            if not any(s[0] == r_name for s in sources):
+                sources.append((r_name, r_content))
+
+        for source_name, content in sources:
+            # Match standard Task headers: "## Task 1: Name" or "### Task 1 - Name" or "- [ ] Task 1: Name"
+            task_pattern = re.compile(
+                r"(?:^|\n)(?:##+|###|\- \[[ ]\])\s*(?:Task|TASK)\s*(\d+)[:\s\-—–]+([^\n]+)",
+                re.IGNORECASE,
+            )
+            matches = list(task_pattern.finditer(content))
+            for i, match in enumerate(matches):
+                t_num = int(match.group(1))
+                t_name = match.group(2).strip()
+                start_pos = match.end()
+                end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+                t_body = content[start_pos:end_pos].strip()
+
+                target_match = re.findall(r"`([a-zA-Z0-9_\-\./\\]+\.[a-zA-Z0-9]+)`", t_body)
+                target_files = [f for f in target_match if "/" in f or "\\" in f or f.endswith((".py", ".go", ".ts", ".js"))]
+                primary_target = target_files[0] if target_files else "skelion_agent/core/advancement.py"
+
+                title = f"feat(plan): Task {t_num} — {t_name}"
+                if is_already_tracked(title, t_name, t_num):
+                    continue
+
+                full_target = self.workspace / primary_target
+                if full_target.is_file() and full_target.stat().st_size > 500 and not any(k in t_body.lower() for k in ["todo", "fixme", "bug"]):
+                    continue
+
+                tasks.append({
+                    "task_number": t_num,
+                    "title": title,
+                    "raw_name": t_name,
+                    "spec": t_body[:1200] if len(t_body) > 1200 else t_body,
+                    "target_path": primary_target,
+                    "plan_file": source_name,
+                })
+
+            # Also match generic checklist items "- [ ] Do something" if no numbered tasks were matched
+            if not matches:
+                checklist_pattern = re.compile(r"(?:^|\n)\- \[[ ]\]\s+([^\n]+)", re.IGNORECASE)
+                check_matches = list(checklist_pattern.finditer(content))
+                for idx, cm in enumerate(check_matches, start=1):
+                    item_text = cm.group(1).strip()
+                    if len(item_text) < 5:
+                        continue
+                    title = f"feat(plan): {item_text[:70]}"
+                    if is_already_tracked(title, item_text, None):
+                        continue
+
+                    tasks.append({
+                        "task_number": idx,
+                        "title": title,
+                        "raw_name": item_text,
+                        "spec": f"Implementation task defined in `{source_name}`:\n\n{item_text}",
+                        "target_path": "src/index.ts",
+                        "plan_file": source_name,
+                    })
+
+        self.log(f"Discovered {len(tasks)} genuine uncompleted plan task(s) in repository '{self.repo}'.")
         return tasks
 
     def generate_advancement_issue(
         self, title: Optional[str] = None, spec: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
-        """Create a new architectural advancement issue on GitHub from implementation plans or catalog."""
-        self.log(f"Generating new architectural advancement issue for {self.repo}...")
+        """
+        Create a new architectural advancement issue on GitHub ONLY from genuine
+        repository implementation plans. Never creates fake or synthetic issues.
+        """
+        self.log(f"Inspecting repository '{self.repo}' for actionable implementation plan tasks...")
 
-        # Select from discovered implementation plans or domain catalog fallback
         plan_tasks = self.scan_repo_for_plan_tasks()
         if plan_tasks:
             next_task = plan_tasks[0]
@@ -224,12 +313,17 @@ class AutonomousLoopEngine:
             target_path = next_task["target_path"]
             plan_source = next_task["plan_file"]
             self.log(f"Selected pending task from plan '{plan_source}': {issue_title}")
+        elif title and spec:
+            issue_title = title
+            issue_spec = spec
+            target_path = "skelion_agent/core/advancement.py"
+            plan_source = "User Specified Task"
         else:
-            item = SKELION_CATALOG[int(time.time()) % len(SKELION_CATALOG)]
-            issue_title = title or item["title"]
-            issue_spec = spec or item["spec"]
-            target_path = item.get("target_path", "skelion_agent/core/advancement.py")
-            plan_source = "Skelion Architectural Catalog"
+            self.log(
+                f"No pending implementation plans found in repository '{self.repo}'. Refusing to create fake or duplicate issues.",
+                level="INFO",
+            )
+            return None
 
         body = f"""### 🚀 Skelion Architectural Advancement Proposal
 **Source**: `{plan_source}`
@@ -241,12 +335,12 @@ class AutonomousLoopEngine:
 - `{target_path}`
 
 #### 🔒 Invariants & Quality Standards
-1. Zero-regression memory and latency bounded execution.
-2. Complete unit test coverage verifying both happy path and failure edge-cases.
+1. Zero-regression execution, memory-bounded, and tested.
+2. Complete automated tests verifying both happy path and failure edge-cases.
 3. Concurrency safety and full decoupling from global state.
 
 ---
-*Autonomous loop awaiting maintainer approval. Comment **`accepted`** or **`approve`** on this issue to trigger autonomous solver synthesis and Pull Request generation.*
+*Autonomous loop awaiting maintainer approval. Comment **`accept`** or **`approve`** on this issue to trigger autonomous solver synthesis and Pull Request generation.*
 """
         code, stdout, stderr = run_cmd(
             [
@@ -260,7 +354,7 @@ class AutonomousLoopEngine:
                 "--body",
                 body,
                 "--label",
-                "awaiting-approval,skelion-advancement",
+                "awaiting-acceptance,plan-advancement",
             ],
             cwd=self.workspace,
         )
@@ -279,6 +373,7 @@ class AutonomousLoopEngine:
             }
         else:
             self.log(f"Failed to create GitHub issue: {stderr}", level="ERROR")
+            return None
             return None
 
     # =========================================================================
@@ -876,8 +971,10 @@ Closes #{issue_number}
     # =========================================================================
     def run_single_cycle(self, org_id: Optional[str] = None) -> Dict[str, Any]:
         """Execute one complete autonomous loop cycle."""
+        self.is_running = True
+        self.last_cycle_start = time.time()
         self.last_status = "RUNNING"
-        self.log("=== STARTING AUTONOMOUS ADVANCEMENT CYCLE ===")
+        self.log(f"=== STARTING AUTONOMOUS ADVANCEMENT CYCLE FOR '{self.repo}' ===")
 
         # 1. Check open issues for user acceptance
         c_list, out_list, _ = run_cmd(
@@ -977,6 +1074,14 @@ Closes #{issue_number}
             "Backlog low and no pending accepted issues. Generating fresh architectural advancement issue from repo plans..."
         )
         new_issue = self.generate_advancement_issue()
+        if not new_issue:
+            self.last_status = "UP_TO_DATE"
+            return {
+                "status": "up_to_date",
+                "repo": self.repo,
+                "tasks_found": 0,
+                "message": f"Repository '{self.repo}' is up to date. Zero pending implementation plan tasks found. No fake or duplicate issues generated.",
+            }
         self.last_status = "AWAITING_USER_ACCEPTANCE"
         return {
             "status": "awaiting_user_acceptance",

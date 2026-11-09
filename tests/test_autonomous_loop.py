@@ -362,3 +362,80 @@ def test_autonomous_routes_entitlement_gating():
         if old_env is not None:
             os.environ["ENV"] = old_env
 
+
+def test_switch_active_repo(test_engine_instance):
+    test_engine_instance.set_active_repo("client-corp/production-payment-api")
+    assert test_engine_instance.repo == "client-corp/production-payment-api"
+    assert test_engine_instance.last_status == "SWITCHED_REPO"
+
+
+def test_zero_fake_issues_generated_when_no_plans(tmp_path):
+    # Empty workspace with NO plan files
+    engine = AutonomousLoopEngine(workspace_root=tmp_path, default_repo="client-org/clean-repo")
+    with patch("skelion_agent.autonomous_engine.run_cmd") as mock_run:
+        # Mock gh issue list returning 0 issues
+        mock_run.return_value = (0, "[]", "")
+        # Should return None, refusing to generate catalog/fake issues
+        issue = engine.generate_advancement_issue()
+        assert issue is None
+
+        # run_single_cycle should report up_to_date with 0 tasks found
+        res = engine.run_single_cycle()
+        assert res["status"] == "up_to_date"
+        assert res["tasks_found"] == 0
+        assert "Zero pending implementation plan tasks found" in res["message"]
+
+
+def test_strict_deduplication_against_existing_issues_and_prs(tmp_path):
+    # Workspace with a real plan markdown file containing Task 1 and Task 2
+    plan_file = tmp_path / "ROADMAP.md"
+    plan_file.write_text(
+        """# Roadmap
+## Task 1 — Implement Edge Rate Limiter
+`src/ratelimit.ts`
+Implement token bucket.
+
+## Task 2 — Implement Circuit Breaker
+`src/circuit.ts`
+Implement circuit breaker.
+""",
+        encoding="utf-8",
+    )
+
+    engine = AutonomousLoopEngine(workspace_root=tmp_path, default_repo="client-org/app")
+
+    # Mock GitHub returning Task 1 already existing in issue list
+    def mock_run_cmd_side_effect(cmd, **kwargs):
+        if "issue" in cmd and "list" in cmd:
+            return (0, json.dumps([{"title": "feat(plan): Task 1 — Implement Edge Rate Limiter", "number": 101}]), "")
+        if "pr" in cmd and "list" in cmd:
+            return (0, "[]", "")
+        return (0, "", "")
+
+    with patch("skelion_agent.autonomous_engine.run_cmd", side_effect=mock_run_cmd_side_effect):
+        tasks = engine.scan_repo_for_plan_tasks()
+        # Task 1 must be deduplicated out; only Task 2 should remain
+        assert len(tasks) == 1
+        assert tasks[0]["task_number"] == 2
+        assert "Circuit Breaker" in tasks[0]["title"]
+
+
+def test_bounded_queue_at_three_open_issues(tmp_path):
+    engine = AutonomousLoopEngine(workspace_root=tmp_path, default_repo="client-org/app")
+
+    # Mock 3 open issues currently awaiting acceptance
+    open_issues = [
+        {"number": 1, "title": "feat(plan): Task 1"},
+        {"number": 2, "title": "feat(plan): Task 2"},
+        {"number": 3, "title": "feat(plan): Task 3"},
+    ]
+
+    with patch("skelion_agent.autonomous_engine.run_cmd") as mock_run:
+        # check_issue_accepted returns False (not yet accepted)
+        with patch.object(engine, "check_issue_accepted", return_value=(False, None, None)):
+            mock_run.return_value = (0, json.dumps(open_issues), "")
+            res = engine.run_single_cycle()
+            assert res["status"] == "awaiting_user_acceptance"
+            assert res["open_backlog_count"] == 3
+
+

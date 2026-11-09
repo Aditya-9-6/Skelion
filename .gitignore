@@ -41,3 +41,7 @@ skelion_website/.git_website_remote/
 *.shm_*
 .vscode/
 skelion_vscode_extension/
+data/
+skelion_agent/tests/
+package-lock.json
+HARDENING_REPORT.md

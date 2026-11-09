@@ -79,6 +79,9 @@ interface AskTabProps {
   onNavigateToFixes?: () => void;
   deepDivePayload?: IncidentDeepDivePayload | null;
   onClearDeepDive?: () => void;
+  currentRepo?: string;
+  currentRepoOwner?: string;
+  onSelectRepo?: (repoName: string, repoOwner?: string) => void;
 }
 
 interface MessageAttachment {
@@ -138,6 +141,9 @@ export const AskTab: React.FC<AskTabProps> = ({
   onNavigateToFixes,
   deepDivePayload,
   onClearDeepDive,
+  currentRepo,
+  currentRepoOwner,
+  onSelectRepo,
 }) => {
   const [inputPrompt, setInputPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -206,10 +212,22 @@ export const AskTab: React.FC<AskTabProps> = ({
 
   // GitHub Repos & Workspace State
   const [repos, setRepos] = useState<GitHubRepoItem[]>([]);
-  const [selectedRepo, setSelectedRepo] = useState<string>('Skelion_website');
-  const [selectedRepoOwner, setSelectedRepoOwner] = useState<string>(() => user?.username || 'Aditya-9-6');
+  const [selectedRepo, setSelectedRepo] = useState<string>(() => currentRepo || localStorage.getItem('skelion_selected_repo') || 'Skelion_website');
+  const [selectedRepoOwner, setSelectedRepoOwner] = useState<string>(() => currentRepoOwner || localStorage.getItem('skelion_selected_repo_owner') || user?.username || 'Aditya-9-6');
   const [repoSearch, setRepoSearch] = useState('');
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
+
+  useEffect(() => {
+    if (currentRepo && currentRepo !== selectedRepo) {
+      setSelectedRepo(currentRepo);
+    }
+  }, [currentRepo]);
+
+  useEffect(() => {
+    if (currentRepoOwner && currentRepoOwner !== selectedRepoOwner) {
+      setSelectedRepoOwner(currentRepoOwner);
+    }
+  }, [currentRepoOwner]);
 
   // GitHub Issues, PRs, and Inspection State
   const [issues, setIssues] = useState<GitHubIssueItem[]>([]);
@@ -228,6 +246,13 @@ export const AskTab: React.FC<AskTabProps> = ({
     setTimeout(() => {
       setToastNotification((prev) => (prev?.message === message ? null : prev));
     }, 4000);
+  };
+
+  const handleSelectRepository = (repoName: string, repoOwner?: string) => {
+    setSelectedRepo(repoName);
+    if (repoOwner) setSelectedRepoOwner(repoOwner);
+    onSelectRepo?.(repoName, repoOwner);
+    showToast(`Autonomous Dev Loop active for ${repoName}`, 'info');
   };
 
   const [fileTree, setFileTree] = useState<FileTreeItem[]>([]);
@@ -2293,10 +2318,7 @@ export function applyAutonomousFix() {
                 onSelectBranch={handleSelectBranch}
                 onCreateBranch={handleCreateBranch}
                 isLoadingBranches={isLoadingBranches}
-                onSelectRepo={(repoName, repoOwner) => {
-                  setSelectedRepo(repoName);
-                  if (repoOwner) setSelectedRepoOwner(repoOwner);
-                }}
+                onSelectRepo={(repoName, repoOwner) => handleSelectRepository(repoName, repoOwner)}
                 onSelectIssue={(issue) => {
                   setSelectedIssue(issue);
                   setAuxiliaryView('issue');
@@ -3300,7 +3322,7 @@ export function applyAutonomousFix() {
           onOpenFile={(path) => handleOpenFile(path)}
           repos={repos}
           currentRepo={selectedRepo}
-          onSelectRepo={(repo) => setSelectedRepo(repo)}
+          onSelectRepo={(repo) => handleSelectRepository(repo)}
           branches={branches}
           currentBranch={activeBranch}
           onSelectBranch={handleSelectBranch}
@@ -3857,7 +3879,7 @@ export function applyAutonomousFix() {
         }}
         repos={repos}
         currentRepo={selectedRepo}
-        onSelectRepo={(repo) => setSelectedRepo(repo)}
+        onSelectRepo={(repo) => handleSelectRepository(repo)}
         branches={branches}
         currentBranch={activeBranch}
         onSelectBranch={handleSelectBranch}

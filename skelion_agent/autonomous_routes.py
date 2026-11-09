@@ -69,20 +69,42 @@ async def trigger_loop_cycle(
     """
     Triggers an autonomous cycle:
     1. Validates organization has active autonomous dev loop add-on or enterprise plan.
-    2. Checks for user-accepted issues (comments matching 'accepted').
-    3. If found, debits tokens, implements fix, creates PR, and monitors till merge.
-    4. If none found, generates a new issue awaiting acceptance.
+    2. Switches active target repository if requested.
+    3. Checks for user-accepted issues (comments matching 'accepted'/'approve').
+    4. If found, debits tokens, implements fix, creates PR, and monitors till merge.
+    5. If none found, inspects genuine repo implementation plans and synthesizes an advancement issue.
     """
     check_autonomous_loop_entitlement(org)
     if req and req.repo:
-        autonomous_engine.repo = req.repo
+        autonomous_engine.set_active_repo(req.repo)
 
     result = autonomous_engine.run_single_cycle(org_id=org.id)
     return {
         "ok": True,
+        "repo": autonomous_engine.repo,
+        "is_running": autonomous_engine.is_running,
         "cycle_result": result,
         "last_status": autonomous_engine.last_status,
         "recent_activity": autonomous_engine.activity_log[-5:],
+    }
+
+
+@router.get("/plans")
+def get_discovered_plans(
+    repo: Optional[str] = None,
+    org: Organization = Depends(get_org_from_jwt),
+):
+    """Inspect and preview authentic implementation plan tasks discovered in the repository."""
+    check_autonomous_loop_entitlement(org)
+    if repo:
+        autonomous_engine.set_active_repo(repo)
+    tasks = autonomous_engine.scan_repo_for_plan_tasks()
+    return {
+        "ok": True,
+        "repo": autonomous_engine.repo,
+        "tasks_count": len(tasks),
+        "tasks": tasks[:30],
+        "message": f"Found {len(tasks)} genuine plan task(s) in repository '{autonomous_engine.repo}'. Zero synthetic issues.",
     }
 
 
