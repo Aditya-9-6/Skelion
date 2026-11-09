@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install httpx pytest sqlmodel fastapi
+          pip install -r requirements.txt pytest
 
       - name: Run Replay Sandbox Verification
         run: |
