@@ -6,16 +6,22 @@ from gossipmesh.transport.mmap_ring import MMapCircularRingBuffer
 
 logger = logging.getLogger(__name__)
 
+EPOLLIN = getattr(select, "EPOLLIN", 1)
+EPOLLERR = getattr(select, "EPOLLERR", 8)
+EPOLLHUP = getattr(select, "EPOLLHUP", 16)
+
 
 class EpollEventLoop:
     """
     High-performance epoll-driven non-blocking event loop integrated with
     memory-mapped circular ring buffers for lightning-fast packet ingestion.
+    Supports cross-platform fallback for Windows and macOS.
     """
 
     def __init__(self, ring_buffer: MMapCircularRingBuffer) -> None:
         self.ring_buffer = ring_buffer
-        self._epoll = select.epoll()
+        self._has_epoll = hasattr(select, "epoll")
+        self._epoll = select.epoll() if self._has_epoll else None
         self._sockets: Dict[int, socket.socket] = {}
         self._callbacks: Dict[int, Callable[[socket.socket], None]] = {}
         self._running = False
@@ -23,23 +29,25 @@ class EpollEventLoop:
     def register_socket(
         self,
         sock: socket.socket,
-        events: int = select.EPOLLIN,
+        events: int = EPOLLIN,
         callback: Optional[Callable[[socket.socket], None]] = None,
     ) -> None:
         sock.setblocking(False)
         fd = sock.fileno()
         self._sockets[fd] = sock
-        self._epoll.register(fd, events)
+        if self._has_epoll and self._epoll is not None:
+            self._epoll.register(fd, events)
         if callback:
             self._callbacks[fd] = callback
 
     def unregister_socket(self, sock: socket.socket) -> None:
         fd = sock.fileno()
         if fd in self._sockets:
-            try:
-                self._epoll.unregister(fd)
-            except Exception:
-                pass
+            if self._has_epoll and self._epoll is not None:
+                try:
+                    self._epoll.unregister(fd)
+                except Exception:
+                    pass
             del self._sockets[fd]
             self._callbacks.pop(fd, None)
 
@@ -58,23 +66,39 @@ class EpollEventLoop:
             logger.error(f"Error reading from socket in epoll loop: {e}")
 
     def run_once(self, timeout: float = 0.1) -> int:
-        events = self._epoll.poll(timeout)
-        for fd, event in events:
-            sock = self._sockets.get(fd)
-            if not sock:
-                continue
-            if event & select.EPOLLIN:
+        if self._has_epoll and self._epoll is not None:
+            events = self._epoll.poll(timeout)
+            for fd, event in events:
+                sock = self._sockets.get(fd)
+                if not sock:
+                    continue
+                if event & EPOLLIN:
+                    if fd in self._callbacks:
+                        self._callbacks[fd](sock)
+                    else:
+                        self.handle_packet_data(sock)
+                elif event & (EPOLLERR | EPOLLHUP):
+                    self.unregister_socket(sock)
+            return len(events)
+        else:
+            r_list = list(self._sockets.values())
+            if not r_list:
+                return 0
+            readable, _, exceptional = select.select(r_list, [], r_list, timeout)
+            for sock in readable:
+                fd = sock.fileno()
                 if fd in self._callbacks:
                     self._callbacks[fd](sock)
                 else:
                     self.handle_packet_data(sock)
-            elif event & (select.EPOLLERR | select.EPOLLHUP):
+            for sock in exceptional:
                 self.unregister_socket(sock)
-        return len(events)
+            return len(readable) + len(exceptional)
 
     def stop(self) -> None:
         self._running = False
-        try:
-            self._epoll.close()
-        except Exception:
-            pass
+        if self._has_epoll and self._epoll is not None:
+            try:
+                self._epoll.close()
+            except Exception:
+                pass

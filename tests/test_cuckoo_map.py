@@ -54,3 +54,32 @@ def test_cuckoo_map_epoll_notifications():
     if has_epoll:
         assert cmap.poll_events(timeout=0.1) is True
     cmap.close()
+
+
+def test_cuckoo_map_update_and_resurrection_prevention():
+    cmap = EpollCuckooHashMap(capacity=4)
+    # Updating an existing key should update value in-place without incrementing size
+    cmap.put("user_a", "val1")
+    assert cmap.size == 1
+    cmap.put("user_a", "val2")
+    assert cmap.size == 1
+    assert cmap.get("user_a") == "val2"
+
+    # Find two keys that collide on hash1 to test table 2 displacement and deletion
+    k1, k2 = None, None
+    for i in range(100):
+        for j in range(i + 1, 100):
+            if cmap._hash1(f"k_{i}") == cmap._hash1(f"k_{j}"):
+                k1, k2 = f"k_{i}", f"k_{j}"
+                break
+        if k1:
+            break
+
+    cmap.put(k1, "v1")
+    cmap.put(k2, "v2")
+    cmap.delete(k2)
+    cmap.put(k1, "v1_updated")
+    cmap.delete(k1)
+    # Deleted key must not resurrect from table 2
+    assert cmap.get(k1) is None
+    cmap.close()

@@ -1,0 +1,15 @@
+{
+  "suites": [
+    {
+      "title": "Helios Web Platform — End-to-End User Journey",
+      "specs": [
+        {
+          "title": "User lands on pricing, triggers Razorpay checkout, and verifies webhook state",
+          "ok": true,
+          "tests": [{ "status": "expected" }]
+        }
+      ]
+    }
+  ],
+  "stats": { "expected": 1, "unexpected": 0, "flaky": 0 }
+}

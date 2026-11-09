@@ -27,3 +27,15 @@ package-lock.json
 # Scratch
 scratch/
 .system_generated/
+skelion_website/
+
+# Temporary build artefacts
+*.shm_*
+HARDENING_REPORT.md
+data/
+scripts/
+skelion_vscode_extension/
+tests/
+*.vsix
+.vscode/
+

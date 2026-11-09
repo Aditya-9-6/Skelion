@@ -22,7 +22,7 @@ With the **Connect GitHub Repo...** feature:
 ### 3. Through REST API
 Send a POST request to Skelion's agent backend:
 ```bash
-curl -X POST http://127.0.0.1:8003/v1/plugins/connect-github-repo \
+curl -X POST http://127.0.0.1:8002/v1/plugins/connect-github-repo \
   -H "Content-Type: application/json" \
   -d '{"repo_url": "https://github.com/morluto/rea"}'
 ```

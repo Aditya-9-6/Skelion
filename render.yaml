@@ -12,4 +12,4 @@ services:
       - key: DATABASE_URI
         value: sqlite:///./skelion.db
       - key: SKELION_PORT
-        value: 8003
+        value: 8002

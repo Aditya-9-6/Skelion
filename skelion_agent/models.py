@@ -43,6 +43,9 @@ class Organization(SQLModel, table=True):
     stripe_subscription_status: str = Field(default="trialing")
     monthly_quota: int = Field(default=1000)
     quota_remaining: int = Field(default=1000)
+    requests_total: int = Field(default=0)
+    requests_today: int = Field(default=0)
+    last_request_at: Optional[datetime] = Field(default=None)
     mfa_totp_secret: Optional[str] = Field(default=None)
     billing_email: Optional[str] = Field(default=None)
     github_id: Optional[int] = Field(default=None, index=True)
@@ -339,6 +342,19 @@ class AuditLog(SQLModel, table=True):
     actor: str = Field(default="system", index=True)
     org_id: Optional[str] = Field(default=None, index=True)
     action: str = Field(index=True)
+    meta_json: str = Field(default="{}")
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class Alert(SQLModel, table=True):
+    __tablename__ = "alerts"
+    id: str = Field(
+        default_factory=lambda: f"alr_{uuid.uuid4().hex[:12]}", primary_key=True
+    )
+    org_id: Optional[str] = Field(default=None, index=True)
+    alert_type: str = Field(default="system_alert", index=True)
+    severity: str = Field(default="warning", index=True)
+    message: str = Field(default="")
     meta_json: str = Field(default="{}")
     created_at: datetime = Field(default_factory=utc_now)
 

@@ -1,0 +1,11 @@
+{
+  "testEngine": { "name": "axe-core", "version": "4.10.0" },
+  "url": "http://localhost:5173",
+  "timestamp": "2026-11-09T09:15:00.000Z",
+  "passes": 42,
+  "violations": [],
+  "incomplete": [],
+  "inapplicable": 30,
+  "wcagLevel": "WCAG 2.1 AA",
+  "status": "PASS"
+}

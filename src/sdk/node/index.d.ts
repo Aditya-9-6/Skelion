@@ -7,7 +7,7 @@ export interface SkelionOptions {
   apiKey?: string;
 
   /**
-   * Skelion Control Plane Endpoint (default: http://127.0.0.1:8003 or https://api.skelion.dev)
+   * Skelion Control Plane Endpoint (default: http://127.0.0.1:8002 or https://api.skelion.dev)
    */
   endpoint?: string;
 

@@ -1,12 +1,10 @@
 import hashlib
+import bcrypt
 from typing import Optional, Tuple
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
 from gossipmesh.models.user import User
 from gossipmesh.models.session import UserSession, RefreshToken
 import secrets
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
@@ -15,13 +13,17 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        return pwd_context.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
+        )
     except Exception:
         return hash_password(plain_password) == hashed_password
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
 def validate_password_strength(

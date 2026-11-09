@@ -1,0 +1,48 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "API Request Count (Rate)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m])) by (handler, status)",
+          "legendFormat": "{{handler}} - {{status}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 }
+    },
+    {
+      "title": "P95 Request Latency (ms)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p95 Latency (ms)"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 }
+    },
+    {
+      "title": "Database Query Duration (ms)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(db_query_duration_seconds_sum[1m])) / sum(rate(db_query_duration_seconds_count[1m])) * 1000",
+          "legendFormat": "Avg Query Duration (ms)"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 }
+    }
+  ],
+  "schemaVersion": 38,
+  "title": "Helios Web Platform Observability Dashboard",
+  "uid": "helios-observability",
+  "version": 1
+}

@@ -213,6 +213,12 @@ def get_token_status(org: Organization) -> Dict[str, Any]:
     # Autofix Dedicated Tokens
     autofix_remaining = max(0, org.autofix_tokens_total - org.autofix_tokens_used)
 
+    requests_total = getattr(org, "requests_total", 0) or 0
+    requests_today = getattr(org, "requests_today", 0) or 0
+    last_req = getattr(org, "last_request_at", None)
+    monthly_quota = getattr(org, "monthly_quota", 1000) if getattr(org, "monthly_quota", None) is not None else 1000
+    quota_remaining = getattr(org, "quota_remaining", 1000) if getattr(org, "quota_remaining", None) is not None else 1000
+
     return {
         "plan": org.plan,
         "coding_tokens": {
@@ -245,7 +251,56 @@ def get_token_status(org: Organization) -> Dict[str, Any]:
             "remaining": autofix_remaining,
             "per_fix_cost_estimated": 250,  # ~250 tokens per incident diff
         },
+        "telemetry": {
+            "requests_total": requests_total,
+            "requests_today": requests_today,
+            "last_request_at": last_req.isoformat() if last_req else None,
+            "monthly_quota": monthly_quota,
+            "quota_remaining": quota_remaining,
+            "quota_used_percentage": round(((monthly_quota - quota_remaining) / monthly_quota) * 100, 1) if monthly_quota > 0 else 0.0,
+        },
     }
+
+
+def track_request(org: Organization, db: Session, cost: int = 1) -> Dict[str, Any]:
+    """Track an incoming customer request against quota limits and update telemetry."""
+    now = datetime.now(timezone.utc)
+
+    # Check if quota remaining is exhausted
+    if org.quota_remaining is not None and org.quota_remaining < cost:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Customer monthly request quota exhausted ({org.quota_remaining}/{org.monthly_quota} remaining). Please upgrade plan or top up quota.",
+        )
+
+    # Check day transition for requests_today
+    if org.last_request_at:
+        last_dt = (
+            org.last_request_at
+            if org.last_request_at.tzinfo
+            else org.last_request_at.replace(tzinfo=timezone.utc)
+        )
+        if last_dt.date() != now.date():
+            org.requests_today = 0
+
+    org.requests_total = (getattr(org, "requests_total", 0) or 0) + 1
+    org.requests_today = (getattr(org, "requests_today", 0) or 0) + 1
+    org.last_request_at = now
+    if org.quota_remaining is not None:
+        org.quota_remaining = max(0, org.quota_remaining - cost)
+
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+
+    return {
+        "requests_total": org.requests_total,
+        "requests_today": org.requests_today,
+        "last_request_at": org.last_request_at.isoformat(),
+        "monthly_quota": org.monthly_quota,
+        "quota_remaining": org.quota_remaining,
+    }
+
 
 
 def deduct_coding_tokens(
@@ -318,6 +373,22 @@ def deduct_coding_tokens(
     # Record window usage
     org.window_5h_tokens_used += cost
     org.window_weekly_tokens_used += cost
+
+    # Record request telemetry and quota deduction
+    now = datetime.now(timezone.utc)
+    if org.last_request_at:
+        last_dt = (
+            org.last_request_at
+            if org.last_request_at.tzinfo
+            else org.last_request_at.replace(tzinfo=timezone.utc)
+        )
+        if last_dt.date() != now.date():
+            org.requests_today = 0
+    org.requests_total = (getattr(org, "requests_total", 0) or 0) + 1
+    org.requests_today = (getattr(org, "requests_today", 0) or 0) + 1
+    org.last_request_at = now
+    if org.quota_remaining is not None:
+        org.quota_remaining = max(0, org.quota_remaining - 1)
 
     db.add(org)
     db.commit()

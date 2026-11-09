@@ -1,0 +1,117 @@
+name: Skelion Issues & PR Automation
+
+on:
+  issues:
+    types: [opened, edited]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  issue-triage:
+    name: 🤖 Skelion Issue Triage & Auto-Responder
+    if: github.event_name == 'issues' && github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-Triage & Label Issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const title = (issue.title || '').toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const text = `${title} ${body}`;
+
+            const labelsToAdd = ['triage'];
+
+            if (text.includes('bug') || text.includes('error') || text.includes('fail') || text.includes('crash') || text.includes('exception') || text.includes('500')) {
+              labelsToAdd.push('bug');
+              labelsToAdd.push('incident-candidate');
+            }
+
+            if (text.includes('billing') || text.includes('razorpay') || text.includes('credits') || text.includes('token') || text.includes('payment') || text.includes('receipt')) {
+              labelsToAdd.push('billing');
+              labelsToAdd.push('priority:high');
+            }
+
+            if (text.includes('security') || text.includes('vulnerability') || text.includes('leak') || text.includes('secret') || text.includes('auth')) {
+              labelsToAdd.push('security');
+              labelsToAdd.push('priority:critical');
+            }
+
+            if (text.includes('feature') || text.includes('enhancement') || text.includes('proposal') || text.includes('idea')) {
+              labelsToAdd.push('enhancement');
+            }
+
+            if (text.includes('doc') || text.includes('documentation') || text.includes('readme') || text.includes('typo')) {
+              labelsToAdd.push('documentation');
+            }
+
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labelsToAdd
+              });
+            }
+
+            const welcomeComment = [
+              '### 🛡️ Skelion Autonomous Incident Triage',
+              `Hello @${issue.user.login}, thank you for opening this issue!`,
+              '',
+              `- **Assigned Labels:** \`${labelsToAdd.join('`, `')}\``,
+              '- **Skelion Replay Engine:** Your report has been indexed. If this issue contains a stack trace or failing API path, the Skelion Agent will automatically attempt a sandboxed replay verification.',
+              '- **Reference Docs:** Visit [skelion.dev](https://skelion.ai) or inspect live logs in the [Console Workspace](https://skelion.ai/#console).',
+              '',
+              '*To request an immediate sandboxed fix attempt, comment `/skelion fix`.*'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: welcomeComment
+            });
+
+  pr-triage:
+    name: ⚡ Skelion Pull Request Welcome & Triage
+    if: github.event_name == 'pull_request_target' && github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-Label Pull Request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['pr-review', 'pending-replay']
+            });
+
+            const prComment = [
+              '### ⚡ Skelion Pull Request Verification Initiated',
+              `Welcome @${pr.user.login}! This PR has been queued for **Skelion Replay Sandbox Verification**.`,
+              '',
+              '| Check | Trigger | Purpose |',
+              '| :--- | :--- | :--- |',
+              '| **Replay CI** | Automatic | Verifies baseline failure reproduction and confirms 0 regressions. |',
+              '| **Diagnostic Card** | On Completion | Summarizes HTTP status delta and runtime telemetry. |',
+              '',
+              '*You can trigger a manual replay verification anytime by commenting `/skelion replay`.*'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: prComment
+            });

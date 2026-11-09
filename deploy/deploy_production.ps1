@@ -43,18 +43,18 @@ if (Test-Path $composeFile) {
 Write-Host ""
 Write-Host "[4/4] Probing Local Control Plane Routes..." -ForegroundColor Yellow
 try {
-    $r = Invoke-RestMethod -Uri "http://127.0.0.1:8003/health" -Method Get -TimeoutSec 3
+    $r = Invoke-RestMethod -Uri "http://127.0.0.1:8002/health" -Method Get -TimeoutSec 3
     Write-Host "  [OK] /health: $($r.status) (v$($r.version))" -ForegroundColor Green
 } catch {
-    Write-Host "  Notice: Local control plane daemon not running or initializing on port 8003." -ForegroundColor Gray
+    Write-Host "  Notice: Local control plane daemon not running or initializing on port 8002." -ForegroundColor Gray
 }
 
 Write-Host ""
 Write-Host "=================================================" -ForegroundColor Green
 Write-Host "  Skelion SaaS Platform is Production-Ready!     " -ForegroundColor Green
 Write-Host "=================================================" -ForegroundColor Green
-Write-Host "  Landing Page:    http://127.0.0.1:8003/"
-Write-Host "  Customer Portal: http://127.0.0.1:8003/portal"
-Write-Host "  Admin Console:   http://127.0.0.1:8003/admin"
-Write-Host "  API Docs:        http://127.0.0.1:8003/docs"
+Write-Host "  Landing Page:    http://127.0.0.1:8002/"
+Write-Host "  Customer Portal: http://127.0.0.1:8002/portal"
+Write-Host "  Admin Console:   http://127.0.0.1:8002/admin"
+Write-Host "  API Docs:        http://127.0.0.1:8002/docs"
 Write-Host "  Legal Pages:     /terms, /privacy, /refund"

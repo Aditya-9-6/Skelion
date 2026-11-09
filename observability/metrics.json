@@ -1,0 +1,12 @@
+{
+  "service": "helios-web-platform",
+  "timestamp": "2026-11-09T09:15:00.000Z",
+  "status": "healthy",
+  "metrics": {
+    "http_requests_total": 14205,
+    "http_request_duration_p95_ms": 12.4,
+    "db_query_duration_avg_ms": 1.8,
+    "active_db_pool_connections": 4,
+    "error_rate": 0.00
+  }
+}

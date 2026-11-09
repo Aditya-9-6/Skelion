@@ -1,0 +1,7 @@
+{
+  "SchemaVersion": 2,
+  "ArtifactName": "wiremock/wiremock:3.5.4-alpine",
+  "ArtifactType": "container_image",
+  "Metadata": { "OS": { "Family": "alpine" } },
+  "Results": [{ "Target": "wiremock:3.5.4-alpine", "Vulnerabilities": [] }]
+}

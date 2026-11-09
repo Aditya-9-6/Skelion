@@ -1,7 +1,21 @@
 import re
-import mmh3
 import threading
 from typing import List, Dict, Set, Tuple
+
+try:
+    import mmh3
+except ImportError:
+    import zlib
+
+    class _MMH3Fallback:
+        @staticmethod
+        def hash(val: str, seed: int = 0, signed: bool = True) -> int:
+            h = zlib.crc32(f"{seed}:{val}".encode("utf-8"))
+            if signed and h >= 0x80000000:
+                return h - 0x100000000
+            return h & 0xFFFFFFFF
+
+    mmh3 = _MMH3Fallback()  # type: ignore
 
 
 class LSHIndex:

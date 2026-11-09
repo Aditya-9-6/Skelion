@@ -8,13 +8,13 @@ const http = require('http');
  * Configure Skelion Express / Node.js Middleware
  * @param {Object} options
  * @param {string} options.apiKey - Skelion Scoped API Key (e.g. skl_live_...)
- * @param {string} [options.endpoint] - Skelion Control Plane Endpoint (default: http://127.0.0.1:8003)
+ * @param {string} [options.endpoint] - Skelion Control Plane Endpoint (default: http://127.0.0.1:8002)
  * @param {boolean} [options.failOpen] - Guarantee 0 downtime: returns buffered 200 OK on 5xx errors (default: true)
  * @param {boolean} [options.debug] - Log telemetry operations (default: false)
  */
 function skelionMiddleware(options = {}) {
   const apiKey = options.apiKey || process.env.SKELION_API_KEY;
-  const endpoint = (options.endpoint || process.env.SKELION_ENDPOINT || 'http://127.0.0.1:8003').replace(/\/$/, '');
+  const endpoint = (options.endpoint || process.env.SKELION_ENDPOINT || 'http://127.0.0.1:8002').replace(/\/$/, '');
   const failOpen = options.failOpen !== undefined ? options.failOpen : true;
   const debug = !!options.debug;
 

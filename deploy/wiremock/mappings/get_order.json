@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/v1/orders/.*"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": "order_mock_wm_01",
+      "entity": "order",
+      "amount": 399900,
+      "amount_paid": 399900,
+      "amount_due": 0,
+      "currency": "INR",
+      "status": "paid",
+      "attempts": 1
+    }
+  }
+}

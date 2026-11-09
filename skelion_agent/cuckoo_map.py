@@ -16,7 +16,7 @@ class EpochManager:
         self._global_epoch = 0
         self._thread_epochs: List[int] = [0] * num_threads
         self._retired_lists: List[List[Tuple[Any, Any]]] = [[] for _ in range(3)]
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def enter(self, thread_idx: int) -> int:
         with self._lock:
@@ -85,7 +85,7 @@ class EpollCuckooHashMap:
         self.table2 = [CuckooBucket() for _ in range(self.capacity)]
         self.size = 0
 
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._epoch_manager = EpochManager()
 
         # Set up epoll for notification events if supported by OS
@@ -114,22 +114,41 @@ class EpollCuckooHashMap:
     def get(self, key: Any, thread_idx: int = 0) -> Optional[Any]:
         ep = self._epoch_manager.enter(thread_idx)
         try:
-            h1 = self._hash1(key)
-            b1 = self.table1[h1]
-            if not b1.tombstone and b1.key == key:
-                return b1.value
+            with self._lock:
+                h1 = self._hash1(key)
+                b1 = self.table1[h1]
+                if not b1.tombstone and b1.key == key:
+                    return b1.value
 
-            h2 = self._hash2(key)
-            b2 = self.table2[h2]
-            if not b2.tombstone and b2.key == key:
-                return b2.value
+                h2 = self._hash2(key)
+                b2 = self.table2[h2]
+                if not b2.tombstone and b2.key == key:
+                    return b2.value
 
-            return None
+                return None
         finally:
             self._epoch_manager.leave(thread_idx)
 
     def put(self, key: Any, value: Any) -> bool:
         with self._lock:
+            # 1. Update existing key in-place if already present
+            h1 = self._hash1(key)
+            b1 = self.table1[h1]
+            if not b1.tombstone and b1.key == key:
+                b1.value = value
+                b1.version += 1
+                self._notify_event()
+                return True
+
+            h2 = self._hash2(key)
+            b2 = self.table2[h2]
+            if not b2.tombstone and b2.key == key:
+                b2.value = value
+                b2.version += 1
+                self._notify_event()
+                return True
+
+            # 2. Check load factor for new key insertion
             if (self.size + 1) / (2 * self.capacity) > self.load_factor:
                 self._resize()
 
@@ -140,7 +159,7 @@ class EpollCuckooHashMap:
                 # Try table 1
                 h1 = self._hash1(curr_key)
                 b1 = self.table1[h1]
-                if b1.key is None or b1.tombstone or b1.key == curr_key:
+                if b1.key is None or b1.tombstone:
                     b1.key = curr_key
                     b1.value = curr_val
                     b1.hash = h1
@@ -161,7 +180,7 @@ class EpollCuckooHashMap:
                 # Try table 2
                 h2 = self._hash2(curr_key)
                 b2 = self.table2[h2]
-                if b2.key is None or b2.tombstone or b2.key == curr_key:
+                if b2.key is None or b2.tombstone:
                     b2.key = curr_key
                     b2.value = curr_val
                     b2.hash = h2

@@ -53,10 +53,12 @@ class EpollBulkheadMesh:
         self._queue_counts: Dict[str, int] = {}
         self._pool_configs: Dict[str, BulkheadConfig] = {}
 
-        # Epoll and non-blocking socket pairs for event notification
-        self._epoll = select.epoll()
+        # Epoll and non-blocking socket pairs for event notification with cross-platform fallback
+        self._has_epoll = hasattr(select, "epoll")
+        self._epoll = select.epoll() if self._has_epoll else None
         self._wake_sockets: Dict[str, socket.socket] = {}
         self._listener_sockets: Dict[str, socket.socket] = {}
+        self._client_sockets: Dict[str, socket.socket] = {}
 
         # Leader election state
         self._leaders: Dict[str, str] = {}
@@ -89,9 +91,11 @@ class EpollBulkheadMesh:
                 conn.setblocking(False)
 
                 self._listener_sockets[resource_pool] = server_sock
+                self._client_sockets[resource_pool] = client_sock
                 self._wake_sockets[resource_pool] = conn
 
-                self._epoll.register(conn.fileno(), select.EPOLLIN)
+                if self._has_epoll and self._epoll:
+                    self._epoll.register(conn.fileno(), select.EPOLLIN)
 
     def acquire(self, resource_pool: str, timeout: Optional[float] = None) -> bool:
         with self._lock:
@@ -122,14 +126,26 @@ class EpollBulkheadMesh:
 
                 self._lock.release()
                 try:
-                    events = self._epoll.poll(timeout=remaining)
-                    for fileno, _ in events:
-                        for pool, sock in self._wake_sockets.items():
-                            if sock.fileno() == fileno:
+                    if self._has_epoll and self._epoll:
+                        events = self._epoll.poll(timeout=remaining)
+                        for fileno, _ in events:
+                            for pool, sock in self._wake_sockets.items():
+                                if sock.fileno() == fileno:
+                                    try:
+                                        sock.recv(1024)
+                                    except BlockingIOError:
+                                        pass
+                    else:
+                        r_list = list(self._wake_sockets.values())
+                        if r_list:
+                            readable, _, _ = select.select(r_list, [], [], max(0.0, remaining))
+                            for s in readable:
                                 try:
-                                    sock.recv(1024)
-                                except BlockingIOError:
+                                    s.recv(1024)
+                                except (BlockingIOError, OSError):
                                     pass
+                        else:
+                            time.sleep(min(max(0.0, remaining), 0.05))
                 finally:
                     self._lock.acquire()
 
@@ -143,10 +159,16 @@ class EpollBulkheadMesh:
             if active > 0:
                 self._active_counts[resource_pool] = active - 1
 
-            if resource_pool in self._wake_sockets:
+            # Wake up waiters waiting on self._wake_sockets by sending byte from client_socket
+            if resource_pool in self._client_sockets:
+                try:
+                    self._client_sockets[resource_pool].send(b"x")
+                except (BlockingIOError, BrokenPipeError, ConnectionError, OSError):
+                    pass
+            elif resource_pool in self._wake_sockets:
                 try:
                     self._wake_sockets[resource_pool].send(b"x")
-                except (BlockingIOError, BrokenPipeError):
+                except (BlockingIOError, BrokenPipeError, ConnectionError, OSError):
                     pass
 
     def lease(self, resource_pool: str) -> BulkheadLease:
@@ -184,7 +206,13 @@ class EpollBulkheadMesh:
         with self._lock:
             for pool, sock in self._wake_sockets.items():
                 try:
-                    self._epoll.unregister(sock.fileno())
+                    if self._has_epoll and self._epoll:
+                        self._epoll.unregister(sock.fileno())
+                    sock.close()
+                except Exception:
+                    pass
+            for pool, sock in self._client_sockets.items():
+                try:
                     sock.close()
                 except Exception:
                     pass
@@ -193,7 +221,8 @@ class EpollBulkheadMesh:
                     sock.close()
                 except Exception:
                     pass
-            try:
-                self._epoll.close()
-            except Exception:
-                pass
+            if self._has_epoll and self._epoll:
+                try:
+                    self._epoll.close()
+                except Exception:
+                    pass

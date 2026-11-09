@@ -40,16 +40,20 @@ class EpollCuckooHashTable:
         self.max_evictions = max_evictions
         self.stash_limit = stash_limit
         self.mask = self.capacity - 1
+        self._total_slots = self.capacity * 2
 
         # Allocate mmap-backed memory region for zero-copy and shared architecture alignment
-        self._mmap_size = self.capacity * ctypes.sizeof(CuckooBucket)
-        self._mmap_buf = mmap.mmap(
-            -1, self._mmap_size, flags=mmap.MAP_SHARED | mmap.MAP_ANONYMOUS
-        )
+        self._mmap_size = self._total_slots * ctypes.sizeof(CuckooBucket)
+        if hasattr(mmap, "MAP_SHARED") and hasattr(mmap, "MAP_ANONYMOUS"):
+            self._mmap_buf = mmap.mmap(
+                -1, self._mmap_size, flags=mmap.MAP_SHARED | mmap.MAP_ANONYMOUS
+            )
+        else:
+            self._mmap_buf = mmap.mmap(-1, self._mmap_size)
 
-        # Initialize bucket views
-        self.buckets = (CuckooBucket * self.capacity).from_buffer(self._mmap_buf)
-        for i in range(self.capacity):
+        # Initialize bucket views for Table 1 (0..capacity-1) and Table 2 (capacity..2*capacity-1)
+        self.buckets = (CuckooBucket * self._total_slots).from_buffer(self._mmap_buf)
+        for i in range(self._total_slots):
             self.buckets[i].hash1 = 0
             self.buckets[i].hash2 = 0
             self.buckets[i].active = 0
@@ -64,13 +68,26 @@ class EpollCuckooHashTable:
         self._lock = threading.Lock()
         self._rw_lock = threading.RLock()
 
-        # Epoll notification pipe / event loop descriptors
-        self._read_pipe, self._write_pipe = os.pipe()
-        os.set_nonblocking(self._read_pipe)
-        os.set_nonblocking(self._write_pipe)
-
-        self._epoll = select.epoll()
-        self._epoll.register(self._read_pipe, select.EPOLLIN | select.EPOLLET)
+        # Epoll notification pipe / event loop descriptors with Windows fallback
+        self._has_epoll = hasattr(select, "epoll")
+        if self._has_epoll:
+            try:
+                self._read_pipe, self._write_pipe = os.pipe()
+                os.set_nonblocking(self._read_pipe)
+                os.set_nonblocking(self._write_pipe)
+                self._epoll = select.epoll()
+                self._epoll.register(self._read_pipe, select.EPOLLIN | select.EPOLLET)
+            except Exception:
+                self._has_epoll = False
+                self._epoll = None
+                self._read_pipe = None
+                self._write_pipe = None
+                self._event = threading.Event()
+        else:
+            self._epoll = None
+            self._read_pipe = None
+            self._write_pipe = None
+            self._event = threading.Event()
 
     def _next_power_of_2(self, x: int) -> int:
         return 1 if x <= 1 else 1 << (x - 1).bit_length()
@@ -91,53 +108,72 @@ class EpollCuckooHashTable:
         return h | 1  # Ensure non-zero
 
     def _notify_epoll(self) -> None:
-        try:
-            os.write(self._write_pipe, b"W")
-        except (BlockingIOError, OSError):
-            pass
+        if self._has_epoll and self._write_pipe is not None:
+            try:
+                os.write(self._write_pipe, b"W")
+            except (BlockingIOError, OSError):
+                pass
+        elif hasattr(self, "_event"):
+            self._event.set()
 
     def poll_events(self, timeout: float = 0.0) -> bool:
-        """Poll epoll descriptor for table mutation notifications (non-blocking)."""
-        events = self._epoll.poll(timeout)
-        triggered = False
-        for fd, ev in events:
-            if fd == self._read_pipe:
-                triggered = True
-                try:
-                    while True:
-                        os.read(self._read_pipe, 1024)
-                except (BlockingIOError, OSError):
-                    pass
-        return triggered
+        """Poll epoll descriptor or event for table mutation notifications (non-blocking)."""
+        if self._has_epoll and self._epoll is not None and self._read_pipe is not None:
+            events = self._epoll.poll(timeout)
+            triggered = False
+            for fd, ev in events:
+                if fd == self._read_pipe:
+                    triggered = True
+                    try:
+                        while True:
+                            os.read(self._read_pipe, 1024)
+                    except (BlockingIOError, OSError):
+                        pass
+            return triggered
+        elif hasattr(self, "_event"):
+            triggered = self._event.wait(timeout=max(0.0, timeout))
+            if triggered:
+                self._event.clear()
+            return triggered
+        return False
 
     def get(self, key: str) -> Optional[Any]:
-        h1 = self._hash1(key)
-        h2 = self._hash2(key)
-        idx1 = h1 & self.mask
-        idx2 = h2 & self.mask
+        with self._rw_lock:
+            h1 = self._hash1(key)
+            h2 = self._hash2(key)
+            idx1 = h1 & self.mask
+            idx2 = h2 & self.mask
 
-        # Check primary bucket 1
-        b1 = self.buckets[idx1]
-        if b1.active and b1.hash1 == h1:
-            val = self._storage.get(f"b1_{idx1}")
-            if val is not None:
-                return val
+            # Check primary bucket 1
+            b1 = self.buckets[idx1]
+            if (
+                b1.active
+                and b1.hash1 == h1
+                and self._storage.get(f"b1_{idx1}_key") == key
+            ):
+                val = self._storage.get(f"b1_{idx1}")
+                if val is not None:
+                    return val
 
-        # Check primary bucket 2
-        b2 = self.buckets[idx2]
-        if b2.active and b2.hash2 == h2:
-            val = self._storage.get(f"b2_{idx2}")
-            if val is not None:
-                return val
+            # Check primary bucket 2 (offset by capacity)
+            b2 = self.buckets[self.capacity + idx2]
+            if (
+                b2.active
+                and b2.hash2 == h2
+                and self._storage.get(f"b2_{idx2}_key") == key
+            ):
+                val = self._storage.get(f"b2_{idx2}")
+                if val is not None:
+                    return val
 
-        # Check overflow stash area
-        curr = self._stash_head
-        while curr is not None:
-            if curr.hash1 == h1 and curr.hash2 == h2 and curr.key == key:
-                return curr.value
-            curr = curr.next
+            # Check overflow stash area
+            curr = self._stash_head
+            while curr is not None:
+                if curr.key == key:
+                    return curr.value
+                curr = curr.next
 
-        return None
+            return None
 
     def put(self, key: str, value: str) -> bool:
         with self._rw_lock:
@@ -158,7 +194,7 @@ class EpollCuckooHashTable:
                 self._notify_epoll()
                 return True
 
-            b2 = self.buckets[idx2]
+            b2 = self.buckets[self.capacity + idx2]
             if (
                 b2.active
                 and b2.hash2 == h2
@@ -176,14 +212,14 @@ class EpollCuckooHashTable:
                     return True
                 curr = curr.next
 
-            # Cuckoo insertion loop with evictions
+            # Cuckoo insertion loop with alternating evictions
             curr_key = key
             curr_val = value
             curr_h1 = h1
             curr_h2 = h2
 
             for _ in range(self.max_evictions):
-                # Try bucket 1
+                # Try table 1
                 i1 = curr_h1 & self.mask
                 bucket1 = self.buckets[i1]
                 if not bucket1.active:
@@ -196,20 +232,7 @@ class EpollCuckooHashTable:
                     self._notify_epoll()
                     return True
 
-                # Try bucket 2
-                i2 = curr_h2 & self.mask
-                bucket2 = self.buckets[i2]
-                if not bucket2.active:
-                    bucket2.hash1 = curr_h1
-                    bucket2.hash2 = curr_h2
-                    bucket2.active = 1
-                    bucket2.generation += 1
-                    self._storage[f"b2_{i2}"] = curr_val
-                    self._storage[f"b2_{i2}_key"] = curr_key
-                    self._notify_epoll()
-                    return True
-
-                # Evict from bucket 1 and re-insert displaced entry
+                # Displace from table 1
                 evict_h1 = bucket1.hash1
                 evict_h2 = bucket1.hash2
                 evict_key = self._storage.get(f"b1_{i1}_key", "")
@@ -226,16 +249,43 @@ class EpollCuckooHashTable:
                 curr_h1 = evict_h1
                 curr_h2 = evict_h2
 
-            # If max evictions exceeded, push to overflow stash area
-            if self._stash_size < self.stash_limit:
-                new_node = CuckooStashNode(curr_key, curr_val, curr_h1, curr_h2)
-                new_node.next = self._stash_head
-                self._stash_head = new_node
-                self._stash_size += 1
-                self._notify_epoll()
-                return True
+                # Try table 2
+                i2 = curr_h2 & self.mask
+                bucket2 = self.buckets[self.capacity + i2]
+                if not bucket2.active:
+                    bucket2.hash1 = curr_h1
+                    bucket2.hash2 = curr_h2
+                    bucket2.active = 1
+                    bucket2.generation += 1
+                    self._storage[f"b2_{i2}"] = curr_val
+                    self._storage[f"b2_{i2}_key"] = curr_key
+                    self._notify_epoll()
+                    return True
 
-            return False
+                # Displace from table 2
+                evict_h1 = bucket2.hash1
+                evict_h2 = bucket2.hash2
+                evict_key = self._storage.get(f"b2_{i2}_key", "")
+                evict_val = self._storage.get(f"b2_{i2}", None)
+
+                bucket2.hash1 = curr_h1
+                bucket2.hash2 = curr_h2
+                bucket2.generation += 1
+                self._storage[f"b2_{i2}"] = curr_val
+                self._storage[f"b2_{i2}_key"] = curr_key
+
+                curr_key = evict_key
+                curr_val = evict_val
+                curr_h1 = evict_h1
+                curr_h2 = evict_h2
+
+            # If max evictions exceeded, push to overflow stash area
+            new_node = CuckooStashNode(curr_key, curr_val, curr_h1, curr_h2)
+            new_node.next = self._stash_head
+            self._stash_head = new_node
+            self._stash_size += 1
+            self._notify_epoll()
+            return True
 
     def delete(self, key: str) -> bool:
         with self._rw_lock:
@@ -257,7 +307,7 @@ class EpollCuckooHashTable:
                 self._notify_epoll()
                 return True
 
-            b2 = self.buckets[idx2]
+            b2 = self.buckets[self.capacity + idx2]
             if (
                 b2.active
                 and b2.hash2 == h2
@@ -288,16 +338,19 @@ class EpollCuckooHashTable:
             return False
 
     def close(self) -> None:
-        try:
-            self._epoll.unregister(self._read_pipe)
-            self._epoll.close()
-        except Exception:
-            pass
-        try:
-            os.close(self._read_pipe)
-            os.close(self._write_pipe)
-        except Exception:
-            pass
+        if self._has_epoll and self._epoll is not None and self._read_pipe is not None:
+            try:
+                self._epoll.unregister(self._read_pipe)
+                self._epoll.close()
+            except Exception:
+                pass
+            try:
+                os.close(self._read_pipe)
+                os.close(self._write_pipe)
+            except Exception:
+                pass
+        if hasattr(self, "_event"):
+            self._event.clear()
         try:
             self._mmap_buf.close()
         except Exception:

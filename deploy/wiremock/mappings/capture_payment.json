@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v1/payments/.*/capture"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": "pay_mock_wm_01",
+      "entity": "payment",
+      "amount": 399900,
+      "currency": "INR",
+      "status": "captured",
+      "order_id": "order_mock_wm_01"
+    }
+  }
+}

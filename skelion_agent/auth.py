@@ -2,7 +2,7 @@
 
 """Authentication utilities used by the FastAPI auth router.
 
-- Passwords are hashed with ``passlib``'s bcrypt scheme.
+- Passwords are hashed with native ``bcrypt`` scheme.
 - JWTs are signed using a secret key from the environment (``JWT_SECRET_KEY``).
 - The token expiry (in minutes) is also configurable via ``ACCESS_TOKEN_EXPIRE_MINUTES``.
 
@@ -16,19 +16,25 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 try:
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    import bcrypt
 
     def get_password_hash(password: str) -> str:
-        """Return a bcrypt hash for *password* using passlib."""
-        return pwd_context.hash(password)
+        """Return a bcrypt hash for *password* using native bcrypt."""
+        pwd_bytes = password.encode("utf-8")
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
 
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """Validate *plain_password* against *hashed_password* using passlib."""
-        return pwd_context.verify(plain_password, hashed_password)
+        """Validate *plain_password* against *hashed_password* using native bcrypt."""
+        try:
+            return bcrypt.checkpw(
+                plain_password.encode("utf-8"),
+                hashed_password.encode("utf-8"),
+            )
+        except Exception:
+            return False
 except ImportError:  # pragma: no cover
-    # Fallback using SHA-256 for environments without passlib (suitable for tests)
+    # Fallback using SHA-256 for environments without bcrypt (suitable for tests)
     import hashlib
 
     def get_password_hash(password: str) -> str:

@@ -7,7 +7,7 @@ from skelion_agent.control_plane import app
 HOST = os.getenv(
     "HOST", "0.0.0.0" if (os.getenv("PORT") or os.getenv("RENDER")) else "127.0.0.1"
 )
-PORT = int(os.getenv("PORT", os.getenv("SKELION_PORT", "8003")))
+PORT = int(os.getenv("PORT", os.getenv("SKELION_PORT", "8002")))
 
 
 def main():

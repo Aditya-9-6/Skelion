@@ -32,10 +32,13 @@ jobs:
       - name: Generate Skelion Diagnostic PR Card
         if: always()
         env:
+          PYTHONIOENCODING: utf-8
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           python -c "
           import sys, os
+          if hasattr(sys.stdout, 'reconfigure'):
+              sys.stdout.reconfigure(encoding='utf-8', errors='replace')
           sys.path.insert(0, '.')
           from skelion_agent.models import Incident
           from skelion_agent.pr_comment_bot import generate_pr_diagnostic_card

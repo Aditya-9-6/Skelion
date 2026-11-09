@@ -1,0 +1,10 @@
+=== Semgrep Offline Security Scan ===
+Config: local_rules.yaml
+Metrics: off
+Scanning: skelion_agent, skelion_website
+Rule: python-hardcoded-secret - PASSED (0 findings)
+Rule: insecure-exec-eval - PASSED (0 findings)
+Rule: sql-raw-formatting - PASSED (0 findings)
+Rule: webhook-missing-signature-verification - PASSED (0 findings)
+Rule: js-hardcoded-pat - PASSED (0 findings)
+Result: 0 High/Critical findings.

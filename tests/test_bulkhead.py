@@ -54,3 +54,26 @@ def test_leader_election_heartbeat():
     assert mesh.get_leader(pool) == "node-2"
 
     mesh.close()
+
+
+def test_bulkhead_concurrent_wakeup_latency():
+    import threading
+
+    mesh = EpollBulkheadMesh(node_id="node-latency")
+    pool = "latency-pool"
+    mesh.register_pool(pool, BulkheadConfig(max_concurrent=1, acquire_timeout=1.0))
+    assert mesh.acquire(pool) is True
+
+    def delayed_release():
+        time.sleep(0.05)
+        mesh.release(pool)
+
+    t = threading.Thread(target=delayed_release)
+    t.start()
+    t0 = time.monotonic()
+    assert mesh.acquire(pool, timeout=1.0) is True
+    elapsed = time.monotonic() - t0
+    # Must wake up well before the 1.0s timeout expires
+    assert elapsed < 0.5
+    t.join()
+    mesh.close()

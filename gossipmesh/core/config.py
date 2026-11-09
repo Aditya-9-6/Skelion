@@ -42,9 +42,7 @@ class Settings(BaseSettings):
     )
 
     def parse_key_pool(self, raw: str) -> list[str]:
-        if not raw:
-            return []
-        return [k.strip() for k in raw.split(",") if k.strip()]
+        return parse_key_pool(raw)
 
     @property
     def DATABASE_URI(self) -> str:
@@ -66,8 +64,27 @@ KEY_COOLDOWN_SECONDS = settings.KEY_COOLDOWN_SECONDS
 MAX_KEY_RETRIES = settings.MAX_KEY_RETRIES
 
 
+def validate_key(key: str) -> bool:
+    """Validate that an API key is non-empty and meets minimal structural requirements."""
+    if not key or not isinstance(key, str):
+        return False
+    k = key.strip()
+    if not k or k.startswith("#"):
+        return False
+    # Check truncated Gemini/Google OAuth key starting with AQ.
+    if k.startswith("AQ.") and len(k) < 54:
+        return False
+    return True
+
+
 def parse_key_pool(pool_str: str) -> list[str]:
-    """Parses a comma-separated key pool string into a list of keys."""
+    """Parses a comma-separated key pool string into a list of valid keys."""
     if not pool_str:
         return []
-    return [k.strip() for k in pool_str.split(",") if k.strip()]
+    result: list[str] = []
+    for k in pool_str.split(","):
+        cleaned = k.strip()
+        if cleaned and validate_key(cleaned):
+            result.append(cleaned)
+    return result
+

@@ -15,7 +15,7 @@
     }
 
     # Proxy to FastAPI Control Plane
-    reverse_proxy skelion-control-plane:8003 {
+    reverse_proxy skelion-control-plane:8002 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}

@@ -14,6 +14,7 @@ from gossipmesh.core.config import (
     KEY_COOLDOWN_SECONDS,
     MAX_KEY_RETRIES,
     parse_key_pool,
+    validate_key,
 )
 
 
@@ -24,7 +25,7 @@ def _load_raw_keys() -> List[str]:
     def _append_keys(key_list: List[str]):
         for k in key_list:
             cleaned = k.strip()
-            if cleaned and cleaned not in keys:
+            if cleaned and validate_key(cleaned) and cleaned not in keys:
                 keys.append(cleaned)
 
     # 1. Primary Gemini environment pools
@@ -36,7 +37,7 @@ def _load_raw_keys() -> List[str]:
         "GEMINI_SOLVER_KEY",
     ):
         val = os.getenv(var, "").strip()
-        if val and val not in keys:
+        if val and validate_key(val) and val not in keys:
             keys.append(val)
 
     # 2. Multi-provider pools
@@ -70,7 +71,7 @@ def _load_raw_keys() -> List[str]:
             try:
                 for line in gemini_file.read_text(encoding="utf-8").splitlines():
                     line = line.strip()
-                    if line and not line.startswith("#") and line not in keys:
+                    if line and not line.startswith("#") and validate_key(line) and line not in keys:
                         keys.append(line)
             except Exception:
                 pass
@@ -85,9 +86,9 @@ def _load_raw_keys() -> List[str]:
                         if "=" in line:
                             _, val = line.split("=", 1)
                             val = val.strip()
-                            if val and val not in keys:
+                            if val and validate_key(val) and val not in keys:
                                 keys.append(val)
-                        elif line not in keys:
+                        elif validate_key(line) and line not in keys:
                             keys.append(line)
             except Exception:
                 pass

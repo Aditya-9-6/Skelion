@@ -1,0 +1,45 @@
+rules:
+  - id: python-hardcoded-secret
+    pattern-regex: '(?i)(secret_key|api_key|password|jwt_secret)\s*=\s*["''][a-zA-Z0-9_\-]{16,}["'']'
+    message: "Potential hardcoded secret found in source code. Use environment variables instead."
+    languages: [python]
+    severity: ERROR
+
+  - id: insecure-exec-eval
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+    message: "Arbitrary code execution via eval/exec detected."
+    languages: [python]
+    severity: ERROR
+
+  - id: sql-raw-formatting
+    patterns:
+      - pattern-either:
+          - pattern: session.exec(f"...")
+          - pattern: session.execute(f"...")
+    message: "Potential SQL injection through f-string formatting in database query."
+    languages: [python]
+    severity: ERROR
+
+  - id: webhook-missing-signature-verification
+    pattern: |
+      def $FUNC(..., request: Request, ...):
+          ...
+          payload = await request.body()
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          verify_signature(...)
+          ...
+    message: "Webhook handler without HMAC signature verification detected."
+    languages: [python]
+    severity: WARNING
+
+  - id: js-hardcoded-pat
+    pattern-regex: '(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})'
+    message: "GitHub Personal Access Token hardcoded in frontend file."
+    languages: [javascript, typescript]
+    severity: ERROR

@@ -19,7 +19,7 @@ class EpollTelemetryLoop:
         self.port = port
         self._running = False
         self._server_socket: Optional[socket.socket] = None
-        self._epoll: Optional[select.epoll] = None
+        self._epoll: Optional[Any] = None
         self._thread: Optional[threading.Thread] = None
         self._connections: Dict[int, socket.socket] = {}
 
@@ -31,46 +31,77 @@ class EpollTelemetryLoop:
             self._server_socket.listen(128)
             self._server_socket.setblocking(False)
 
-            self._epoll = select.epoll()
-            self._epoll.register(self._server_socket.fileno(), select.EPOLLIN)
-            self._running = True
+            if hasattr(select, "epoll"):
+                self._epoll = select.epoll()
+                self._epoll.register(self._server_socket.fileno(), select.EPOLLIN)
+            else:
+                self._epoll = None
 
+            self._running = True
             self._thread = threading.Thread(target=self._loop_target, daemon=True)
             self._thread.start()
-        except (AttributeError, OSError):
-            # Fallback if epoll is not supported on non-Linux platforms (e.g., macOS / Windows)
+        except OSError:
             self._running = True
 
     def _loop_target(self) -> None:
-        while self._running and self._epoll and self._server_socket:
+        while self._running and self._server_socket:
             try:
-                events = self._epoll.poll(0.1)
-                for fileno, event in events:
-                    if fileno == self._server_socket.fileno():
-                        conn, addr = self._server_socket.accept()
-                        conn.setblocking(False)
-                        self._epoll.register(
-                            conn.fileno(), select.EPOLLIN | select.EPOLLET
-                        )
-                        self._connections[conn.fileno()] = conn
-                    elif event & select.EPOLLIN:
-                        conn = self._connections.get(fileno)
-                        if conn:
-                            data = conn.recv(1024)
+                if self._epoll is not None:
+                    events = self._epoll.poll(0.1)
+                    for fileno, event in events:
+                        if fileno == self._server_socket.fileno():
+                            conn, addr = self._server_socket.accept()
+                            conn.setblocking(False)
+                            self._epoll.register(
+                                conn.fileno(), getattr(select, "EPOLLIN", 1) | getattr(select, "EPOLLET", 0)
+                            )
+                            self._connections[conn.fileno()] = conn
+                        elif event & getattr(select, "EPOLLIN", 1):
+                            conn = self._connections.get(fileno)
+                            if conn:
+                                data = conn.recv(1024)
+                                if data:
+                                    self.pid_limiter.update(
+                                        current_latency=0.02,
+                                        queue_depth=len(self._connections),
+                                        dropped=False,
+                                    )
+                                    conn.sendall(b"ACK\n")
+                                else:
+                                    self._epoll.unregister(fileno)
+                                    conn.close()
+                                    del self._connections[fileno]
+                else:
+                    # Windows select.select fallback
+                    r_list = [self._server_socket] + list(self._connections.values())
+                    readable, _, _ = select.select(r_list, [], [], 0.1)
+                    for sock in readable:
+                        if sock == self._server_socket:
+                            conn, addr = self._server_socket.accept()
+                            conn.setblocking(False)
+                            self._connections[conn.fileno()] = conn
+                        else:
+                            try:
+                                data = sock.recv(1024)
+                            except (ConnectionResetError, ConnectionError, OSError):
+                                data = None
                             if data:
-                                start_t = time.monotonic()
-                                # Process telemetry packet and update PID
                                 self.pid_limiter.update(
                                     current_latency=0.02,
                                     queue_depth=len(self._connections),
                                     dropped=False,
                                 )
-                                conn.sendall(b"ACK\n")
-                                latency = time.monotonic() - start_t
+                                try:
+                                    sock.sendall(b"ACK\n")
+                                except (ConnectionResetError, ConnectionError, OSError):
+                                    pass
                             else:
-                                self._epoll.unregister(fileno)
-                                conn.close()
-                                del self._connections[fileno]
+                                fd = sock.fileno()
+                                try:
+                                    sock.close()
+                                except Exception:
+                                    pass
+                                self._connections.pop(fd, None)
             except Exception:
                 pass
 

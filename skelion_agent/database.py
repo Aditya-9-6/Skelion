@@ -55,6 +55,16 @@ def get_db() -> Generator[Session, None, None]:
         yield session
 
 
-def init_db() -> None:
-    """Create all tables defined in the models module."""
-    SQLModel.metadata.create_all(engine)
+def init_db(target_engine: Engine | None = None) -> None:
+    """Create all tables defined in the models module and ensure SQLite column consistency."""
+    eng = target_engine or engine
+    SQLModel.metadata.create_all(eng)
+    if eng.dialect.name == "sqlite":
+        try:
+            from pathlib import Path
+            from skelion_agent.migrate_billing import ensure_columns
+            db_file = eng.url.database
+            if db_file:
+                ensure_columns(Path(db_file))
+        except Exception:
+            pass

@@ -1,0 +1,23 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v1/orders"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": "order_mock_wm_01",
+      "entity": "order",
+      "amount": 399900,
+      "amount_paid": 0,
+      "amount_due": 399900,
+      "currency": "INR",
+      "receipt": "rcpt_mock_wm_01",
+      "status": "created",
+      "attempts": 0
+    }
+  }
+}

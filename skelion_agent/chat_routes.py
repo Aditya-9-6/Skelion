@@ -21,6 +21,7 @@ from skelion_agent.limits_service import (
     get_token_status,
     deduct_coding_tokens,
     deduct_autofix_tokens,
+    track_request,
 )
 
 router = APIRouter(prefix="/v1", tags=["Chat & Agent Gateway"])
@@ -608,9 +609,9 @@ async def generate_smart_ai_response(
             "  skelion-control-plane:\n"
             "    build: .\n"
             "    ports:\n"
-            "      - '8003:8003'\n"
+            "      - '8002:8002'\n"
             "    environment:\n"
-            "      - PORT=8003\n"
+            "      - PORT=8002\n"
             "      - ENVIRONMENT=production\n"
             "    restart: always\n\n"
             "  spryzen-waf:\n"
@@ -690,9 +691,9 @@ async def generate_smart_ai_response(
     )
 
     # 1. Multi-Key Free Pool: Google Gemini
-    raw_gemini_keys = os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY")
+    raw_gemini_keys = os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_KEY_POOL")
     if raw_gemini_keys:
-        gemini_pool = [k.strip() for k in raw_gemini_keys.split(",") if k.strip()]
+        gemini_pool = [k.strip() for k in raw_gemini_keys.split(",") if k.strip() and not (k.strip().startswith("AQ.") and len(k.strip()) < 54)]
         random.shuffle(gemini_pool)
         gemini_contents = []
         for hm in history_messages:
@@ -926,7 +927,7 @@ async def generate_smart_ai_response(
     if is_greeting:
         return (
             f"Hey {user_name}! 👋 I'm **Skelion Agent** — your autonomous DevOps & incident self-healing copilot.\n\n"
-            f"I'm connected to your local control plane on `http://127.0.0.1:8003` with Spryzen Ingress WAF and Fail-Open DevProxy active.\n\n"
+            f"I'm connected to your local control plane on `http://127.0.0.1:8002` with Spryzen Ingress WAF and Fail-Open DevProxy active.\n\n"
             f"Here is what I can do for you right now:\n"
             f"- ⚡ **Execute Plans**: Tell me *'Proceed and implement this plan'* to generate and write production files directly to your workspace.\n"
             f"- 🤖 **GitHub PR Bot**: Tell me *'Make PR'* to trigger automated PR creation with replay verification.\n"
@@ -1084,3 +1085,10 @@ async def chat_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/limits/telemetry")
+async def get_limits_telemetry(org: Organization = Depends(get_org_from_jwt)):
+    """Return customer request telemetry, quota status, and Antigravity token limits."""
+    return get_token_status(org)
+

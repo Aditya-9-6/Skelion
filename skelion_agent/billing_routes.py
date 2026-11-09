@@ -23,8 +23,10 @@ from skelion_agent.models import (
     TransactionRecord,
     PaymentOrder,
     Payment,
+    Refund,
     WebhookEvent,
     Invoice,
+    Alert,
     utc_now,
 )
 from skelion_agent.plan_config import PLAN_DEFINITIONS
@@ -393,8 +395,8 @@ async def webhook(request: Request):
             )
         ).first()
 
-        if existing_event and existing_event.status == "processed":
-            return {"status": "ignored", "reason": "duplicate_event_already_processed"}
+        if existing_event and existing_event.status in ("processed", "duplicate"):
+            return {"status": "duplicate", "reason": "duplicate_event_already_processed"}
 
         # Parse JSON payload
         data = json.loads(raw_payload.decode("utf-8"))
@@ -408,7 +410,54 @@ async def webhook(request: Request):
             status="received",
         )
         db.add(whe)
-        db.commit()
+
+        if event_type == "payment.refunded":
+            ref_ent = data.get("payload", {}).get("refund", {}).get("entity", {})
+            provider_refund_id = ref_ent.get("id", f"rfnd_{uuid.uuid4().hex[:10]}")
+            pay_id = ref_ent.get("payment_id", f"pay_unseen_{uuid.uuid4().hex[:10]}")
+            rfnd_amt = ref_ent.get("amount", 0)
+            rfnd_status = ref_ent.get("status", "processed")
+            rfnd_reason = ref_ent.get("notes", {}).get("reason", "refund")
+
+            pay_record = db.exec(
+                select(Payment).where(
+                    (Payment.id == pay_id) | (Payment.provider_payment_id == pay_id)
+                )
+            ).first()
+            if not pay_record:
+                dummy_order = db.get(PaymentOrder, "po_refund_unseen")
+                if not dummy_order:
+                    dummy_order = PaymentOrder(
+                        id="po_refund_unseen",
+                        org_id="org_refund_unseen",
+                        status="refunded",
+                    )
+                    db.add(dummy_order)
+                    db.commit()
+                pay_record = Payment(
+                    id=pay_id,
+                    payment_order_id="po_refund_unseen",
+                    provider_payment_id=pay_id,
+                    amount_paise=rfnd_amt,
+                    status="refunded",
+                )
+                db.add(pay_record)
+                db.commit()
+
+            refund = Refund(
+                id=f"ref_{uuid.uuid4().hex[:10]}",
+                payment_id=pay_record.id,
+                provider_refund_id=provider_refund_id,
+                amount_paise=rfnd_amt,
+                status=rfnd_status,
+                reason=rfnd_reason,
+            )
+            db.add(refund)
+            whe.status = "processed"
+            whe.processed_at = utc_now()
+            db.add(whe)
+            db.commit()
+            return {"status": "processed", "event_id": event_id, "refund_id": refund.id}
 
         if event_type not in ("payment.captured", "order.paid", "subscription.charged"):
             whe.status = "ignored"
@@ -431,6 +480,23 @@ async def webhook(request: Request):
             if provider_order_id
             else None
         )
+
+        if order and order.status == "paid":
+            return {"status": "duplicate", "reason": "order_already_paid"}
+
+        if order:
+            if order.amount_paise != amount_paid:
+                whe.status = "flagged"
+                whe.error = f"Payment amount mismatch: expected {order.amount_paise}, got {amount_paid}"
+                alert = Alert(
+                    org_id=order.org_id,
+                    alert_type="amount_mismatch",
+                    message=f"Payment amount mismatch for order {order.id}: expected {order.amount_paise}, got {amount_paid}",
+                )
+                db.add(alert)
+                db.add(whe)
+                db.commit()
+                return {"status": "flagged", "reason": "amount_mismatch"}
 
         if order and order.status != "paid":
             order.status = "paid"

@@ -24,7 +24,7 @@ class SkelionMiddleware(BaseHTTPMiddleware):
         self,
         app,
         api_key: Optional[str] = None,
-        endpoint: str = "http://127.0.0.1:8003",
+        endpoint: str = "http://127.0.0.1:8002",
         fail_open: bool = True,
         debug: bool = False,
     ):
