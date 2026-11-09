@@ -439,3 +439,84 @@ def test_bounded_queue_at_three_open_issues(tmp_path):
             assert res["open_backlog_count"] == 3
 
 
+def test_full_autonomous_loop_issue_to_pr_lifecycle(tmp_path):
+    # Setup test organization with token allowance
+    engine_db = get_engine()
+    test_org_id = "test_lifecycle_org_1"
+    with Session(engine_db) as db:
+        org = db.get(Organization, test_org_id)
+        if not org:
+            org = Organization(
+                id=test_org_id,
+                name="Lifecycle Org",
+                token="skl_live_lifecycle_token",
+                plan="pro",
+                autofix_tokens_total=10000,
+                autofix_tokens_used=1000,
+            )
+            db.add(org)
+        else:
+            org.autofix_tokens_total = 10000
+            org.autofix_tokens_used = 1000
+            db.add(org)
+        db.commit()
+
+    # 1. Setup workspace with real plan file
+    plan_file = tmp_path / "ROADMAP.md"
+    plan_file.write_text(
+        """# Roadmap
+## Task 1 — Implement Distributed Token Bucket
+`skelion_agent/core/limiter.py`
+Implement thread-safe rate limiter.
+""",
+        encoding="utf-8",
+    )
+
+    loop_engine = AutonomousLoopEngine(workspace_root=tmp_path, default_repo="client-org/app")
+
+    # Step 1: Scan plans
+    with patch("skelion_agent.autonomous_engine.run_cmd") as mock_run:
+        mock_run.return_value = (0, "[]", "")
+        tasks = loop_engine.scan_repo_for_plan_tasks()
+        assert len(tasks) == 1
+        assert tasks[0]["task_number"] == 1
+
+    # Step 2: Generate Issue
+    with patch("skelion_agent.autonomous_engine.run_cmd") as mock_run:
+        mock_run.return_value = (0, "https://github.com/client-org/app/issues/42", "")
+        issue = loop_engine.generate_advancement_issue()
+        assert issue is not None
+        assert issue["issue_number"] == 42
+        assert "awaiting_acceptance" in issue["status"]
+
+    # Step 3 & 4: Maintainer comments 'accept', single cycle runs, solves issue, and opens PR
+    mock_gh_issue_list = json.dumps([{"number": 42, "title": "feat(plan): Task 1 — Implement Distributed Token Bucket"}])
+    mock_pr_result = {
+        "pr_number": 88,
+        "pr_url": "https://github.com/client-org/app/pull/88",
+        "branch": "skelion/solve-issue-42",
+        "issue_number": 42,
+    }
+
+    with patch("skelion_agent.autonomous_engine.run_cmd") as mock_run:
+        mock_run.return_value = (0, mock_gh_issue_list, "")
+        with patch.object(
+            loop_engine,
+            "check_issue_accepted",
+            return_value=(True, "MaintainerDev", "skelion_agent/core/limiter.py"),
+        ):
+            with patch.object(loop_engine, "solve_issue_and_create_pr", return_value=mock_pr_result):
+                with patch.object(loop_engine, "monitor_and_auto_merge_pr", return_value={"status": "monitoring"}):
+                    cycle_res = loop_engine.run_single_cycle(org_id=test_org_id)
+                    assert cycle_res["status"] == "completed"
+                    assert cycle_res["issue_number"] == 42
+                    assert cycle_res["pr"]["pr_number"] == 88
+                    assert cycle_res["pr"]["branch"] == "skelion/solve-issue-42"
+
+    # Step 5: Verify tokens were debited in database
+    with Session(engine_db) as db:
+        updated_org = db.get(Organization, test_org_id)
+        assert updated_org.autofix_tokens_used == 1250  # 1000 + 250
+
+
+
