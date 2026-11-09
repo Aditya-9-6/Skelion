@@ -1092,3 +1092,14 @@ Closes #{issue_number}
 
 # Singleton engine instance
 autonomous_engine = AutonomousLoopEngine()
+
+
+def check_issue_accepted_by_comment(
+    issue_num: int | str,
+    repo: Optional[str] = None,
+    workspace: Optional[Path] = None,
+) -> Tuple[bool, Optional[str]]:
+    """Module-level helper to check if an issue is accepted by maintainer comment."""
+    engine = AutonomousLoopEngine(workspace_root=workspace, default_repo=repo or "Aditya-9-6/Skelion")
+    is_acc, user, _ = engine.check_issue_accepted(int(issue_num))
+    return is_acc, user
