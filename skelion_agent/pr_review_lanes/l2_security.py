@@ -41,8 +41,10 @@ SECRET_PATTERNS = [
     ("JWT_TOKEN", re.compile(r"\beyJ[A-Za-z0-9-_]+\.eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\b"), "[REDACTED_JWT]"),
     # Private Key Headers
     ("PRIVATE_KEY", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[^-]+-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", re.DOTALL), "[REDACTED_PRIVATE_KEY]"),
+    # AWS Secret Access Key
+    ("AWS_SECRET_KEY", re.compile(r"""(?i)(?:aws_secret(?:_access)?_key|aws_secret)\s*[:=]\s*['"]([A-Za-z0-9/+=]{30,50})['"]"""), "[REDACTED_AWS_SECRET_KEY]"),
     # Generic Assignment Secrets: api_key = "..."
-    ("ASSIGNED_SECRET", re.compile(r"""(?i)(?:secret_key|api_key|password|jwt_secret|auth_token)\s*=\s*['"]([a-zA-Z0-9_\-\.]{16,})['"]"""), "[REDACTED_GENERIC_SECRET]"),
+    ("ASSIGNED_SECRET", re.compile(r"""(?i)(?:secret_key|api_key|password|passwd|jwt_secret|auth_token|client_secret)\s*[:=]\s*['"]([a-zA-Z0-9_\-\.+/=]{16,})['"]"""), "[REDACTED_GENERIC_SECRET]"),
 ]
 
 
@@ -65,77 +67,56 @@ class SecretRedactor:
         """
         Detects secrets in text, masks them with safe placeholder tokens,
         and generates critical Finding instances for each detected secret.
-        Uses exact non-overlapping spans and right-to-left replacement.
         """
         if not text:
             return text, []
 
         findings: List[Finding] = []
-        matches: List[Tuple[int, int, str, str, str, int]] = []
+        redacted_text = text
 
         for sec_name, pattern, mask in SECRET_PATTERNS:
             for match in pattern.finditer(text):
-                if match.lastindex and match.lastindex >= 1:
-                    start, end = match.span(1)
-                    secret_val = match.group(1)
-                else:
-                    start, end = match.span(0)
-                    secret_val = match.group(0)
+                matched_str = match.group(0)
+                # If group 1 exists (e.g. for assigned secrets), extract secret part
+                secret_value = match.group(1) if match.lastindex and match.lastindex >= 1 else matched_str
 
-                line_offset = text[:start].count("\n")
+                # Calculate line number
+                line_offset = text[:match.start()].count("\n")
                 line_no = base_line + line_offset
-                matches.append((start, end, mask, sec_name, secret_val, line_no))
+                masked_snippet = f"{sec_name}: {mask}"
 
-        # Sort matches by start position ascending
-        matches.sort(key=lambda m: m[0])
+                f_path = file_path or "prompt/llm_context"
+                rule_id = f"GITLEAKS/{sec_name}"
+                sym = f"prompt:{sec_name}"
 
-        # Filter out overlapping matches (keep earlier match)
-        non_overlapping: List[Tuple[int, int, str, str, str, int]] = []
-        last_end = -1
-        for m in matches:
-            start, end = m[0], m[1]
-            if start >= last_end:
-                non_overlapping.append(m)
-                last_end = end
+                ev = Evidence(
+                    type="regex",
+                    description=f"Secret detected: {sec_name}. Redacted before LLM prompt transmission.",
+                    file_path=f_path,
+                    line_number=line_no,
+                    snippet=masked_snippet,
+                    metadata={"secret_type": sec_name},
+                )
 
-        # Build findings
-        for start, end, mask, sec_name, secret_val, line_no in non_overlapping:
-            masked_snippet = f"{sec_name}: {mask}"
-            f_path = file_path or "prompt/llm_context"
-            rule_id = f"GITLEAKS/{sec_name}"
-            sym = f"prompt:{sec_name}"
+                finding = Finding(
+                    rule_id=rule_id,
+                    category="security",
+                    severity="critical",
+                    title=f"Hardcoded Secret Detected ({sec_name})",
+                    message=f"Detected high-entropy credential ({sec_name}). Pre-prompt redaction automatically masked it.",
+                    file_path=f_path,
+                    line_number=line_no,
+                    code_snippet=masked_snippet,
+                    enclosing_symbol=sym,
+                    evidence=[ev],
+                    confidence=1.0,
+                    evidence_strength=1.0,
+                    fix_suggestion="Move credential to an environment variable or secure vault.",
+                )
+                findings.append(finding)
 
-            ev = Evidence(
-                type="regex",
-                description=f"Secret detected: {sec_name}. Redacted before LLM prompt transmission.",
-                file_path=f_path,
-                line_number=line_no,
-                snippet=masked_snippet,
-                metadata={"secret_type": sec_name},
-            )
-
-            finding = Finding(
-                rule_id=rule_id,
-                category="security",
-                severity="critical",
-                title=f"Hardcoded Secret Detected ({sec_name})",
-                message=f"Detected high-entropy credential ({sec_name}). Pre-prompt redaction automatically masked it.",
-                file_path=f_path,
-                line_number=line_no,
-                code_snippet=masked_snippet,
-                enclosing_symbol=sym,
-                evidence=[ev],
-                confidence=1.0,
-                evidence_strength=1.0,
-                fix_suggestion="Move credential to an environment variable or secure vault.",
-            )
-            findings.append(finding)
-
-        # Replace text slices right-to-left
-        redacted_chars = list(text)
-        for start, end, mask, _, _, _ in reversed(non_overlapping):
-            redacted_chars[start:end] = list(mask)
-        redacted_text = "".join(redacted_chars)
+                # Replace in redacted_text
+                redacted_text = redacted_text.replace(secret_value, mask)
 
         return redacted_text, findings
 
@@ -176,7 +157,7 @@ class L2SecurityLane(BaseLane):
         semgrep_path = shutil.which("semgrep")
         if semgrep_path:
             try:
-                proc = subprocess.run([semgrep_path, "--version"], capture_output=True, encoding="utf-8", errors="replace", timeout=5)
+                proc = subprocess.run([semgrep_path, "--version"], capture_output=True, text=True, timeout=5)
                 if proc.returncode == 0:
                     versions.append(f"semgrep {proc.stdout.strip()}")
             except Exception:
@@ -185,7 +166,7 @@ class L2SecurityLane(BaseLane):
         gitleaks_path = shutil.which("gitleaks")
         if gitleaks_path:
             try:
-                proc = subprocess.run([gitleaks_path, "version"], capture_output=True, encoding="utf-8", errors="replace", timeout=5)
+                proc = subprocess.run([gitleaks_path, "version"], capture_output=True, text=True, timeout=5)
                 if proc.returncode == 0:
                     versions.append(f"gitleaks {proc.stdout.strip()}")
             except Exception:
@@ -228,22 +209,6 @@ class L2SecurityLane(BaseLane):
     def _scan_secrets(self, repo_path: str, diff: Optional[str]) -> List[Finding]:
         findings: List[Finding] = []
 
-        # Try live Gitleaks CLI if available in environment
-        gitleaks_path = shutil.which("gitleaks")
-        if gitleaks_path:
-            try:
-                cmd = [gitleaks_path, "detect", "--no-git", f"--source={repo_path}", "--report-format=sarif", "--exit-code=0"]
-                proc = subprocess.run(cmd, cwd=repo_path, capture_output=True, encoding="utf-8", errors="replace", timeout=20)
-                if proc.stdout and "{" in proc.stdout:
-                    s_idx = proc.stdout.find("{")
-                    e_idx = proc.stdout.rfind("}")
-                    if s_idx != -1 and e_idx != -1 and e_idx > s_idx:
-                        sarif_f = SarifNormalizer.normalize(proc.stdout[s_idx:e_idx + 1], default_category="security", repo_path=repo_path)
-                        if sarif_f:
-                            return sarif_f
-            except Exception:
-                pass
-
         # Check diff directly if provided
         if diff is not None:
             diff_lines = DiffParser.parse(diff)
@@ -261,25 +226,9 @@ class L2SecurityLane(BaseLane):
                     except Exception:
                         pass
                 else:
-                    # Scan diff text specifically for added lines in this file
-                    curr_file = None
-                    curr_line = 0
-                    for d_line in diff.splitlines():
-                        if d_line.startswith("diff --git"):
-                            m = re.match(r"^diff --git a/(.*?) b/(.*?)$", d_line)
-                            if m:
-                                curr_file = normalize_path(m.group(2))
-                        elif d_line.startswith("@@"):
-                            m = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)", d_line)
-                            if m:
-                                curr_line = int(m.group(1))
-                        elif curr_file == normalize_path(fpath):
-                            if d_line.startswith("+") and not d_line.startswith("+++"):
-                                _, line_f = SecretRedactor.detect_and_redact(d_line[1:], file_path=fpath, base_line=curr_line)
-                                findings.extend(line_f)
-                                curr_line += 1
-                            elif not d_line.startswith("-"):
-                                curr_line += 1
+                    # Scan diff text directly
+                    _, diff_f = SecretRedactor.detect_and_redact(diff, file_path=fpath)
+                    findings.extend(diff_f)
             return findings
 
         # Scan workspace files
@@ -324,7 +273,7 @@ class L2SecurityLane(BaseLane):
                     f"--config={rules_file}",
                     repo_path,
                 ]
-                proc = subprocess.run(cmd, cwd=repo_path, capture_output=True, encoding="utf-8", errors="replace", timeout=30)
+                proc = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True, timeout=30)
                 if proc.stdout and proc.stdout.strip().startswith("{"):
                     sarif_findings = SarifNormalizer.normalize(
                         proc.stdout,

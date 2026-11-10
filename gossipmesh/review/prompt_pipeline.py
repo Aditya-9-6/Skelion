@@ -110,27 +110,49 @@ class PromptPipeline:
 
     @classmethod
     def sanitize_untrusted_text(cls, text: str) -> str:
-        """Sanitizes text by neutralizing delimiter injection tags and common prompt escape phrases."""
+        """Sanitizes text by neutralizing delimiter injection tags, zero-width characters, and system directives."""
         if not text:
             return ""
 
-        # Neutralize XML tag escapes
-        sanitized = text.replace(
-            "</untrusted_repository_content>", "&lt;/untrusted_repository_content&gt;"
-        )
-        sanitized = sanitized.replace(
-            "<untrusted_repository_content>", "&lt;untrusted_repository_content&gt;"
+        # Strip multi-byte zero-width characters used for evasion
+        sanitized = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", text)
+
+        # Neutralize XML tag escapes case-insensitively with flexible whitespace
+        sanitized = re.sub(
+            r"<\s*(/)?\s*untrusted_repository_content\s*>",
+            r"&lt;\1untrusted_repository_content&gt;",
+            sanitized,
+            flags=re.IGNORECASE,
         )
 
         # Neutralize markdown/comment injection attacks
-        # E.g. [SYSTEM INSTRUCTION] or <<<SYSTEM>>>
+        # E.g. [SYSTEM: ...], [SYSTEM INSTRUCTION: ...], [CRITICAL OVERRIDE: ...]
         sanitized = re.sub(
-            r"\[\s*SYSTEM(?:\s+PROMPT|\s+INSTRUCTION)?\s*\]",
+            r"\[\s*(?:SYSTEM|CRITICAL\s+OVERRIDE|ADMIN\s+OVERRIDE|OVERRIDE|INSTRUCTION)(?:\s+PROMPT|\s+INSTRUCTION)?(?:\s*:[^\]]*)?\s*\]",
             "[USER_SUBMITTED_TEXT: SYSTEM_INSTRUCTION_REDACTED]",
             sanitized,
             flags=re.IGNORECASE,
         )
+
+        # Neutralize angle-bracket directives (e.g. <<<SYSTEM>>> or <<SYS>>)
+        sanitized = re.sub(
+            r"<{2,3}\s*(?:SYSTEM|SYS)\s*>{2,3}",
+            "[USER_SUBMITTED_TEXT: SYSTEM_INSTRUCTION_REDACTED]",
+            sanitized,
+            flags=re.IGNORECASE,
+        )
+
+        # Neutralize Llama/Mistral instruction delimiters
+        sanitized = re.sub(
+            r"\[/?INST\]",
+            "[USER_SUBMITTED_TEXT: INSTRUCTION_TAG_REDACTED]",
+            sanitized,
+            flags=re.IGNORECASE,
+        )
+
         return sanitized
+
+    sanitize_untrusted_markdown = sanitize_untrusted_text
 
     def build_system_prompt(
         self, evidence_reqs: Optional[EvidenceRequirement] = None

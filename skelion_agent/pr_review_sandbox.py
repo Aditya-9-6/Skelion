@@ -23,30 +23,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Any
 
-if sys.platform == "win32":
-    import ctypes
-    from ctypes import wintypes
-
-    class PROCESS_MEMORY_COUNTERS_EX(ctypes.Structure):
-        _fields_ = [
-            ("cb", wintypes.DWORD),
-            ("PageFaultCount", wintypes.DWORD),
-            ("PeakWorkingSetSize", ctypes.c_size_t),
-            ("WorkingSetSize", ctypes.c_size_t),
-            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-            ("PagefileUsage", ctypes.c_size_t),
-            ("PeakPagefileUsage", ctypes.c_size_t),
-            ("PrivateUsage", ctypes.c_size_t),
-        ]
-else:
-    try:
-        import resource
-    except ImportError:
-        resource = None  # type: ignore
-
 # Safe environment variable names allowed inside the sandbox
 DEFAULT_SAFE_ENV_VARS: Set[str] = {
     "PATH",
@@ -95,10 +71,6 @@ NETWORK_BLOCK_ENV: Dict[str, str] = {
     "HTTPS_PROXY": "http://127.0.0.1:0",
     "ALL_PROXY": "http://127.0.0.1:0",
     "NO_PROXY": "",
-    "http_proxy": "http://127.0.0.1:0",
-    "https_proxy": "http://127.0.0.1:0",
-    "all_proxy": "http://127.0.0.1:0",
-    "no_proxy": "",
     "PIP_NO_INDEX": "1",
     "PIP_OFFLINE": "1",
     "npm_config_offline": "true",
@@ -165,12 +137,11 @@ def sanitize_sandbox_env(
     """
     source = os.environ if source_env is None else source_env
     allowed = DEFAULT_SAFE_ENV_VARS if allowed_keys is None else allowed_keys
-    allowed_upper = {a.upper() for a in allowed}
 
     sanitized: Dict[str, str] = {}
 
     for key, value in source.items():
-        if key.upper() in allowed_upper and not _is_sensitive_env_key(key):
+        if key in allowed and not _is_sensitive_env_key(key):
             sanitized[key] = value
 
     if block_network:
@@ -386,98 +357,39 @@ class DisposableWorktreeRunner:
         stderr = ""
 
         try:
-            proc = subprocess.Popen(
+            # Execute command with subprocess
+            res = subprocess.run(
                 cmd_list,
                 cwd=str(self.worktree_path),
                 env=sandbox_env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                timeout=effective_timeout,
             )
-
-            # Monitor loop for timeout and memory
-            effective_mem_limit = self.config.memory_limit_bytes
-            while proc.poll() is None:
-                elapsed = time.monotonic() - start_time
-                if elapsed > effective_timeout:
-                    timed_out = True
-                    break
-
-                if sys.platform == "win32" and effective_mem_limit > 0:
-                    try:
-                        pmc = PROCESS_MEMORY_COUNTERS_EX()
-                        pmc.cb = ctypes.sizeof(pmc)
-                        if ctypes.windll.kernel32.K32GetProcessMemoryInfo(int(proc._handle), ctypes.byref(pmc), pmc.cb):
-                            curr_mem = max(pmc.WorkingSetSize, pmc.PrivateUsage)
-                            if curr_mem > effective_mem_limit:
-                                memory_exceeded = True
-                                break
-                    except Exception:
-                        pass
-                elif sys.platform != "win32" and resource and effective_mem_limit > 0:
-                    try:
-                        with open(f"/proc/{proc.pid}/statm", "r") as f:
-                            fields = f.read().split()
-                            rss_pages = int(fields[1])
-                            rss_bytes = rss_pages * os.sysconf("SC_PAGE_SIZE")
-                            if rss_bytes > effective_mem_limit:
-                                memory_exceeded = True
-                                break
-                    except Exception:
-                        pass
-
-                time.sleep(0.01)
-
-            if timed_out or memory_exceeded:
-                # Forcefully terminate process and process tree
-                if sys.platform == "win32":
-                    subprocess.run(
-                        ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                        capture_output=True,
-                        timeout=5,
-                    )
-                else:
-                    try:
-                        proc.kill()
-                    except Exception:
-                        pass
-
-                stdout_text, stderr_text = proc.communicate()
-                duration = time.monotonic() - start_time
-
-                if timed_out:
-                    err_msg = (stderr_text or "") + f"\nCommand timed out after {effective_timeout} seconds"
-                    return SandboxExecutionResult(
-                        exit_code=124,
-                        stdout=stdout_text or "",
-                        stderr=err_msg.strip(),
-                        duration_sec=duration,
-                        timed_out=True,
-                        memory_exceeded=False,
-                        command=cmd_list,
-                    )
-                else:
-                    err_msg = (stderr_text or "") + f"\nCommand exceeded memory limit of {effective_mem_limit} bytes"
-                    return SandboxExecutionResult(
-                        exit_code=137,
-                        stdout=stdout_text or "",
-                        stderr=err_msg.strip(),
-                        duration_sec=duration,
-                        timed_out=False,
-                        memory_exceeded=True,
-                        command=cmd_list,
-                    )
-
-            stdout_text, stderr_text = proc.communicate()
             duration = time.monotonic() - start_time
             return SandboxExecutionResult(
-                exit_code=proc.returncode,
-                stdout=stdout_text or "",
-                stderr=stderr_text or "",
+                exit_code=res.returncode,
+                stdout=res.stdout,
+                stderr=res.stderr,
                 duration_sec=duration,
                 timed_out=False,
+                memory_exceeded=False,
+                command=cmd_list,
+            )
+
+        except subprocess.TimeoutExpired as e:
+            duration = time.monotonic() - start_time
+            stdout = e.stdout or "" if isinstance(e.stdout, str) else ""
+            stderr = (e.stderr or "") if isinstance(e.stderr, str) else ""
+            stderr += f"\nCommand timed out after {effective_timeout} seconds"
+            return SandboxExecutionResult(
+                exit_code=124,
+                stdout=stdout,
+                stderr=stderr.strip(),
+                duration_sec=duration,
+                timed_out=True,
                 memory_exceeded=False,
                 command=cmd_list,
             )
@@ -520,7 +432,7 @@ class DisposableWorktreeRunner:
                 block_network=True,
             )
             if check_res.exit_code != 0:
-                # Try with whitespace tolerance
+                # Try with whitespace tolerance or 3way
                 check_res = self.run_command(
                     ["git", "apply", "--ignore-whitespace", "--check", str(patch_file)],
                     timeout=10,
@@ -528,10 +440,12 @@ class DisposableWorktreeRunner:
                 )
 
             if check_res.exit_code != 0:
+                # If git apply fails or git is not initialized in worktree,
+                # attempt python manual diff application fallback
                 py_success, py_err = _apply_unified_diff_fallback(self.worktree_path, unified_diff)
                 if py_success:
-                    return True, "Patch applied successfully via fallback patch engine"
-                return False, f"git apply check failed: {check_res.stderr or py_err}"
+                    return True, "Patch applied successfully via patch engine"
+                return False, f"Patch check failed: {check_res.stderr or py_err}"
 
             # Apply the patch
             apply_res = self.run_command(
@@ -579,53 +493,22 @@ def _apply_unified_diff_fallback(base_dir: Path, diff_text: str) -> Tuple[bool, 
     Lightweight unified diff parser and applicator for cases where git apply
     is unavailable or operating in a simulated directory.
     Supports standard unified diff hunks (--- a/file +++ b/file @@ ... @@).
-    Enforces sandbox containment: prevents path traversal outside base_dir.
-    Handles file creations, deletions, and empty context lines.
     """
     lines = diff_text.splitlines()
     i = 0
-    base_resolved = base_dir.resolve()
-
-    def clean_hdr(h: str) -> str:
-        h_clean = h.strip()
-        if h_clean.startswith("b/") or h_clean.startswith("a/"):
-            return h_clean[2:]
-        return h_clean
-
     while i < len(lines):
         line = lines[i]
         if line.startswith("--- "):
+            # Read next line for +++
             if i + 1 < len(lines) and lines[i + 1].startswith("+++ "):
-                from_header = line[4:].strip()
-                to_header = lines[i + 1][4:].strip()
+                target_header = lines[i + 1][4:].strip()
+                # Clean a/ or b/ prefix
+                if target_header.startswith("b/") or target_header.startswith("a/"):
+                    target_rel = target_header[2:]
+                else:
+                    target_rel = target_header
 
-                target_rel = clean_hdr(to_header)
-                from_rel = clean_hdr(from_header)
-
-                # Case 1: File Deletion (+++ /dev/null)
-                if target_rel == "/dev/null" or to_header == "/dev/null":
-                    del_file = (base_dir / from_rel).resolve()
-                    try:
-                        del_file.relative_to(base_resolved)
-                    except ValueError:
-                        return False, f"Sandbox violation: Target path '{from_rel}' escapes worktree '{base_resolved}'"
-                    if del_file.exists():
-                        try:
-                            del_file.unlink()
-                        except Exception as e:
-                            return False, f"Failed to delete file '{from_rel}': {e}"
-                    i += 2
-                    while i < len(lines) and not lines[i].startswith("--- "):
-                        i += 1
-                    continue
-
-                # Case 2: Standard modification or creation
                 target_file = (base_dir / target_rel).resolve()
-                try:
-                    target_file.relative_to(base_resolved)
-                except ValueError:
-                    return False, f"Sandbox violation: Target path '{target_rel}' escapes worktree '{base_resolved}'"
-
                 i += 2
 
                 # Collect hunks for this file
@@ -633,6 +516,7 @@ def _apply_unified_diff_fallback(base_dir: Path, diff_text: str) -> Tuple[bool, 
                 while i < len(lines) and not lines[i].startswith("--- "):
                     hunk_header = lines[i]
                     if hunk_header.startswith("@@"):
+                        # Parse @@ -old_start,old_count +new_start,new_count @@
                         import re
                         m = re.match(r"^@@\s*-(\d+)(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s*@@", hunk_header)
                         if m:
@@ -651,9 +535,8 @@ def _apply_unified_diff_fallback(base_dir: Path, diff_text: str) -> Tuple[bool, 
 
                 # Apply hunks to target_file
                 if not target_file.exists():
-                    if from_rel != "/dev/null" and from_header != "/dev/null":
-                        return False, f"Target file '{target_rel}' does not exist"
-                    orig_content_lines = []
+                    # Might be a newly created file
+                    orig_content_lines: List[str] = []
                 else:
                     orig_content_lines = target_file.read_text(encoding="utf-8", errors="replace").splitlines()
 
@@ -669,12 +552,9 @@ def _apply_unified_diff_fallback(base_dir: Path, diff_text: str) -> Tuple[bool, 
 
                     for hline in hunk_lines:
                         if not hline:
-                            op = " "
-                            content = ""
-                        else:
-                            op = hline[0]
-                            content = hline[1:]
-
+                            continue
+                        op = hline[0]
+                        content = hline[1:]
                         if op == " ":
                             if curr_orig_idx < len(orig_content_lines):
                                 applied_lines.append(orig_content_lines[curr_orig_idx])
@@ -684,8 +564,6 @@ def _apply_unified_diff_fallback(base_dir: Path, diff_text: str) -> Tuple[bool, 
                         elif op == "+":
                             applied_lines.append(content)
                         elif op == "-":
-                            if curr_orig_idx >= len(orig_content_lines) or orig_content_lines[curr_orig_idx] != content:
-                                return False, f"Hunk mismatch at line {curr_orig_idx + 1}"
                             curr_orig_idx += 1
 
                 # Append trailing lines

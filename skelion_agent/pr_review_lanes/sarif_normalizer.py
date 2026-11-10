@@ -150,14 +150,8 @@ class SarifNormalizer:
                 if not isinstance(result, dict):
                     continue
 
-                raw_rule_id = result.get("ruleId") or result.get("rule", {}).get("id") or "SARIF_RULE"
-                rule_meta = rules_by_id.get(raw_rule_id, {})
-                rule_id = raw_rule_id
-
-                if tool_name.lower() == "ruff" and not rule_id.startswith("RUFF/"):
-                    rule_id = f"RUFF/{rule_id}"
-                elif tool_name.lower() == "semgrep" and not rule_id.startswith("semgrep/"):
-                    rule_id = f"semgrep/{rule_id}"
+                rule_id = result.get("ruleId") or result.get("rule", {}).get("id") or "SARIF_RULE"
+                rule_meta = rules_by_id.get(rule_id, {})
 
                 # Extract message
                 msg_obj = result.get("message", {})

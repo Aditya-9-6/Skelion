@@ -12,20 +12,18 @@ import uuid
 
 def compute_fingerprint(
     rule_id_or_category: str,
-    normalized_code_snippet: Optional[str] = None,
-    enclosing_symbol: Optional[str] = None,
-    file_path: Optional[str] = None,
-    file_path_at_symbol_level: Optional[str] = None,
+    normalized_code_snippet: Optional[str],
+    enclosing_symbol: Optional[str],
+    file_path: Optional[str],
 ) -> str:
     """
     Computes a stable fingerprint for a finding:
     fingerprint = hash(rule_id_or_category, normalized_code_snippet, enclosing_symbol, file_path_at_symbol_level)
     """
-    path = file_path_at_symbol_level if file_path_at_symbol_level is not None else file_path
     norm_rule = (rule_id_or_category or "").strip()
     norm_snippet = " ".join((normalized_code_snippet or "").split())
     norm_symbol = (enclosing_symbol or "").strip()
-    norm_file = (path or "").replace("\\", "/").strip()
+    norm_file = (file_path or "").replace("\\", "/").strip()
 
     payload = f"{norm_rule}:{norm_snippet}:{norm_symbol}:{norm_file}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -75,7 +73,6 @@ class Finding(BaseModel):
     title: str = ""
     message: str = ""
     file_path: str = ""
-    file_path_at_symbol_level: Optional[str] = None
     line_number: Optional[int] = None
     end_line: Optional[int] = None
     column_number: Optional[int] = None
@@ -100,22 +97,14 @@ class Finding(BaseModel):
         if not self.normalized_code_snippet and self.code_snippet:
             self.normalized_code_snippet = " ".join(self.code_snippet.split())
 
-        # Populate file_path_at_symbol_level if not explicitly set
-        if not self.file_path_at_symbol_level:
-            norm_f = (self.file_path or "").replace("\\", "/")
-            if self.enclosing_symbol:
-                self.file_path_at_symbol_level = f"{norm_f}::{self.enclosing_symbol}"
-            else:
-                self.file_path_at_symbol_level = norm_f
-
         # Populate stable fingerprint if not set
         if not self.fingerprint:
             rule_or_cat = self.rule_id or self.category
             self.fingerprint = compute_fingerprint(
-                rule_id_or_category=rule_or_cat,
-                normalized_code_snippet=self.normalized_code_snippet or self.code_snippet,
-                enclosing_symbol=self.enclosing_symbol,
-                file_path=self.file_path,
+                rule_or_cat,
+                self.normalized_code_snippet or self.code_snippet,
+                self.enclosing_symbol,
+                self.file_path,
             )
 
         # Derive severity_weight if not explicitly provided

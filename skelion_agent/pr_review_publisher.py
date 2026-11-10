@@ -162,18 +162,18 @@ def format_pr_review_comment(
 # ---------------------------------------------------------------------------
 
 REVERT_COMMAND_REGEX = re.compile(
-    r"@skelion\s+revert\s+<?([A-Za-z0-9_\-\.]+)?>?",
+    r"@skelion\s+revert\s+([A-Za-z0-9_\-\.]+)",
     re.IGNORECASE,
 )
 
 
 def parse_revert_command(comment_text: str) -> Optional[str]:
     """
-    Parses a user PR comment to check for '@skelion revert <run_id>' or '@skelion revert run_id'.
+    Parses a user PR comment to check for '@skelion revert <run_id>'.
     Returns the target run_id if matched, otherwise None.
     """
     match = REVERT_COMMAND_REGEX.search(comment_text)
-    if match and match.group(1):
+    if match:
         return match.group(1).strip()
     return None
 
@@ -348,7 +348,7 @@ def execute_one_click_revert(
         return RevertResult(success=False, run_id=run_id, error=f"Repo path '{repo}' does not exist")
 
     # Strategy 1: Git revert by commit SHA
-    if commit_sha:
+    if commit_sha and not original_diff:
         try:
             env = os.environ.copy()
             env["GIT_AUTHOR_NAME"] = author_name
@@ -374,11 +374,8 @@ def execute_one_click_revert(
                 )
                 new_sha = rev_res.stdout.strip() if rev_res.returncode == 0 else None
                 return RevertResult(success=True, run_id=run_id, revert_commit_sha=new_sha)
-            elif not original_diff:
-                return RevertResult(success=False, run_id=run_id, error=f"git revert failed: {res.stderr or res.stdout}")
         except Exception as e:
-            if not original_diff:
-                return RevertResult(success=False, run_id=run_id, error=str(e))
+            pass
 
     # Strategy 2: Inverted diff application
     if original_diff:

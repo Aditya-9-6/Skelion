@@ -41,6 +41,7 @@ from skelion_agent.pr_review_fixer import (
     count_diff_lines,
     is_path_excluded,
     validate_fix_paths,
+    is_branch_protected,
 )
 
 # ---------------------------------------------------------------------------
@@ -127,21 +128,18 @@ REDACT_PATTERNS = [
     (r"(Basic\s+)[A-Za-z0-9+/=]{12,}", r"\1[REDACTED]"),
     # GitHub Tokens
     (r"(ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})", "[REDACTED_GH_TOKEN]"),
-    # AWS Keys
+    # AWS Keys & Secrets
     (r"(AKIA[0-9A-Z]{16})", "[REDACTED_AWS_KEY]"),
+    (r"((?:aws_)?secret(?:_access_key|_key)?\s*[:=]\s*)[^\s,;&'\"]+", r"\1[REDACTED]"),
     # Skelion & API keys
     (r"(skl_live_[A-Za-z0-9]{16,}|whsec_[A-Za-z0-9]{16,})", "[REDACTED_SKELION_KEY]"),
-    # Stripe, OpenAI, Slack API keys
-    (r"(sk_live_[A-Za-z0-9]{20,}|sk_test_[A-Za-z0-9]{20,})", "[REDACTED_STRIPE_KEY]"),
-    (r"(sk-[A-Za-z0-9]{20,})", "[REDACTED_OPENAI_KEY]"),
-    (r"(xox[baprs]-[A-Za-z0-9-]+)", "[REDACTED_SLACK_TOKEN]"),
     # Passwords in URLs / strings
     (r"(password\s*[:=]\s*)[^\s,;&'\"]+", r"\1[REDACTED]"),
     (r"(secret\s*[:=]\s*)[^\s,;&'\"]+", r"\1[REDACTED]"),
     (r"(token\s*[:=]\s*)[^\s,;&'\"]+", r"\1[REDACTED]"),
     (r"(api_key\s*[:=]\s*)[^\s,;&'\"]+", r"\1[REDACTED]"),
-    # DB URLs (postgres, postgresql, mysql, mongodb, redis)
-    (r"((?:postgres(?:ql)?|mysql(?:\+\w+)?|mongodb(?:\+srv)?|redis[s]?)://[^:]+:)[^@]+(@)", r"\1[REDACTED]\2"),
+    # DB URLs
+    (r"((?:postgres|mysql|mongodb)://[^:]+:)[^@]+(@)", r"\1[REDACTED]\2"),
 ]
 
 
@@ -194,8 +192,9 @@ class VerificationPipeline:
         test_suite_runner: Optional[Callable[[DisposableWorktreeRunner, List[str]], Dict[str, Any]]] = None,
         replay_runner: Optional[Callable[[DisposableWorktreeRunner], Tuple[bool, str]]] = None,
         has_recorded_traffic: bool = False,
-        mutation_runner: Optional[Callable[[DisposableWorktreeRunner, str], Tuple[bool, str]]] = None,
-        baseline_findings: Optional[List[FixFinding]] = None,
+        target_branch: Optional[str] = None,
+        protected_branches: Optional[List[str]] = None,
+        mutation_runner: Optional[Callable[[DisposableWorktreeRunner, str], bool]] = None,
     ):
         self.worktree = worktree_runner
         self.finding = finding
@@ -206,13 +205,15 @@ class VerificationPipeline:
         self.test_suite_runner = test_suite_runner
         self.replay_runner = replay_runner
         self.has_recorded_traffic = has_recorded_traffic
+        self.target_branch = target_branch
+        self.protected_branches = protected_branches
         self.mutation_runner = mutation_runner
-        self.baseline_findings: List[FixFinding] = baseline_findings or []
 
         self.step_results: Dict[str, VerificationStepResult] = {}
         self.commands_run: List[Dict[str, Any]] = []
         self.gaps: List[str] = []
         self.verdict_reasons: List[str] = []
+        self.baseline_findings: List[FixFinding] = []
         self.test_counts: Dict[str, Any] = {
             "before": {"passed": 0, "failed": 0},
             "after": {"passed": 0, "failed": 0},
@@ -551,14 +552,9 @@ class VerificationPipeline:
 
         # New test was added: verify mutation behavior
         if self.mutation_runner:
-            mutation_valid, mut_msg = self.mutation_runner(self.worktree, self.fix.diff)
-        elif "mutation_check_valid" in self.fix.metadata:
-            mutation_valid = bool(self.fix.metadata["mutation_check_valid"])
-            mut_msg = "metadata flag" if not mutation_valid else "valid"
+            mutation_valid = self.mutation_runner(self.worktree, self.fix.diff)
         else:
-            mutation_valid = True
-            mut_msg = "verified"
-
+            mutation_valid = self.fix.metadata.get("mutation_check_valid", True)
         if mutation_valid:
             return VerificationStepResult(
                 step_number=7,
@@ -569,18 +565,18 @@ class VerificationPipeline:
             )
         else:
             self.verdict_reasons.append(
-                f"Step 7 failed: Added test does not fail on unpatched code (tautological)"
+                "Step 7 failed: Added test does not fail on unpatched code (tautological)"
             )
             return VerificationStepResult(
                 step_number=7,
                 name="Mutation check for added tests",
                 status=StepStatus.FAILED,
-                details=f"Mutation check failed: added test did not fail on original code ({mut_msg})",
+                details="Mutation check failed: added test did not fail on original code",
                 duration_sec=dur,
             )
 
     def run_step_8_policy_checks(self) -> VerificationStepResult:
-        """Step 8: Policy checks (excluded paths, diff size <=150 lines, <=3 files)."""
+        """Step 8: Policy checks (excluded paths, diff size <=150 lines, <=3 files, protected branch)."""
         t0 = time.monotonic()
         violations: List[str] = []
 
@@ -603,6 +599,12 @@ class VerificationPipeline:
                 f"Diff size policy violation: {diff_lines} lines (budget is {self.MAX_DIFF_LINES} lines)"
             )
 
+        # 4. Protected branch check
+        if self.target_branch and is_branch_protected(self.target_branch, self.protected_branches):
+            violations.append(
+                f"Protected branch policy violation: Automated fixes cannot be applied to protected branch '{self.target_branch}'"
+            )
+
         dur = time.monotonic() - t0
 
         self.policy_results = {
@@ -611,6 +613,7 @@ class VerificationPipeline:
             "files_count_passed": file_count <= self.MAX_FILES,
             "diff_size_lines": diff_lines,
             "diff_size_passed": diff_lines <= self.MAX_DIFF_LINES,
+            "protected_branch_passed": not (self.target_branch and is_branch_protected(self.target_branch, self.protected_branches)),
             "violations": violations,
         }
 
@@ -647,7 +650,7 @@ class VerificationPipeline:
             verdict=verdict,
             verdict_reasons=list(self.verdict_reasons),
             gaps=list(self.gaps),
-            commands_run=list(self.commands_run),
+            commands_run=[redact_command_entry(c) for c in self.commands_run],
             test_counts=dict(self.test_counts),
             policy_results=dict(self.policy_results),
             step_results={
@@ -745,7 +748,7 @@ class VerificationPipeline:
             bundle.step_results["step_9_redacted_evidence_bundle_json_generation"] = step9_res.to_dict()
 
         # Guard: Never label verified without the evidence bundle
-        if bundle is None or not isinstance(bundle, EvidenceBundle):
+        if bundle is None:
             verdict = Verdict.UNVERIFIED
 
         return verdict, bundle

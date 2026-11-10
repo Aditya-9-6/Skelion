@@ -84,6 +84,8 @@ class ReviewRun(SQLModel, table=True):
     lanes: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     credits_estimated_milli: int = Field(default=0)
     credits_used_milli: int = Field(default=0)
+    mode: str = Field(default="full")
+    is_fork: bool = Field(default=False)
     started_at: Optional[datetime] = Field(default=None)
     finished_at: Optional[datetime] = Field(default=None)
     superseded_by: Optional[str] = Field(default=None, foreign_key="review_runs.id")
@@ -188,6 +190,7 @@ class Command(SQLModel, table=True):
     command: str
     args: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     status: str = Field(default="pending")
+    error: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -207,9 +210,7 @@ Repositories = Repository
 PullRequests = PullRequest
 ReviewRuns = ReviewRun
 Findings = Finding
-Evidences = Evidence
 Fixes = Fix
-Feedbacks = Feedback
 FeedbackRecords = Feedback
 Suppressions = Suppression
 LLMCaches = LLMCache
@@ -235,9 +236,7 @@ __all__ = [
     "PullRequests",
     "ReviewRuns",
     "Findings",
-    "Evidences",
     "Fixes",
-    "Feedbacks",
     "FeedbackRecords",
     "Suppressions",
     "LLMCaches",

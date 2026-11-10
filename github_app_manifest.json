@@ -1,0 +1,27 @@
+{
+  "name": "Skelion PR Reviewer",
+  "url": "https://skelion.dev",
+  "hook_attributes": {
+    "url": "https://api.skelion.dev/v1/pr-review/webhook",
+    "active": true
+  },
+  "redirect_url": "https://api.skelion.dev/v1/pr-review/setup",
+  "description": "Evidence-backed comprehensive PR audit and verified auto-fix engine.",
+  "public": false,
+  "default_permissions": {
+    "metadata": "read",
+    "pull_requests": "write",
+    "checks": "write",
+    "contents": "read",
+    "issues": "write"
+  },
+  "default_events": [
+    "pull_request",
+    "pull_request_review_comment",
+    "issue_comment",
+    "pull_request_review_thread",
+    "check_run",
+    "installation",
+    "installation_repositories"
+  ]
+}

@@ -75,7 +75,7 @@ class DiffParser:
 
             new_file_match = RE_NEW_FILE.match(line)
             if new_file_match:
-                raw_path = new_file_match.group(1).split("\t")[0].strip()
+                raw_path = new_file_match.group(1).strip()
                 if raw_path == "/dev/null":
                     current_file = None
                 else:
@@ -99,9 +99,6 @@ class DiffParser:
                     current_new_line += 1
                 elif line.startswith("-") and not line.startswith("---"):
                     # Deletion does not advance line in new file
-                    pass
-                elif line.startswith("\\"):
-                    # \ No newline at end of file - does NOT advance line number in either file
                     pass
                 else:
                     # Context line (starts with space or empty)

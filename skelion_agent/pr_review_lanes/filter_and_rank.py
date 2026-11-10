@@ -35,7 +35,6 @@ class CitationFilterAndRanker:
         severity_weights: Optional[Dict[str, float]] = None,
     ):
         self.max_inline = max_inline
-        self.custom_severity_weights = severity_weights
         self.severity_weights = severity_weights or DEFAULT_SEVERITY_WEIGHTS
 
     def is_line_in_diff(
@@ -54,12 +53,9 @@ class CitationFilterAndRanker:
         if norm_finding_file in diff_map:
             return line_number in diff_map[norm_finding_file]
 
-        # Path-boundary-aware relative match (e.g., repo/sub/file.py vs sub/file.py)
+        # Suffix / relative match (e.g., repo/sub/file.py vs sub/file.py)
         for diff_file, lines in diff_map.items():
-            norm_d = normalize_path(diff_file)
-            if norm_finding_file == norm_d:
-                return line_number in lines
-            if norm_finding_file.endswith("/" + norm_d) or norm_d.endswith("/" + norm_finding_file):
+            if norm_finding_file.endswith(diff_file) or diff_file.endswith(norm_finding_file):
                 return line_number in lines
 
         return False
@@ -80,15 +76,7 @@ class CitationFilterAndRanker:
         score = severity_weight * confidence * (1 + impact_factor) * evidence_strength
         """
         sev_key = (finding.severity or "medium").lower()
-        if self.custom_severity_weights and sev_key in self.custom_severity_weights:
-            sev_weight = self.custom_severity_weights[sev_key]
-            finding.severity_weight = sev_weight
-        elif finding.severity_weight > 0:
-            sev_weight = finding.severity_weight
-        else:
-            sev_weight = self.severity_weights.get(sev_key, 3.0)
-            finding.severity_weight = sev_weight
-
+        sev_weight = finding.severity_weight if finding.severity_weight > 0 else self.severity_weights.get(sev_key, 3.0)
         confidence = max(0.0, min(1.0, finding.confidence))
         impact_factor = max(0.0, finding.impact_factor)
         evidence_strength = max(0.0, finding.evidence_strength)

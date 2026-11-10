@@ -53,15 +53,6 @@ HALLUCINATED_TYPE_METHODS: Dict[str, Dict[str, str]] = {
         "stringify": "Use json.dumps() instead of JavaScript's json.stringify().",
         "parse": "Use json.loads() instead of JavaScript's json.parse().",
     },
-    "datetime": {
-        "parse": "Use datetime.fromisoformat() or datetime.strptime() instead of .parse().",
-        "to_string": "Use datetime.isoformat() or datetime.strftime() instead of .to_string().",
-        "format": "Use datetime.strftime() instead of .format().",
-    },
-    "int": {
-        "parse": "Use int() constructor instead of int.parse().",
-        "to_string": "Use str() constructor instead of .to_string().",
-    },
 }
 
 
@@ -158,7 +149,6 @@ class L10AiSanityLane(BaseLane):
 
     def _collect_declared_packages(self, repo_path: str) -> Set[str]:
         pkgs: Set[str] = set()
-        # 1. requirements.txt
         req_file = os.path.join(repo_path, "requirements.txt")
         if os.path.isfile(req_file):
             try:
@@ -172,34 +162,6 @@ class L10AiSanityLane(BaseLane):
                                 pkgs.add(name)
             except Exception:
                 pass
-
-        # 2. pyproject.toml
-        pyproject_file = os.path.join(repo_path, "pyproject.toml")
-        if os.path.isfile(pyproject_file):
-            try:
-                with open(pyproject_file, "r", encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-                # Extract dependency names from strings in pyproject.toml (e.g. "pydantic>=2.0", "fastapi")
-                dep_matches = re.findall(r"""['"]([a-zA-Z0-9_\-]+)(?:[=><~^!].*?)?['"]""", content)
-                for dep in dep_matches:
-                    clean = dep.lower().replace("-", "_").strip()
-                    if clean and not clean.startswith(("python", "version", "description", "name")):
-                        pkgs.add(clean)
-            except Exception:
-                pass
-
-        # 3. Pipfile
-        pipfile = os.path.join(repo_path, "Pipfile")
-        if os.path.isfile(pipfile):
-            try:
-                with open(pipfile, "r", encoding="utf-8", errors="replace") as f:
-                    for line in f:
-                        m = re.match(r"""^([a-zA-Z0-9_\-]+)\s*=""", line.strip())
-                        if m:
-                            pkgs.add(m.group(1).lower().replace("-", "_"))
-            except Exception:
-                pass
-
         return pkgs
 
     def _check_hallucinated_imports(
@@ -294,10 +256,10 @@ class L10AiSanityLane(BaseLane):
                 val_node = node.func.value
                 matched_type: Optional[str] = None
 
-                # Check known module or type names: json, datetime, int
-                if isinstance(val_node, ast.Name) and val_node.id in ("json", "datetime", "int"):
-                    if attr_name in HALLUCINATED_TYPE_METHODS.get(val_node.id, {}):
-                        matched_type = val_node.id
+                # Check json module calls: json.stringify() or json.parse()
+                if isinstance(val_node, ast.Name) and val_node.id == "json":
+                    if attr_name in HALLUCINATED_TYPE_METHODS.get("json", {}):
+                        matched_type = "json"
 
                 # Check string literals: e.g. "foo".reverse() or 'abc'.contains(...)
                 elif isinstance(val_node, ast.Constant) and isinstance(val_node.value, str):

@@ -162,8 +162,7 @@ class L9RuntimeLane(BaseLane):
     ) -> Dict[str, Dict[str, Any]]:
         """Extracts modified function/class symbols and their locations."""
         symbols: Dict[str, Dict[str, Any]] = {}
-        diff_map = DiffParser.parse(diff) if diff is not None else {}
-        target_files = list(diff_map.keys()) if diff is not None else []
+        target_files = DiffParser.get_changed_files(diff) if diff is not None else []
 
         if not target_files:
             for root, _, files in os.walk(repo_path):
@@ -181,17 +180,6 @@ class L9RuntimeLane(BaseLane):
                 symbols[mod_sym] = {"file_path": rel_file, "line_number": 1, "snippet": rel_file}
                 continue
 
-            # Find diff lines for this file
-            file_diff_lines: Set[int] = set()
-            if diff is not None:
-                if rel_file in diff_map:
-                    file_diff_lines = diff_map[rel_file]
-                else:
-                    for df, dlines in diff_map.items():
-                        if df == rel_file or rel_file.endswith("/" + df) or df.endswith("/" + rel_file):
-                            file_diff_lines = dlines
-                            break
-
             try:
                 with open(abs_p, "r", encoding="utf-8", errors="replace") as f:
                     content = f.read()
@@ -200,18 +188,7 @@ class L9RuntimeLane(BaseLane):
 
                 for node in ast.walk(tree):
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                        start_line = node.lineno
-                        end_line = getattr(node, "end_lineno", node.lineno)
-
-                        if diff is not None:
-                            # Only include if symbol actually intersects with added/modified lines in diff
-                            mod_lines = [l for l in range(start_line, end_line + 1) if l in file_diff_lines]
-                            if not mod_lines:
-                                continue
-                            line_no = mod_lines[0]
-                        else:
-                            line_no = start_line
-
+                        line_no = node.lineno
                         snip = lines[line_no - 1] if 0 < line_no <= len(lines) else node.name
                         symbols[node.name] = {
                             "file_path": rel_file,

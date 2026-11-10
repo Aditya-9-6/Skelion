@@ -134,10 +134,8 @@ class ConfigValidationError(ValueError):
         self.details = details or []
 
 
-def compute_config_sha(content: Optional[Union[str, bytes, Dict[str, Any]]]) -> str:
+def compute_config_sha(content: Union[str, bytes, Dict[str, Any]]) -> str:
     """Compute SHA-256 hash of configuration content."""
-    if content is None:
-        return hashlib.sha256(b"").hexdigest()
     if isinstance(content, dict):
         raw = json.dumps(content, sort_keys=True).encode("utf-8")
     elif isinstance(content, str):
