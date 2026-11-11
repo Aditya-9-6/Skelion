@@ -1,0 +1,25 @@
+# Exclude everything by default
+*
+# Allow Vercel config and package files
+!vercel.json
+!package.json
+!.vercelignore
+# Allow admin_web source and its files
+!admin_web/
+!admin_web/**
+# Exclude node_modules (already excluded by * above, but ensure)
+admin_web/node_modules/
+node_modules/
+# Exclude temporary build artifacts
+tmp_admin_web/
+# Exclude other large directories that are not needed for the UI
+skelion_website/
+skelion_agent/
+skelion_edge/
+skelion_mcp/
+admin_api/
+admin_web_fresh/
+public/
+api/
+.gitattributes
+.gitignore
