@@ -4,7 +4,7 @@
       "runtime": "python3.12"
     }
   },
-  "public": "public",
+  "public": "admin_web/dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" }
   ]

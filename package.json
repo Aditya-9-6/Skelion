@@ -1,0 +1,9 @@
+{
+  "name": "helios-root",
+  "private": true,
+  "scripts": {
+    "build": "cd admin_web && npm install && npm run build",
+    "dev": "cd admin_web && npm run dev"
+  },
+  "dependencies": {}
+}

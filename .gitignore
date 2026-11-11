@@ -38,6 +38,8 @@ scratch/
 skelion_website/.git_website_remote/
 
 # Temporary build artefacts
+
+tmp_admin_web/
 *.shm_*
 .vscode/
 skelion_vscode_extension/
