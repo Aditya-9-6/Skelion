@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/**/*.py": {
-      "runtime": "python3.12"
+      "runtime": "python@3.12"
     }
   },
   "public": "admin_web/dist",
@@ -9,3 +9,4 @@
     { "source": "/api/(.*)", "destination": "/api/index.py" }
   ]
 }
+
