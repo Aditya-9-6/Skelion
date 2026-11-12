@@ -114,4 +114,7 @@ production-safe legacy behavior, and audit entries on creation/revocation.
 JWT sessions now carry an actor user ID, organization members can be listed,
 added, role-updated, and removed through owner/admin-protected endpoints, and
 ingest rejects API keys without the `ingest` scope.
+Autonomous runs now charge the append-only ledger and never fabricate a PR
+URL; outbound webhooks use HMAC signatures, delivery IDs, bounded retries, and
+independent database sessions.
 This is a foundation, not a claim that SAML, SCIM, or full RBAC is complete.
