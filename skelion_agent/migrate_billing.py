@@ -57,6 +57,22 @@ def ensure_columns(db_path: Path):
             cur.execute("ALTER TABLE api_keys ADD COLUMN expires_at TEXT DEFAULT NULL")
             print(f"Added column expires_at to api_keys in {db_path}")
 
+        if column_exists("sso_connections", "client_id") and not column_exists(
+            "sso_connections", "client_secret_ref"
+        ):
+            cur.execute(
+                "ALTER TABLE sso_connections ADD COLUMN client_secret_ref TEXT DEFAULT NULL"
+            )
+            print(f"Added column client_secret_ref to sso_connections in {db_path}")
+
+        if column_exists("audit_log", "created_at") and not column_exists(
+            "audit_log", "ts"
+        ):
+            cur.execute(
+                "ALTER TABLE audit_log ADD COLUMN ts TEXT DEFAULT CURRENT_TIMESTAMP"
+            )
+            print(f"Added column ts to audit_log in {db_path}")
+
         conn.commit()
         conn.close()
     except Exception as e:

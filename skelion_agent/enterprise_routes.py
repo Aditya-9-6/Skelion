@@ -1,14 +1,19 @@
 import hashlib
 import json
+import os
 import secrets
 from datetime import timedelta
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
+from skelion_agent.auth import create_access_token
 from skelion_agent.auth_routes import get_current_actor, require_member_role
+from skelion_agent.config import get_async_redis
 from skelion_agent.database import get_db
 from skelion_agent.models import (
     AuditLog,
@@ -27,6 +32,7 @@ class SSOConnectionRequest(BaseModel):
     provider: str
     issuer_url: Optional[str] = None
     client_id: Optional[str] = None
+    client_secret_ref: Optional[str] = None
     metadata_url: Optional[str] = None
     entity_id: Optional[str] = None
     enabled: bool = False
@@ -66,6 +72,7 @@ def get_sso_connection(
         "provider": connection.provider,
         "issuer_url": connection.issuer_url,
         "client_id": connection.client_id,
+        "client_secret_ref": connection.client_secret_ref,
         "metadata_url": connection.metadata_url,
         "entity_id": connection.entity_id,
         "enabled": connection.enabled,
@@ -93,6 +100,7 @@ def configure_sso(
     connection.provider = req.provider
     connection.issuer_url = req.issuer_url
     connection.client_id = req.client_id
+    connection.client_secret_ref = req.client_secret_ref
     connection.metadata_url = req.metadata_url
     connection.entity_id = req.entity_id
     connection.enabled = req.enabled
@@ -108,6 +116,145 @@ def configure_sso(
     )
     session.commit()
     return {"status": "configured", "provider": connection.provider, "enabled": connection.enabled}
+
+
+@router.get("/v1/org/sso/oidc/authorize")
+async def oidc_authorize(
+    request: Request,
+    actor=Depends(get_current_actor),
+    session: Session = Depends(get_db),
+):
+    org, _, _ = actor
+    connection = session.exec(
+        select(SSOConnection).where(
+            SSOConnection.org_id == org.id,
+            SSOConnection.provider == "oidc",
+            SSOConnection.enabled == True,  # noqa: E712
+        )
+    ).first()
+    if not connection or not connection.issuer_url or not connection.client_id:
+        raise HTTPException(status_code=409, detail="Enabled OIDC connection is required")
+    async with httpx.AsyncClient(timeout=10) as client:
+        discovery = await client.get(connection.issuer_url.rstrip("/") + "/.well-known/openid-configuration")
+        discovery.raise_for_status()
+        metadata = discovery.json()
+    authorization_endpoint = metadata.get("authorization_endpoint")
+    if not authorization_endpoint:
+        raise HTTPException(status_code=502, detail="OIDC provider omitted authorization_endpoint")
+    state = secrets.token_urlsafe(32)
+    nonce = secrets.token_urlsafe(32)
+    redirect_uri = os.getenv("OIDC_REDIRECT_URI", str(request.url_for("oidc_callback")))
+    redis = get_async_redis()
+    await redis.setex(
+        f"skelion:oidc:{state}",
+        600,
+        json.dumps({"org_id": org.id, "nonce": nonce, "redirect_uri": redirect_uri}),
+    )
+    from urllib.parse import urlencode
+
+    return RedirectResponse(
+        authorization_endpoint
+        + "?"
+        + urlencode(
+            {
+                "response_type": "code",
+                "client_id": connection.client_id,
+                "redirect_uri": redirect_uri,
+                "scope": "openid email profile",
+                "state": state,
+                "nonce": nonce,
+            }
+        )
+    )
+
+
+@router.get("/v1/org/sso/oidc/callback", name="oidc_callback")
+async def oidc_callback(
+    request: Request,
+    code: str,
+    state: str,
+    session: Session = Depends(get_db),
+):
+    redis = get_async_redis()
+    raw_state = await redis.get(f"skelion:oidc:{state}")
+    await redis.delete(f"skelion:oidc:{state}")
+    if not raw_state:
+        raise HTTPException(status_code=400, detail="Invalid or expired OIDC state")
+    state_data = json.loads(raw_state)
+    org = session.get(Organization, state_data["org_id"])
+    connection = session.exec(
+        select(SSOConnection).where(
+            SSOConnection.org_id == state_data["org_id"],
+            SSOConnection.provider == "oidc",
+            SSOConnection.enabled == True,  # noqa: E712
+        )
+    ).first()
+    if not org or not connection or not connection.issuer_url or not connection.client_id:
+        raise HTTPException(status_code=400, detail="OIDC connection is unavailable")
+    async with httpx.AsyncClient(timeout=10) as client:
+        discovery = await client.get(connection.issuer_url.rstrip("/") + "/.well-known/openid-configuration")
+        discovery.raise_for_status()
+        metadata = discovery.json()
+        token_data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": state_data["redirect_uri"],
+            "client_id": connection.client_id,
+        }
+        if connection.client_secret_ref:
+            secret = os.getenv(connection.client_secret_ref)
+            if not secret:
+                raise HTTPException(status_code=503, detail="OIDC client secret reference is not configured")
+            token_data["client_secret"] = secret
+        token_response = await client.post(metadata["token_endpoint"], data=token_data)
+        token_response.raise_for_status()
+        tokens = token_response.json()
+        id_token = tokens.get("id_token")
+        if not id_token:
+            raise HTTPException(status_code=502, detail="OIDC provider omitted id_token")
+        jwks = await client.get(metadata["jwks_uri"])
+        jwks.raise_for_status()
+    try:
+        import jwt
+
+        header = jwt.get_unverified_header(id_token)
+        key = next(
+            jwk.key
+            for jwk in jwt.PyJWKSet.from_dict(jwks.json())
+            if jwk.key_id == header.get("kid")
+        )
+        claims = jwt.decode(
+            id_token,
+            key,
+            algorithms=["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
+            audience=connection.client_id,
+            issuer=connection.issuer_url,
+            options={"require": ["sub", "iss", "aud", "exp", "nonce"]},
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="OIDC token validation failed") from exc
+    if claims.get("nonce") != state_data["nonce"]:
+        raise HTTPException(status_code=401, detail="OIDC nonce validation failed")
+    email = claims.get("email")
+    if not email:
+        raise HTTPException(status_code=401, detail="OIDC identity has no email claim")
+    user = session.exec(select(User).where(User.email == email)).first()
+    membership = session.exec(
+        select(Membership).where(
+            Membership.org_id == org.id,
+            Membership.user_id == user.id if user else "",
+        )
+    ).first()
+    if not user or not membership:
+        raise HTTPException(status_code=403, detail="OIDC user is not an organization member")
+    return {
+        "access_token": create_access_token(
+            {"sub": org.id, "user_id": user.id, "plan": org.plan}
+        ),
+        "token_type": "bearer",
+        "user_id": user.id,
+        "organization_id": org.id,
+    }
 
 
 @router.post("/v1/org/scim-tokens")

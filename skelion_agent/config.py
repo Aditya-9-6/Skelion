@@ -168,12 +168,23 @@ def validate_secrets(
     )
 
     if is_prod:
-        required_keys = ["SECRET_KEY", "ENCRYPTION_KEY", "DATABASE_URL", "REDIS_URL"]
+        required_keys = [
+            "SECRET_KEY",
+            "ENCRYPTION_KEY",
+            "DATABASE_URL",
+            "REDIS_URL",
+            "RAZORPAY_KEY_ID",
+            "RAZORPAY_KEY_SECRET",
+            "RAZORPAY_WEBHOOK_SECRET",
+        ]
         insecure_placeholders = {
             "dev-secret-key",
             "dummy_secret",
             "change_me",
             "dev-encryption-key",
+            "rzp_test_placeholder_key",
+            "rzp_test_dummy_secret",
+            "rzp_webhook_secret_placeholder",
             "",
         }
         for key in required_keys:

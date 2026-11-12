@@ -125,7 +125,10 @@ Streams queue primitive provides consumer groups, explicit
 acknowledgement, bounded retries, and a dead-letter stream for horizontally
 scaled workers, plus a handler-driven processing loop for worker integration.
 Provider integrations fail closed when production credentials
-or required configuration are absent.
+or required configuration are absent. OIDC now has a state/nonce-protected
+authorization-code flow, discovery validation, issuer/audience/JWKS checks,
+single-use state, and organization-membership enforcement; client secrets are
+referenced by environment-variable name rather than stored in the database.
 The remaining enterprise-critical work is actual OIDC callback/JWKS and SAML
 assertion verification, complete SCIM PATCH/deprovisioning semantics, applying
 RBAC to every protected route, wiring workers to the durable queue, billing

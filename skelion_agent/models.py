@@ -432,6 +432,7 @@ class SSOConnection(SQLModel, table=True):
     provider: str = Field(default="oidc")  # oidc or saml
     issuer_url: Optional[str] = Field(default=None)
     client_id: Optional[str] = Field(default=None)
+    client_secret_ref: Optional[str] = Field(default=None)
     metadata_url: Optional[str] = Field(default=None)
     entity_id: Optional[str] = Field(default=None)
     enabled: bool = Field(default=False)
