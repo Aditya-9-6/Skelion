@@ -4,7 +4,7 @@ import secrets
 from datetime import timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
@@ -215,7 +215,8 @@ def scim_create_user(
         )
     ).first()
     if not membership:
-        session.add(Membership(org_id=org.id, user_id=user.id, role="developer"))
+        if req.active:
+            session.add(Membership(org_id=org.id, user_id=user.id, role="developer"))
         session.commit()
     return {
         "id": user.id,
@@ -224,6 +225,74 @@ def scim_create_user(
         "active": req.active,
         "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
     }
+
+
+@router.patch("/scim/v2.0/Users/{user_id}")
+async def scim_update_user(
+    user_id: str,
+    request: Request,
+    org: Organization = Depends(_scim_org),
+    session: Session = Depends(get_db),
+):
+    user = session.get(User, user_id)
+    membership = session.exec(
+        select(Membership).where(
+            Membership.org_id == org.id,
+            Membership.user_id == user_id,
+        )
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="SCIM user not found")
+    document = await request.json()
+    for operation in document.get("Operations", []):
+        path = str(operation.get("path", "")).lower()
+        value = operation.get("value")
+        if path in {"active", "user.active"} and isinstance(value, bool):
+            if value and not membership:
+                session.add(Membership(org_id=org.id, user_id=user.id, role="developer"))
+            elif not value and membership:
+                session.delete(membership)
+        elif path in {"displayname", "name.formatted"} and isinstance(value, str):
+            user.full_name = value
+        elif path in {"username", "emails.value"} and isinstance(value, str):
+            user.email = value
+        else:
+            raise HTTPException(status_code=422, detail=f"Unsupported SCIM path: {path}")
+    session.add(user)
+    session.commit()
+    return {
+        "id": user.id,
+        "userName": user.email,
+        "displayName": user.full_name,
+        "active": session.exec(
+            select(Membership).where(
+                Membership.org_id == org.id,
+                Membership.user_id == user.id,
+            )
+        ).first()
+        is not None,
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+    }
+
+
+@router.delete("/scim/v2.0/Users/{user_id}", status_code=204)
+def scim_deactivate_user(
+    user_id: str,
+    org: Organization = Depends(_scim_org),
+    session: Session = Depends(get_db),
+):
+    user = session.get(User, user_id)
+    membership = session.exec(
+        select(Membership).where(
+            Membership.org_id == org.id,
+            Membership.user_id == user_id,
+        )
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="SCIM user not found")
+    if membership:
+        session.delete(membership)
+    session.commit()
 
 
 @router.get("/v1/compliance/evidence")

@@ -98,6 +98,17 @@ def test_register_and_login():
         json={"userName": "scim-user@example.com", "displayName": "SCIM User"},
     )
     assert scim_user_resp.status_code == 200
+    scim_user_id = scim_user_resp.json()["id"]
+    scim_patch_resp = client.patch(
+        f"/scim/v2.0/Users/{scim_user_id}",
+        headers=scim_bearer,
+        json={"Operations": [{"op": "replace", "path": "active", "value": False}]},
+    )
+    assert scim_patch_resp.status_code == 200
+    assert scim_patch_resp.json()["active"] is False
+    assert client.delete(
+        f"/scim/v2.0/Users/{scim_user_id}", headers=scim_bearer
+    ).status_code == 204
     evidence_resp = client.get(
         "/v1/compliance/evidence", headers={"Authorization": bearer}
     )
