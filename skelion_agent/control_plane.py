@@ -1,9 +1,12 @@
 import os
 import hashlib
+import logging
 from datetime import datetime, timezone
 from fastapi import FastAPI, WebSocket
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import redis.asyncio as redis
+from sqlalchemy import text
 
 try:
     from skelion_agent.worker import execute_sandboxed_autonomous_loop
@@ -26,6 +29,9 @@ from skelion_agent.ingest_routes import router as ingest_router
 from skelion_agent.customer_portal import router as customer_portal_router
 from skelion_agent.public_web import router as public_web_router
 from skelion_agent.pr_review_routes import router as pr_review_router
+from skelion_agent.database import get_engine
+
+logger = logging.getLogger(__name__)
 
 # Global redis client placeholder (will be set on startup)
 redis_client = None
@@ -44,13 +50,51 @@ async def health_check():
     }
 
 
+@app.get("/readyz", tags=["System"])
+@app.get("/v1/readyz", tags=["System"])
+async def readiness_check():
+    """Report whether required runtime dependencies are available."""
+    checks = {"database": "failed", "redis": "failed"}
+
+    try:
+        with get_engine().connect() as connection:
+            connection.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as exc:
+        logger.warning("Readiness database check failed: %s", exc)
+
+    if redis_client is not None:
+        try:
+            await redis_client.ping()
+            checks["redis"] = "ok"
+        except Exception as exc:
+            logger.warning("Readiness Redis check failed: %s", exc)
+
+    ready = all(status == "ok" for status in checks.values())
+    payload = {
+        "status": "ready" if ready else "not_ready",
+        "service": "skelion-control-plane",
+        "checks": checks,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    return JSONResponse(status_code=200 if ready else 503, content=payload)
+
+
 # Enable CORS for webviews and external pilot frontends
 from fastapi.middleware.cors import CORSMiddleware
 
+configured_origins = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", os.getenv("ALLOWED_ORIGIN", "")).split(",")
+    if origin.strip()
+]
+if os.getenv("ENVIRONMENT", "development").lower() != "production" and not configured_origins:
+    configured_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=configured_origins,
+    allow_credentials=bool(configured_origins and configured_origins != ["*"]),
     allow_methods=["*"],
     allow_headers=["*"],
 )

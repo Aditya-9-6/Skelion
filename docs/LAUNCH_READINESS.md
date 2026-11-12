@@ -20,6 +20,7 @@ SECRET_KEY=<random high-entropy value>
 ENCRYPTION_KEY=<random high-entropy value>
 DATABASE_URL=<managed production database URL>
 REDIS_URL=<managed production Redis URL>
+ALLOWED_ORIGINS=https://your-production-domain.example
 RAZORPAY_KEY_ID=rzp_live_...
 RAZORPAY_KEY_SECRET=...
 RAZORPAY_WEBHOOK_SECRET=...
@@ -33,10 +34,12 @@ Do not copy values from `.env.helios.example` or `.env.skelion.example` into pro
 2. Provision production database and Redis resources.
 3. Set `ENVIRONMENT=production` and all required secrets.
 4. Run `python -m skelion_agent.config` checks or the service startup path and confirm insecure defaults are rejected.
-5. Configure the Razorpay webhook endpoint and use the exact same webhook secret.
-6. Run the billing, webhook, and configuration tests.
-7. Confirm one invalid client signature and one invalid webhook signature return 400 and create no entitlement.
-8. Confirm the application never authorizes quota from browser-provided balances.
+5. Configure `ALLOWED_ORIGINS` with the exact browser origins that may call the API. Production no longer permits wildcard credentialed CORS.
+6. Configure the Razorpay webhook endpoint and use the exact same webhook secret.
+7. Verify `/health` is liveness-only and `/readyz` returns 200 only after both the database and Redis are reachable.
+8. Run the billing, webhook, quota, and configuration tests.
+9. Confirm one invalid client signature and one invalid webhook signature return 400 and create no entitlement.
+10. Confirm the application never authorizes quota from browser-provided balances.
 
 ## Launch boundary
 
