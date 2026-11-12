@@ -29,6 +29,7 @@ from skelion_agent.ingest_routes import router as ingest_router
 from skelion_agent.customer_portal import router as customer_portal_router
 from skelion_agent.public_web import router as public_web_router
 from skelion_agent.pr_review_routes import router as pr_review_router
+from skelion_agent.enterprise_routes import router as enterprise_router
 from skelion_agent.database import get_engine
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,7 @@ app.include_router(autonomous_router)
 from skelion_agent.sync_routes import router as sync_router
 
 app.include_router(sync_router)
+app.include_router(enterprise_router)
 
 # Alias for Phase 2 webhook URL pattern
 from skelion_agent.billing_routes import webhook as razorpay_webhook_handler

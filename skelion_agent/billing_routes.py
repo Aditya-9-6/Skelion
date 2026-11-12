@@ -220,7 +220,11 @@ async def checkout(
     short_receipt = order_row.id[:36]
     order_row.receipt = short_receipt
     rzp_order = create_order(amount=amount_paise, currency="INR", receipt=short_receipt)
-    provider_order_id = rzp_order.get("id", f"order_{short_receipt}")
+    provider_order_id = rzp_order.get("id")
+    if not provider_order_id:
+        raise HTTPException(
+            status_code=502, detail="Payment provider returned no order identifier"
+        )
     order_row.provider_order_id = provider_order_id
     db.add(order_row)
 
@@ -232,9 +236,7 @@ async def checkout(
         item_name=item_name,
         amount_inr=amount_paise / 100.0,
         tokens_granted=tokens_granted,
-        status="paid"
-        if provider_order_id.startswith("order_") and not rzp_order.get("id")
-        else "created",
+        status="created",
     )
     db.add(tx)
     db.commit()

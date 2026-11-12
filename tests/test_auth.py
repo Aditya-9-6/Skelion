@@ -74,6 +74,36 @@ def test_register_and_login():
     )
     assert role_resp.status_code == 200
 
+    sso_resp = client.put(
+        "/v1/org/sso",
+        headers={"Authorization": bearer},
+        json={
+            "provider": "oidc",
+            "issuer_url": "https://idp.example.com",
+            "client_id": "skelion-client",
+            "enabled": True,
+        },
+    )
+    assert sso_resp.status_code == 200
+    scim_token_resp = client.post(
+        "/v1/org/scim-tokens",
+        headers={"Authorization": bearer},
+        json={"label": "directory sync", "expires_in_days": 30},
+    )
+    assert scim_token_resp.status_code == 200
+    scim_bearer = {"Authorization": f"Bearer {scim_token_resp.json()['token']}"}
+    scim_user_resp = client.post(
+        "/scim/v2.0/Users",
+        headers=scim_bearer,
+        json={"userName": "scim-user@example.com", "displayName": "SCIM User"},
+    )
+    assert scim_user_resp.status_code == 200
+    evidence_resp = client.get(
+        "/v1/compliance/evidence", headers={"Authorization": bearer}
+    )
+    assert evidence_resp.status_code == 200
+    assert evidence_resp.json()["controls"]["sso_configured"] is True
+
     read_key_resp = client.post(
         "/v1/keys",
         headers={"Authorization": bearer},
