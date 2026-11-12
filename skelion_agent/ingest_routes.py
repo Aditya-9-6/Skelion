@@ -1,7 +1,10 @@
 # skelion_agent/ingest_routes.py — SaaS Telemetry Ingestion, Scoped API Keys & Webhooks
 
 import hashlib
+import hmac
+import asyncio
 import json
+import logging
 import uuid
 from datetime import timedelta
 from typing import Optional, Dict, Any, List
@@ -10,6 +13,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from skelion_agent.database import get_db
+from skelion_agent.database import engine
 from skelion_agent.models import (
     AuditLog,
     Organization,
@@ -27,6 +31,7 @@ from skelion_agent.email_service import email_service
 from core.redact import redact_headers, redact_text as redact_payload
 
 router = APIRouter(prefix="/v1", tags=["SaaS Ingress & Keys"])
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -69,29 +74,67 @@ async def dispatch_webhooks(
     """Dispatch webhook event to all active endpoints registered by the organization."""
     import httpx
 
-    webhooks = db_session.exec(
-        select(WebhookSubscription).where(
-            WebhookSubscription.org_id == org_id, WebhookSubscription.is_active == True
-        )
-    ).all()
+    # Background tasks must not reuse the request-scoped session after the response.
+    with Session(engine) as delivery_session:
+        webhooks = delivery_session.exec(
+            select(WebhookSubscription).where(
+                WebhookSubscription.org_id == org_id,
+                WebhookSubscription.is_active == True,
+            )
+        ).all()
 
-    for wh in webhooks:
-        try:
-            events = json.loads(wh.events_json) if wh.events_json else []
-            if event_type in events or "*" in events:
+        for wh in webhooks:
+            try:
+                events = json.loads(wh.events_json) if wh.events_json else []
+                if event_type not in events and "*" not in events:
+                    continue
+                body = json.dumps(
+                    {
+                        "event": event_type,
+                        "timestamp": utc_now().isoformat(),
+                        "data": payload,
+                    },
+                    separators=(",", ":"),
+                ).encode("utf-8")
+                signature = hmac.new(
+                    wh.secret.encode("utf-8"), body, hashlib.sha256
+                ).hexdigest()
+                delivery_id = f"whd_{uuid.uuid4().hex}"
                 async with httpx.AsyncClient(timeout=5.0) as client:
-                    await client.post(
-                        wh.url,
-                        json={
-                            "event": event_type,
-                            "timestamp": utc_now().isoformat(),
-                            "data": payload,
-                        },
-                        headers={"X-Skelion-Event": event_type},
-                    )
-        except Exception:
-            # Webhook dispatch failures never disrupt production
-            pass
+                    delivered = False
+                    for attempt in range(3):
+                        try:
+                            response = await client.post(
+                                wh.url,
+                                content=body,
+                                headers={
+                                    "Content-Type": "application/json",
+                                    "X-Skelion-Event": event_type,
+                                    "X-Skelion-Delivery": delivery_id,
+                                    "X-Skelion-Signature": f"sha256={signature}",
+                                },
+                            )
+                            if 200 <= response.status_code < 300:
+                                delivered = True
+                                break
+                        except httpx.HTTPError:
+                            pass
+                        if attempt < 2:
+                            await asyncio.sleep(2**attempt)
+                    if not delivered:
+                        logger.warning(
+                            "Webhook delivery failed: org=%s subscription=%s event=%s",
+                            org_id,
+                            wh.id,
+                            event_type,
+                        )
+            except Exception:
+                logger.exception(
+                    "Webhook dispatch error: org=%s subscription=%s event=%s",
+                    org_id,
+                    wh.id,
+                    event_type,
+                )
 
 
 # ---------------------------------------------------------------------------
