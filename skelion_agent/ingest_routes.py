@@ -5,6 +5,7 @@ import hmac
 import asyncio
 import json
 import logging
+import os
 import uuid
 from datetime import timedelta
 from typing import Optional, Dict, Any, List
@@ -28,6 +29,8 @@ from skelion_agent.api_key_service import (
     require_scope,
 )
 from skelion_agent.email_service import email_service
+from skelion_agent.config import get_async_redis
+from skelion_agent.job_queue import DurableJobQueue
 from core.redact import redact_headers, redact_text as redact_payload
 
 router = APIRouter(prefix="/v1", tags=["SaaS Ingress & Keys"])
@@ -208,6 +211,20 @@ async def ingest_production_incident(
         db.commit()
         db.refresh(new_inc)
         status_msg = "incident_created"
+
+        try:
+            queue = DurableJobQueue(get_async_redis())
+            await queue.enqueue(
+                "incident.process",
+                {"org_id": org.id, "incident_id": incident_id},
+            )
+        except Exception as exc:
+            logger.exception("Durable incident enqueue failed: %s", exc)
+            if os.getenv("ENVIRONMENT", "development").lower() == "production":
+                raise HTTPException(
+                    status_code=503,
+                    detail="Durable incident processing is unavailable",
+                ) from exc
 
         # Dispatch webhook alert in background
         background_tasks.add_task(

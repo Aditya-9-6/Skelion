@@ -7,6 +7,7 @@
 """
 
 import json
+import os
 import uuid
 from datetime import timedelta
 from typing import Optional
@@ -26,6 +27,7 @@ from skelion_agent.models import (
     Invoice,
     Alert,
     utc_now,
+    Membership,
 )
 from skelion_agent.plan_config import PLAN_DEFINITIONS, ADDONS
 from skelion_agent.razorpay_service import (
@@ -43,6 +45,11 @@ from skelion_agent.config import settings
 
 router = APIRouter(prefix="/v1/billing", tags=["Billing & Subscriptions"])
 
+
+def _require_writable_region() -> None:
+    if os.getenv("SKELION_READ_ONLY", "false").lower() == "true":
+        raise HTTPException(status_code=503, detail="This deployment region is read-only")
+
 # Pocket-Friendly Competitive Pricing Model:
 # 1 Universal Coding Token = ₹0.25 (Super accessible for students & indie devs, 60%-92% gross margin)
 # 1,000 Skelion Autofix Tokens = ₹10.00 (₹0.010 per token, 96% gross margin)
@@ -57,6 +64,48 @@ def billing_reconciliation(
 ):
     """Return local billing invariant findings for operator/customer support use."""
     return reconcile_billing(db, org.id)
+
+
+@router.get("/invoices")
+def list_invoices(
+    org: Organization = Depends(require_member_org("owner", "admin", "billing")),
+    db: Session = Depends(get_db),
+):
+    invoices = db.exec(
+        select(Invoice)
+        .where(Invoice.org_id == org.id)
+        .order_by(Invoice.issued_at.desc())
+    ).all()
+    return {
+        "invoices": [
+            {
+                "id": invoice.id,
+                "invoice_number": invoice.invoice_number,
+                "payment_id": invoice.payment_id,
+                "amount_paise": invoice.amount_paise,
+                "gst_paise": invoice.gst_paise,
+                "issued_at": invoice.issued_at.isoformat(),
+            }
+            for invoice in invoices
+        ]
+    }
+
+
+@router.get("/seats")
+def billing_seats(
+    org: Organization = Depends(require_member_org("owner", "admin", "billing")),
+    db: Session = Depends(get_db),
+):
+    members = db.exec(select(Membership).where(Membership.org_id == org.id)).all()
+    return {
+        "organization_id": org.id,
+        "seat_count": len(members),
+        "billable_roles": ["owner", "admin", "developer", "viewer", "billing"],
+        "members_by_role": {
+            role: sum(1 for member in members if member.role == role)
+            for role in ["owner", "admin", "developer", "viewer", "billing"]
+        },
+    }
 
 
 class TopUpCalculateRequest(BaseModel):
@@ -160,6 +209,7 @@ async def checkout(
     db: Session = Depends(get_db),
 ):
     """Create server-validated PaymentOrder and Razorpay order (Billing v2)."""
+    _require_writable_region()
     tokens_granted = 0
     item_name = ""
     amount_paise = 0
@@ -275,6 +325,7 @@ async def instant_topup(
     """Credit top-up tokens instantly for local development and live demonstrations.
     ₹100 gives exactly 10,000 Autofix Tokens (40 complete replay-verified bug fixes).
     """
+    _require_writable_region()
     if req.amount_inr <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than zero")
 
@@ -329,6 +380,7 @@ async def instant_addon(
     db: Session = Depends(get_db),
 ):
     """Enable or disable 24/7 loop add-on instantly and credit tokens."""
+    _require_writable_region()
     if req.addon_id not in ADDONS:
         raise HTTPException(status_code=400, detail="Invalid addon_id. Choose 'autonomous_dev_loop' or 'reverse_proxy_loop'")
 
@@ -505,11 +557,28 @@ async def webhook(request: Request):
 
         if event_type == "payment.refunded":
             ref_ent = data.get("payload", {}).get("refund", {}).get("entity", {})
-            provider_refund_id = ref_ent.get("id", f"rfnd_{uuid.uuid4().hex[:10]}")
-            pay_id = ref_ent.get("payment_id", f"pay_unseen_{uuid.uuid4().hex[:10]}")
+            provider_refund_id = ref_ent.get("id")
+            pay_id = ref_ent.get("payment_id")
             rfnd_amt = ref_ent.get("amount", 0)
             rfnd_status = ref_ent.get("status", "processed")
             rfnd_reason = ref_ent.get("notes", {}).get("reason", "refund")
+            if not provider_refund_id or not pay_id:
+                whe.status = "failed"
+                whe.error = "Refund event omitted provider refund/payment identifiers"
+                db.add(whe)
+                db.commit()
+                raise HTTPException(status_code=422, detail=whe.error)
+
+            existing_refund = db.exec(
+                select(Refund).where(
+                    Refund.provider_refund_id == provider_refund_id
+                )
+            ).first()
+            if existing_refund:
+                whe.status = "duplicate"
+                db.add(whe)
+                db.commit()
+                return {"status": "duplicate", "refund_id": existing_refund.id}
 
             pay_record = db.exec(
                 select(Payment).where(
@@ -517,24 +586,11 @@ async def webhook(request: Request):
                 )
             ).first()
             if not pay_record:
-                dummy_order = db.get(PaymentOrder, "po_refund_unseen")
-                if not dummy_order:
-                    dummy_order = PaymentOrder(
-                        id="po_refund_unseen",
-                        org_id="org_refund_unseen",
-                        status="refunded",
-                    )
-                    db.add(dummy_order)
-                    db.commit()
-                pay_record = Payment(
-                    id=pay_id,
-                    payment_order_id="po_refund_unseen",
-                    provider_payment_id=pay_id,
-                    amount_paise=rfnd_amt,
-                    status="refunded",
-                )
-                db.add(pay_record)
+                whe.status = "failed"
+                whe.error = "Refund references an unknown payment"
+                db.add(whe)
                 db.commit()
+                raise HTTPException(status_code=422, detail=whe.error)
 
             refund = Refund(
                 id=f"ref_{uuid.uuid4().hex[:10]}",
@@ -545,6 +601,11 @@ async def webhook(request: Request):
                 reason=rfnd_reason,
             )
             db.add(refund)
+            pay_record.status = "refunded"
+            order = db.get(PaymentOrder, pay_record.payment_order_id)
+            if order:
+                order.status = "refunded"
+                db.add(order)
             whe.status = "processed"
             whe.processed_at = utc_now()
             db.add(whe)

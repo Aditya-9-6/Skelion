@@ -365,6 +365,27 @@ class Alert(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class ComplianceEvidence(SQLModel, table=True):
+    __tablename__ = "compliance_evidence"
+    id: str = Field(default_factory=lambda: f"ev_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", index=True)
+    control: str = Field(index=True)
+    evidence_hash: str = Field(index=True)
+    payload_json: str = Field(default="{}")
+    collected_at: datetime = Field(default_factory=utc_now)
+
+
+class AccessReview(SQLModel, table=True):
+    __tablename__ = "access_reviews"
+    id: str = Field(default_factory=lambda: f"ar_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", index=True)
+    reviewer_id: str = Field(index=True)
+    status: str = Field(default="open", index=True)
+    reviewed_at: Optional[datetime] = Field(default=None)
+    notes: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 # ---------------------------------------------------------------------------
 # SaaS Multi-Tenant Team & Ingress Telemetry Models
 # ---------------------------------------------------------------------------
@@ -433,6 +454,7 @@ class SSOConnection(SQLModel, table=True):
     issuer_url: Optional[str] = Field(default=None)
     client_id: Optional[str] = Field(default=None)
     client_secret_ref: Optional[str] = Field(default=None)
+    certificate_pem_ref: Optional[str] = Field(default=None)
     metadata_url: Optional[str] = Field(default=None)
     entity_id: Optional[str] = Field(default=None)
     enabled: bool = Field(default=False)

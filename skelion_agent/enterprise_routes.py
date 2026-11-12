@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Form
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
@@ -14,9 +14,12 @@ from sqlmodel import Session, select
 from skelion_agent.auth import create_access_token
 from skelion_agent.auth_routes import get_current_actor, require_member_role
 from skelion_agent.config import get_async_redis
+from skelion_agent.saml_service import SamlValidationError, validate_saml_response
 from skelion_agent.database import get_db
 from skelion_agent.models import (
     AuditLog,
+    AccessReview,
+    ComplianceEvidence,
     Membership,
     Organization,
     ScimToken,
@@ -28,11 +31,17 @@ from skelion_agent.models import (
 router = APIRouter(tags=["Enterprise Control Plane"])
 
 
+def require_writable_region() -> None:
+    if os.getenv("SKELION_READ_ONLY", "false").lower() == "true":
+        raise HTTPException(status_code=503, detail="This deployment region is read-only")
+
+
 class SSOConnectionRequest(BaseModel):
     provider: str
     issuer_url: Optional[str] = None
     client_id: Optional[str] = None
     client_secret_ref: Optional[str] = None
+    certificate_pem_ref: Optional[str] = None
     metadata_url: Optional[str] = None
     entity_id: Optional[str] = None
     enabled: bool = False
@@ -51,6 +60,11 @@ class ScimUserRequest(BaseModel):
     userName: EmailStr
     displayName: Optional[str] = None
     active: bool = True
+
+
+class AccessReviewUpdate(BaseModel):
+    status: str
+    notes: Optional[str] = None
 
 
 def _hash_token(value: str) -> str:
@@ -73,6 +87,7 @@ def get_sso_connection(
         "issuer_url": connection.issuer_url,
         "client_id": connection.client_id,
         "client_secret_ref": connection.client_secret_ref,
+        "certificate_pem_ref": connection.certificate_pem_ref,
         "metadata_url": connection.metadata_url,
         "entity_id": connection.entity_id,
         "enabled": connection.enabled,
@@ -85,6 +100,7 @@ def configure_sso(
     actor=Depends(require_member_role("owner")),
     session: Session = Depends(get_db),
 ):
+    require_writable_region()
     if req.provider not in {"oidc", "saml"}:
         raise HTTPException(status_code=422, detail="provider must be oidc or saml")
     if req.provider == "oidc" and not req.issuer_url:
@@ -101,6 +117,7 @@ def configure_sso(
     connection.issuer_url = req.issuer_url
     connection.client_id = req.client_id
     connection.client_secret_ref = req.client_secret_ref
+    connection.certificate_pem_ref = req.certificate_pem_ref
     connection.metadata_url = req.metadata_url
     connection.entity_id = req.entity_id
     connection.enabled = req.enabled
@@ -257,12 +274,70 @@ async def oidc_callback(
     }
 
 
+@router.post("/v1/org/sso/saml/consume")
+async def saml_consume(
+    saml_response: str = Form(..., alias="SAMLResponse"),
+    relay_state: str = Form(..., alias="RelayState"),
+    session: Session = Depends(get_db),
+):
+    redis = get_async_redis()
+    raw_state = await redis.get(f"skelion:saml:{relay_state}")
+    await redis.delete(f"skelion:saml:{relay_state}")
+    if not raw_state:
+        raise HTTPException(status_code=400, detail="Invalid or expired SAML state")
+    state_data = json.loads(raw_state)
+    org = session.get(Organization, state_data["org_id"])
+    connection = session.exec(
+        select(SSOConnection).where(
+            SSOConnection.org_id == state_data["org_id"],
+            SSOConnection.provider == "saml",
+            SSOConnection.enabled == True,  # noqa: E712
+        )
+    ).first()
+    certificate = (
+        os.getenv(connection.certificate_pem_ref)
+        if connection and connection.certificate_pem_ref
+        else None
+    )
+    if not org or not connection or not certificate:
+        raise HTTPException(status_code=503, detail="SAML certificate configuration is incomplete")
+    try:
+        identity = validate_saml_response(
+            saml_response,
+            certificate_pem=certificate,
+            expected_issuer=connection.entity_id or "",
+            expected_audience=state_data["audience"],
+            expected_recipient=state_data["recipient"],
+            request_id=state_data.get("request_id"),
+        )
+    except SamlValidationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    user = session.exec(select(User).where(User.email == identity["name_id"])).first()
+    membership = session.exec(
+        select(Membership).where(
+            Membership.org_id == org.id,
+            Membership.user_id == user.id if user else "",
+        )
+    ).first()
+    if not user or not membership:
+        raise HTTPException(status_code=403, detail="SAML user is not an organization member")
+    return {
+        "access_token": create_access_token(
+            {"sub": org.id, "user_id": user.id, "plan": org.plan}
+        ),
+        "token_type": "bearer",
+        "user_id": user.id,
+        "organization_id": org.id,
+    }
+
+
 @router.post("/v1/org/scim-tokens")
 def create_scim_token(
     req: ScimTokenRequest,
     actor=Depends(require_member_role("owner")),
     session: Session = Depends(get_db),
 ):
+    require_writable_region()
     if not 1 <= req.expires_in_days <= 3650:
         raise HTTPException(status_code=422, detail="expires_in_days must be between 1 and 3650")
     org, user, _ = actor
@@ -330,6 +405,7 @@ def rotate_scim_token(
     actor=Depends(require_member_role("owner")),
     session: Session = Depends(get_db),
 ):
+    require_writable_region()
     if not 1 <= req.expires_in_days <= 3650:
         raise HTTPException(status_code=422, detail="expires_in_days must be between 1 and 3650")
     org, user, _ = actor
@@ -376,6 +452,7 @@ def revoke_scim_token(
     actor=Depends(require_member_role("owner")),
     session: Session = Depends(get_db),
 ):
+    require_writable_region()
     org, user, _ = actor
     token = session.exec(
         select(ScimToken).where(
@@ -613,6 +690,169 @@ def compliance_evidence(
         },
         "audit_events": audit_count,
         "generated_at": utc_now().isoformat(),
+    }
+
+
+@router.get("/v1/compliance/audit-export")
+def audit_export(
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    org, _, _ = actor
+    events = session.exec(
+        select(AuditLog)
+        .where(AuditLog.org_id == org.id)
+        .order_by(AuditLog.ts.asc(), AuditLog.id.asc())
+    ).all()
+    previous = "0" * 64
+    records = []
+    for event in events:
+        payload = {
+            "id": event.id,
+            "actor": event.actor,
+            "action": event.action,
+            "meta_json": event.meta_json,
+            "ts": event.ts.isoformat(),
+            "previous_hash": previous,
+        }
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        payload["hash"] = digest
+        previous = digest
+        records.append(payload)
+    evidence = ComplianceEvidence(
+        org_id=org.id,
+        control="audit_log_export",
+        evidence_hash=previous,
+        payload_json=json.dumps({"count": len(records), "head": previous}),
+    )
+    session.add(evidence)
+    session.commit()
+    return {
+        "organization_id": org.id,
+        "algorithm": "sha256-chain",
+        "head_hash": previous,
+        "events": records,
+    }
+
+
+@router.post("/v1/compliance/access-reviews")
+def create_access_review(
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    org, user, _ = actor
+    review = AccessReview(org_id=org.id, reviewer_id=user.id)
+    session.add(review)
+    session.commit()
+    session.refresh(review)
+    return {"id": review.id, "status": review.status, "created_at": review.created_at.isoformat()}
+
+
+@router.get("/v1/compliance/access-reviews")
+def list_access_reviews(
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    org, _, _ = actor
+    reviews = session.exec(
+        select(AccessReview)
+        .where(AccessReview.org_id == org.id)
+        .order_by(AccessReview.created_at.desc())
+    ).all()
+    return {
+        "reviews": [
+            {
+                "id": review.id,
+                "reviewer_id": review.reviewer_id,
+                "status": review.status,
+                "notes": review.notes,
+                "created_at": review.created_at.isoformat(),
+                "reviewed_at": review.reviewed_at.isoformat()
+                if review.reviewed_at
+                else None,
+            }
+            for review in reviews
+        ]
+    }
+
+
+@router.patch("/v1/compliance/access-reviews/{review_id}")
+def update_access_review(
+    review_id: str,
+    req: AccessReviewUpdate,
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    if req.status not in {"open", "completed", "accepted", "remediated"}:
+        raise HTTPException(status_code=422, detail="Invalid access review status")
+    org, user, _ = actor
+    review = session.exec(
+        select(AccessReview).where(
+            AccessReview.id == review_id,
+            AccessReview.org_id == org.id,
+        )
+    ).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Access review not found")
+    review.status = req.status
+    review.notes = req.notes
+    review.reviewer_id = user.id
+    review.reviewed_at = utc_now() if req.status != "open" else None
+    session.add(review)
+    session.add(
+        AuditLog(
+            actor=user.id,
+            org_id=org.id,
+            action="compliance.access_review.updated",
+            meta_json=json.dumps({"review_id": review.id, "status": review.status}),
+        )
+    )
+    session.commit()
+    return {
+        "id": review.id,
+        "status": review.status,
+        "reviewed_at": review.reviewed_at,
+    }
+
+
+@router.get("/v1/compliance/retention")
+def retention_report(
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    org, _, _ = actor
+    now = utc_now()
+    audit_count = len(
+        session.exec(select(AuditLog).where(AuditLog.org_id == org.id)).all()
+    )
+    evidence_count = len(
+        session.exec(
+            select(ComplianceEvidence).where(ComplianceEvidence.org_id == org.id)
+        ).all()
+    )
+    return {
+        "organization_id": org.id,
+        "generated_at": now.isoformat(),
+        "policy": {
+            "audit_retention_days": int(os.getenv("AUDIT_RETENTION_DAYS", "365")),
+            "evidence_retention_days": int(os.getenv("EVIDENCE_RETENTION_DAYS", "2555")),
+            "deletion_mode": "operator_approved",
+        },
+        "counts": {"audit_events": audit_count, "evidence_records": evidence_count},
+    }
+
+
+@router.get("/v1/system/region/health")
+def region_health():
+    return {
+        "region": os.getenv("SKELION_REGION", "primary"),
+        "deployment_ring": os.getenv("SKELION_DEPLOYMENT_RING", "stable"),
+        "read_only": os.getenv("SKELION_READ_ONLY", "false").lower() == "true",
+        "failover_target": os.getenv("SKELION_FAILOVER_TARGET"),
+        "database_role": os.getenv("SKELION_DATABASE_ROLE", "primary"),
+        "queue_role": os.getenv("SKELION_QUEUE_ROLE", "primary"),
     }
 
 

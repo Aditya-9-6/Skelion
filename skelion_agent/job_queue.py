@@ -1,6 +1,7 @@
 """Durable Redis Streams job queue for horizontally scaled workers."""
 
 import json
+import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
@@ -139,3 +140,47 @@ class DurableJobQueue:
             await self.ack(message_id)
             processed += 1
         return processed
+
+    async def reclaim_stale(
+        self, consumer: str, min_idle_ms: int = 60000, count: int = 100
+    ) -> list[tuple[str, Job]]:
+        """Reclaim pending messages whose worker lease expired."""
+        await self.ensure_group()
+        pending = await self.redis.xpending_range(
+            self.stream, self.group, min="-", max="+", count=count
+        )
+        ids = [
+            item["message_id"] if isinstance(item, dict) else item[0]
+            for item in pending
+            if (item.get("time_since_delivered", 0) if isinstance(item, dict) else item[2])
+            >= min_idle_ms
+        ]
+        if not ids:
+            return []
+        claimed = await self.redis.xclaim(
+            self.stream, self.group, consumer, min_idle_ms, ids
+        )
+        jobs = []
+        for message_id, values in claimed:
+            raw = values.get("job") or values.get(b"job")
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            data = json.loads(raw)
+            jobs.append(
+                (
+                    message_id.decode() if isinstance(message_id, bytes) else message_id,
+                    Job(
+                        id=data["id"],
+                        kind=data["kind"],
+                        payload=data["payload"],
+                        attempts=int(data.get("attempts", 0)),
+                    ),
+                )
+            )
+        return jobs
+
+    async def record_metric(self, name: str, value: int = 1) -> None:
+        await self.redis.hincrby(f"{self.stream}:metrics", name, value)
+        await self.redis.hset(
+            f"{self.stream}:metrics", "updated_at", str(int(time.time()))
+        )

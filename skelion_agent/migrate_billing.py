@@ -64,6 +64,13 @@ def ensure_columns(db_path: Path):
                 "ALTER TABLE sso_connections ADD COLUMN client_secret_ref TEXT DEFAULT NULL"
             )
             print(f"Added column client_secret_ref to sso_connections in {db_path}")
+        if column_exists("sso_connections", "client_id") and not column_exists(
+            "sso_connections", "certificate_pem_ref"
+        ):
+            cur.execute(
+                "ALTER TABLE sso_connections ADD COLUMN certificate_pem_ref TEXT DEFAULT NULL"
+            )
+            print(f"Added column certificate_pem_ref to sso_connections in {db_path}")
 
         if column_exists("audit_log", "created_at") and not column_exists(
             "audit_log", "ts"

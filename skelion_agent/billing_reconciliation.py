@@ -5,7 +5,13 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from sqlmodel import Session, select
 
-from skelion_agent.models import CreditLedger, Invoice, Organization, Payment, PaymentOrder
+from skelion_agent.models import (
+    CreditLedger,
+    Invoice,
+    Payment,
+    PaymentOrder,
+    Refund,
+)
 
 
 def calculate_proration(
@@ -51,6 +57,22 @@ def reconcile_billing(session: Session, org_id: str) -> dict:
     for payment in payments:
         if payment.id not in invoice_payment_ids:
             findings.append({"type": "payment_without_invoice", "payment_id": payment.id})
+        refunds = session.exec(
+            select(Refund).where(Refund.payment_id == payment.id)
+        ).all()
+        refunded = sum(refund.amount_paise for refund in refunds)
+        if refunded > payment.amount_paise:
+            findings.append(
+                {
+                    "type": "refund_exceeds_payment",
+                    "payment_id": payment.id,
+                    "refunded_paise": refunded,
+                    "payment_paise": payment.amount_paise,
+                }
+            )
+    for invoice in invoices:
+        if invoice.amount_paise < 0:
+            findings.append({"type": "negative_invoice", "invoice_id": invoice.id})
 
     return {
         "organization_id": org_id,

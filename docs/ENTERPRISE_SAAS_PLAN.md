@@ -129,8 +129,22 @@ or required configuration are absent. OIDC now has a state/nonce-protected
 authorization-code flow, discovery validation, issuer/audience/JWKS checks,
 single-use state, and organization-membership enforcement; client secrets are
 referenced by environment-variable name rather than stored in the database.
-The remaining enterprise-critical work is actual OIDC callback/JWKS and SAML
-assertion verification, complete SCIM PATCH/deprovisioning semantics, applying
-RBAC to every protected route, wiring workers to the durable queue, billing
-reconciliation/proration, immutable compliance exports, and regional failover
-operations.
+SAML responses now require a trusted configured certificate, XML signature
+verification, issuer/audience/recipient checks, assertion time bounds, status
+success, request correlation, and single-use Redis relay state. SCIM and
+billing writes respect read-only regions; billing exposes invoice/seat views,
+refund events reject unknown payments, and reconciliation detects missing
+invoices, orphan payments, refund overages, and negative invoices. Incident
+ingestion enqueues durable processing jobs and production queue failures return
+an explicit service-unavailable response. Compliance includes hash-chained
+audit exports, access-review lifecycle endpoints, retention reporting, and
+audited evidence records.
+
+The remaining enterprise-critical work is operational rather than safely
+solvable in source code alone: configure managed PostgreSQL/Redis, real
+provider and IdP credentials, SAML metadata and rotation procedures, worker
+deployment and alerting, scheduled reconciliation, retention execution with
+operator approval, regional failover automation, backups/restore drills,
+security review, legal/privacy documents, and production smoke testing.
+SCIM bulk/group support and richer provider-specific billing workflows should
+be added before broad enterprise availability.
