@@ -27,7 +27,7 @@ class WorkStealingQueue:
         # while maintaining precise lock-free algorithm semantics for concurrent stealers.
         self._top = 0
         self._bottom = 0
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def __len__(self) -> int:
         with self._lock:

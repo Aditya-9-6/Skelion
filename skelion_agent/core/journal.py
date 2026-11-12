@@ -129,7 +129,9 @@ class MmapJournal:
 
             total_record_size = self.RECORD_HEADER_SIZE + payload_len
             if cursor + total_record_size > self.capacity_bytes:
-                break
+                raise JournalCorruptionError(
+                    f"Record exceeds journal capacity at cursor {cursor}"
+                )
 
             payload = self._mmap.read(payload_len)
             if len(payload) < payload_len:

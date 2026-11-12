@@ -344,9 +344,11 @@ class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_log"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     actor: str = Field(default="system", index=True)
+    actor_github_id: Optional[str] = Field(default=None)
     org_id: Optional[str] = Field(default=None, index=True)
     action: str = Field(index=True)
     meta_json: str = Field(default="{}")
+    ts: datetime = Field(default_factory=utc_now, index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
 
