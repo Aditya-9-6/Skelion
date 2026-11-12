@@ -117,4 +117,15 @@ ingest rejects API keys without the `ingest` scope.
 Autonomous runs now charge the append-only ledger and never fabricate a PR
 URL; outbound webhooks use HMAC signatures, delivery IDs, bounded retries, and
 independent database sessions.
-This is a foundation, not a claim that SAML, SCIM, or full RBAC is complete.
+Enterprise control-plane foundations now include owner-managed OIDC/SAML
+connection metadata, one-time hashed SCIM token issuance, SCIM user
+listing/provisioning, compliance evidence status, and deployment-region
+metadata. A Redis Streams queue primitive provides consumer groups, explicit
+acknowledgement, bounded retries, and a dead-letter stream for horizontally
+scaled workers. Provider integrations fail closed when production credentials
+or required configuration are absent.
+The remaining enterprise-critical work is actual OIDC callback/JWKS and SAML
+assertion verification, complete SCIM PATCH/deprovisioning semantics, applying
+RBAC to every protected route, wiring workers to the durable queue, billing
+reconciliation/proration, immutable compliance exports, and regional failover
+operations.
