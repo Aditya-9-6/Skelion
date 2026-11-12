@@ -33,7 +33,7 @@ Do not copy values from `.env.helios.example` or `.env.skelion.example` into pro
 1. Rotate the Razorpay credentials previously committed to repository history.
 2. Provision production database and Redis resources.
 3. Set `ENVIRONMENT=production` and all required secrets.
-4. Run `python -m skelion_agent.config` checks or the service startup path and confirm insecure defaults are rejected.
+4. Start the service once with production settings and confirm startup rejects missing or insecure `SECRET_KEY`, `ENCRYPTION_KEY`, `DATABASE_URL`, or `REDIS_URL` values.
 5. Configure `ALLOWED_ORIGINS` with the exact browser origins that may call the API. Production no longer permits wildcard credentialed CORS.
 6. Configure the Razorpay webhook endpoint and use the exact same webhook secret.
 7. Verify `/health` is liveness-only and `/readyz` returns 200 only after both the database and Redis are reachable.

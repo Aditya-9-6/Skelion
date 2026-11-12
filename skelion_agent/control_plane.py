@@ -138,6 +138,10 @@ app.add_middleware(ProxyMiddleware, target_base="http://127.0.0.1:8000")
 @app.on_event("startup")
 async def on_startup():
     """Startup hook – initialize DB, apply migrations, and ensure auth columns."""
+    from skelion_agent.config import validate_secrets
+
+    validate_secrets(raise_on_error=True, exit_on_failure=False)
+
     # Existing DB init
     from skelion_agent.database import init_db
 

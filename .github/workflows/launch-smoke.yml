@@ -33,6 +33,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_control_plane_readiness.py \
+            tests/test_config_secrets.py \
             tests/test_billing_v2.py \
             tests/test_razorpay_webhook.py \
             tests/test_quota_telemetry.py
