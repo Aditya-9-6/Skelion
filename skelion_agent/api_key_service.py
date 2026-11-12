@@ -9,7 +9,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 
 from skelion_agent.database import get_db
-from skelion_agent.models import Organization, ApiKey, utc_now
+from skelion_agent.models import ApiKey, AuditLog, Organization, utc_now
 
 security = HTTPBearer(auto_error=False)
 
@@ -28,6 +28,18 @@ def generate_scoped_api_key(prefix: str = "skl_live_") -> Tuple[str, str, str]:
     raw_key = f"{prefix}{random_part}"
     key_hash = hash_api_key(raw_key)
     return raw_key, prefix, key_hash
+
+
+VALID_SCOPES = {"ingest", "read", "write", "admin"}
+
+
+def parse_scopes(value: str) -> set[str]:
+    return {scope.strip() for scope in value.split(",") if scope.strip()}
+
+
+def has_scope(api_key: ApiKey, required_scope: str) -> bool:
+    scopes = parse_scopes(api_key.scopes)
+    return required_scope in scopes or "admin" in scopes
 
 
 async def get_org_from_api_key_or_jwt(
@@ -71,15 +83,24 @@ async def get_org_from_api_key_or_jwt(
         ).first()
 
         if not api_key:
-            # Check legacy organization.token format
-            legacy_org = db.exec(
-                select(Organization).where(Organization.token == token_str)
-            ).first()
-            if legacy_org:
-                return legacy_org
+            if os.getenv("ENVIRONMENT", "development").lower() not in {
+                "production",
+                "staging",
+            }:
+                legacy_org = db.exec(
+                    select(Organization).where(Organization.token == token_str)
+                ).first()
+                if legacy_org:
+                    return legacy_org
             raise HTTPException(
                 status_code=401, detail="Invalid or revoked Skelion API key"
             )
+
+        if api_key.expires_at and api_key.expires_at <= utc_now():
+            api_key.is_active = False
+            db.add(api_key)
+            db.commit()
+            raise HTTPException(status_code=401, detail="Expired Skelion API key")
 
         # Update last used timestamp
         api_key.last_used_at = utc_now()
@@ -107,4 +128,8 @@ async def get_org_from_api_key_or_jwt(
     # 3. Fall back to standard JWT auth
     from skelion_agent.auth_routes import get_org_from_jwt
 
-    return get_org_from_jwt(auth_header, db)
+    return get_org_from_jwt(
+        authorization=f"Bearer {token_str}",
+        x_organization_id=None,
+        session=db,
+    )

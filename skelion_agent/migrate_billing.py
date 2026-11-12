@@ -53,6 +53,10 @@ def ensure_columns(db_path: Path):
                 )
                 print(f"Added column {name} to organizations in {db_path}")
 
+        if not column_exists("api_keys", "expires_at"):
+            cur.execute("ALTER TABLE api_keys ADD COLUMN expires_at TEXT DEFAULT NULL")
+            print(f"Added column expires_at to api_keys in {db_path}")
+
         conn.commit()
         conn.close()
     except Exception as e:

@@ -406,6 +406,7 @@ class ApiKey(SQLModel, table=True):
     scopes: str = Field(default="ingest,read")
     is_active: bool = Field(default=True, index=True)
     last_used_at: Optional[datetime] = Field(default=None)
+    expires_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
 

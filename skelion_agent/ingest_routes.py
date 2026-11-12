@@ -3,6 +3,7 @@
 import hashlib
 import json
 import uuid
+from datetime import timedelta
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from sqlmodel import Session, select
 
 from skelion_agent.database import get_db
 from skelion_agent.models import (
+    AuditLog,
     Organization,
     Incident,
     ApiKey,
@@ -47,6 +49,7 @@ class CreateApiKeyRequest(BaseModel):
     name: str = "Production API Key"
     environment: str = "live"  # "live" or "test"
     scopes: Optional[List[str]] = ["ingest", "read"]
+    expires_in_days: Optional[int] = 90
 
 
 class CreateWebhookRequest(BaseModel):
@@ -225,6 +228,7 @@ def list_api_keys(
             if k.created_at
             else utc_now().isoformat(),
             "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+            "expires_at": k.expires_at.isoformat() if k.expires_at else None,
         }
         for k in keys
     ]
@@ -241,9 +245,27 @@ def create_api_key(
     The raw key is returned ONCE upon creation.
     """
     prefix = "skl_live_" if req.environment == "live" else "skl_test_"
+    requested_scopes = set(req.scopes or ["ingest", "read"])
+    from skelion_agent.api_key_service import VALID_SCOPES
+
+    invalid_scopes = requested_scopes - VALID_SCOPES
+    if invalid_scopes:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported API key scopes: {', '.join(sorted(invalid_scopes))}",
+        )
+    if req.expires_in_days is not None and not 1 <= req.expires_in_days <= 3650:
+        raise HTTPException(
+            status_code=422, detail="expires_in_days must be between 1 and 3650"
+        )
     raw_key, key_prefix, key_hash = generate_scoped_api_key(prefix=prefix)
 
-    scopes_str = ",".join(req.scopes) if req.scopes else "ingest,read"
+    scopes_str = ",".join(sorted(requested_scopes))
+    expires_at = (
+        utc_now() + timedelta(days=req.expires_in_days)
+        if req.expires_in_days is not None
+        else None
+    )
     api_key = ApiKey(
         org_id=org.id,
         name=req.name,
@@ -251,10 +273,22 @@ def create_api_key(
         key_hash=key_hash,
         scopes=scopes_str,
         is_active=True,
+        expires_at=expires_at,
     )
     db.add(api_key)
     db.commit()
     db.refresh(api_key)
+    db.add(
+        AuditLog(
+            actor=org.id,
+            org_id=org.id,
+            action="api_key.created",
+            meta_json=json.dumps(
+                {"key_id": api_key.id, "scopes": sorted(requested_scopes)}
+            ),
+        )
+    )
+    db.commit()
 
     return {
         "id": api_key.id,
@@ -263,6 +297,7 @@ def create_api_key(
         "prefix": key_prefix,
         "scopes": req.scopes,
         "created_at": api_key.created_at.isoformat(),
+        "expires_at": api_key.expires_at.isoformat() if api_key.expires_at else None,
         "warning": "Copy this key now. You will not be able to retrieve it again.",
     }
 
@@ -280,6 +315,14 @@ def revoke_api_key(
 
     api_key.is_active = False
     db.add(api_key)
+    db.add(
+        AuditLog(
+            actor=org.id,
+            org_id=org.id,
+            action="api_key.revoked",
+            meta_json=json.dumps({"key_id": api_key.id}),
+        )
+    )
     db.commit()
 
     return {"status": "revoked", "id": key_id}

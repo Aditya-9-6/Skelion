@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 # Ensure the test uses the same app instance
 from skelion_agent.control_plane import app
 from skelion_agent.database import get_session, init_db
-from skelion_agent.models import Membership, Organization, ProxyNode
+from skelion_agent.models import ApiKey, Membership, Organization, ProxyNode, utc_now
 
 client = TestClient(app)
 
@@ -80,3 +80,38 @@ def test_production_rejects_anonymous_org_resolution(monkeypatch):
         with pytest.raises(HTTPException) as exc_info:
             get_org_from_jwt(authorization=None, x_organization_id=None, session=s)
     assert exc_info.value.status_code == 401
+
+
+def test_expired_scoped_api_key_is_rejected():
+    import asyncio
+    from datetime import timedelta
+    from skelion_agent.api_key_service import (
+        generate_scoped_api_key,
+        get_org_from_api_key_or_jwt,
+    )
+
+    with Session(get_session()) as s:
+        org = s.exec(select(Organization)).first()
+        raw_key, prefix, key_hash = generate_scoped_api_key()
+        s.add(
+            ApiKey(
+                org_id=org.id,
+                name="expired",
+                key_prefix=prefix,
+                key_hash=key_hash,
+                scopes="ingest",
+                expires_at=utc_now() - timedelta(seconds=1),
+            )
+        )
+        s.commit()
+        with pytest.raises(Exception) as exc_info:
+            asyncio.run(
+                get_org_from_api_key_or_jwt(
+                    auth_header=type(
+                        "Credentials", (), {"credentials": raw_key}
+                    )(),
+                    x_api_key=None,
+                    db=s,
+                )
+            )
+        assert getattr(exc_info.value, "status_code", None) == 401

@@ -108,5 +108,7 @@ Browser / SDK / VS Code
 The current branch activates the first identity boundary safely: production
 authentication now fails closed, machine keys resolve through hashed
 `ProxyNode` records, demo authentication is explicit and non-production only,
-and new registrations/GitHub logins establish owner memberships. This is a
-foundation, not a claim that SAML, SCIM, or full RBAC is complete.
+and new registrations/GitHub logins establish owner memberships. Scoped
+`ApiKey` records now support bounded lifetimes, strict scope validation,
+production-safe legacy behavior, and audit entries on creation/revocation.
+This is a foundation, not a claim that SAML, SCIM, or full RBAC is complete.
