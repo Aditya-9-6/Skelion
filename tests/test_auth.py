@@ -55,6 +55,38 @@ def test_register_and_login():
     assert "access_token" in token_data
     bearer = f"Bearer {token_data['access_token']}"
 
+    member_resp = client.post(
+        "/v1/auth/org/members",
+        headers={"Authorization": bearer},
+        json={"email": "developer@example.com", "role": "developer"},
+    )
+    assert member_resp.status_code == 200
+    member_id = member_resp.json()["user_id"]
+    members_resp = client.get(
+        "/v1/auth/org/members", headers={"Authorization": bearer}
+    )
+    assert members_resp.status_code == 200
+    assert any(member["user_id"] == member_id for member in members_resp.json()["members"])
+    role_resp = client.patch(
+        f"/v1/auth/org/members/{member_id}",
+        headers={"Authorization": bearer},
+        json={"role": "viewer"},
+    )
+    assert role_resp.status_code == 200
+
+    read_key_resp = client.post(
+        "/v1/keys",
+        headers={"Authorization": bearer},
+        json={"name": "Read only", "scopes": ["read"]},
+    )
+    assert read_key_resp.status_code == 200
+    ingest_resp = client.post(
+        "/v1/ingest/incident",
+        headers={"X-API-Key": read_key_resp.json()["api_key"]},
+        json={"error_summary": "scope check"},
+    )
+    assert ingest_resp.status_code == 403
+
     # Generate API key (machine token)
     resp = client.post("/v1/auth/api-key", headers={"Authorization": bearer})
     assert resp.status_code == 200

@@ -21,6 +21,7 @@ from skelion_agent.models import (
 from skelion_agent.api_key_service import (
     get_org_from_api_key_or_jwt,
     generate_scoped_api_key,
+    require_scope,
 )
 from skelion_agent.email_service import email_service
 from core.redact import redact_headers, redact_text as redact_payload
@@ -102,7 +103,7 @@ async def dispatch_webhooks(
 async def ingest_production_incident(
     req: IngestIncidentRequest,
     background_tasks: BackgroundTasks,
-    org: Organization = Depends(get_org_from_api_key_or_jwt),
+    org: Organization = Depends(require_scope("ingest")),
     db: Session = Depends(get_db),
 ):
     """

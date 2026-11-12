@@ -13,6 +13,7 @@
 """
 
 import hashlib
+import json
 import os
 from typing import Optional
 
@@ -29,7 +30,7 @@ from skelion_agent.auth import (
     verify_password,
 )
 from skelion_agent.database import get_db
-from skelion_agent.models import Membership, Organization, ProxyNode, User
+from skelion_agent.models import AuditLog, Membership, Organization, ProxyNode, User
 from skelion_agent.plan_config import PLAN_DEFINITIONS
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
@@ -61,6 +62,18 @@ class TokenRequest(BaseModel):
 
 class ApiKeyResponse(BaseModel):
     api_key: str
+
+
+class MemberRequest(BaseModel):
+    email: EmailStr
+    role: str = "developer"
+
+
+class MemberRoleRequest(BaseModel):
+    role: str
+
+
+VALID_MEMBER_ROLES = {"owner", "admin", "developer", "viewer", "billing"}
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +109,7 @@ def get_org_from_jwt(
                 session.commit()
                 session.refresh(org)
             return org
+
 
         # Machine keys are stored hashed in ProxyNode and never need raw-token lookup.
         if token.startswith("skl_live_"):
@@ -136,6 +150,51 @@ def get_org_from_jwt(
         session.commit()
         session.refresh(org)
     return org
+
+
+def get_current_actor(
+    authorization: Optional[str] = Header(None),
+    org: Organization = Depends(get_org_from_jwt),
+    session: Session = Depends(get_db),
+) -> tuple[Organization, User, Membership]:
+    """Resolve the JWT subject to an org membership for RBAC-protected routes."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="JWT authentication required")
+    token = authorization.split(" ", 1)[1]
+    if token.startswith("skl_"):
+        raise HTTPException(status_code=403, detail="Machine keys cannot manage members")
+    try:
+        payload = decode_access_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
+
+    user_id = payload.get("user_id") or org.owner_user_id
+    user = session.get(User, user_id) if user_id else None
+    membership = (
+        session.exec(
+            select(Membership).where(
+                Membership.org_id == org.id,
+                Membership.user_id == user_id,
+            )
+        ).first()
+        if user_id
+        else None
+    )
+    if not user or not membership:
+        raise HTTPException(status_code=403, detail="Organization membership required")
+    return org, user, membership
+
+
+def require_member_role(*roles: str):
+    allowed = set(roles)
+
+    def dependency(actor=Depends(get_current_actor)):
+        _, _, membership = actor
+        if membership.role not in allowed:
+            raise HTTPException(status_code=403, detail="Insufficient organization role")
+        return actor
+
+    return dependency
 
 
 # ---------------------------------------------------------------------------
@@ -264,9 +323,15 @@ async def github_auth(req: GitHubAuthRequest, session: Session = Depends(get_db)
         if not membership:
             session.add(Membership(org_id=org.id, user_id=user.id, role="owner"))
             session.commit()
+        if not org.owner_user_id:
+            org.owner_user_id = user.id
+            session.add(org)
+            session.commit()
 
     # 3. Issue access JWT
-    access_token = create_access_token({"sub": org.id, "plan": org.plan})
+    access_token = create_access_token(
+        {"sub": org.id, "user_id": user.id if email else org.owner_user_id, "plan": org.plan}
+    )
 
     return {
         "access_token": access_token,
@@ -328,6 +393,8 @@ def register(req: RegisterRequest, session: Session = Depends(get_db)):
     session.commit()
     session.refresh(user)
     session.add(Membership(org_id=org.id, user_id=user.id, role="owner"))
+    org.owner_user_id = user.id
+    session.add(org)
     session.commit()
     return {"status": "registered", "organization_id": org.id}
 
@@ -341,8 +408,135 @@ def token(req: TokenRequest, session: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not verify_password(req.password, org.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = create_access_token({"sub": org.id, "plan": org.plan})
+    user = session.exec(select(User).where(User.email == req.email)).first()
+    access_token = create_access_token(
+        {"sub": org.id, "user_id": user.id if user else org.owner_user_id, "plan": org.plan}
+    )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/org/members")
+def list_members(
+    actor=Depends(get_current_actor),
+    session: Session = Depends(get_db),
+):
+    org, _, _ = actor
+    members = session.exec(
+        select(Membership).where(Membership.org_id == org.id)
+    ).all()
+    result = []
+    for membership in members:
+        user = session.get(User, membership.user_id)
+        if user:
+            result.append(
+                {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "full_name": user.full_name,
+                    "role": membership.role,
+                    "created_at": membership.created_at.isoformat(),
+                }
+            )
+    return {"members": result}
+
+
+@router.post("/org/members")
+def add_member(
+    req: MemberRequest,
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    org, current_user, _ = actor
+    if req.role not in VALID_MEMBER_ROLES or req.role == "owner":
+        raise HTTPException(status_code=422, detail="Invalid member role")
+    user = session.exec(select(User).where(User.email == req.email)).first()
+    if not user:
+        user = User(email=req.email, is_verified=False)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    existing = session.exec(
+        select(Membership).where(
+            Membership.org_id == org.id,
+            Membership.user_id == user.id,
+        )
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="User is already a member")
+    membership = Membership(org_id=org.id, user_id=user.id, role=req.role)
+    session.add(membership)
+    session.add(
+        AuditLog(
+            actor=current_user.id,
+            org_id=org.id,
+            action="membership.created",
+            meta_json=json.dumps({"user_id": user.id, "role": req.role}),
+        )
+    )
+    session.commit()
+    return {"user_id": user.id, "email": user.email, "role": membership.role}
+
+
+@router.patch("/org/members/{user_id}")
+def update_member_role(
+    user_id: str,
+    req: MemberRoleRequest,
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    org, current_user, current_membership = actor
+    if req.role not in VALID_MEMBER_ROLES or req.role == "owner":
+        raise HTTPException(status_code=422, detail="Invalid member role")
+    membership = session.exec(
+        select(Membership).where(
+            Membership.org_id == org.id,
+            Membership.user_id == user_id,
+        )
+    ).first()
+    if not membership or membership.role == "owner":
+        raise HTTPException(status_code=404, detail="Member not found")
+    if current_membership.role != "owner" and req.role in {"admin", "billing"}:
+        raise HTTPException(status_code=403, detail="Only owners can grant privileged roles")
+    membership.role = req.role
+    session.add(membership)
+    session.add(
+        AuditLog(
+            actor=current_user.id,
+            org_id=org.id,
+            action="membership.role_updated",
+            meta_json=json.dumps({"user_id": user_id, "role": req.role}),
+        )
+    )
+    session.commit()
+    return {"user_id": user_id, "role": membership.role}
+
+
+@router.delete("/org/members/{user_id}")
+def remove_member(
+    user_id: str,
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    org, current_user, _ = actor
+    membership = session.exec(
+        select(Membership).where(
+            Membership.org_id == org.id,
+            Membership.user_id == user_id,
+        )
+    ).first()
+    if not membership or membership.role == "owner":
+        raise HTTPException(status_code=404, detail="Member not found")
+    session.delete(membership)
+    session.add(
+        AuditLog(
+            actor=current_user.id,
+            org_id=org.id,
+            action="membership.removed",
+            meta_json=json.dumps({"user_id": user_id}),
+        )
+    )
+    session.commit()
+    return {"status": "removed", "user_id": user_id}
 
 
 @router.post("/api-key", response_model=ApiKeyResponse)
