@@ -130,6 +130,7 @@ pytest -q
 (There are currently no test files; add tests under `tests/` as needed.)
 
 See [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md) for the production payment, secret rotation, and deployment checklist.
+See [`docs/ENTERPRISE_SAAS_PLAN.md`](docs/ENTERPRISE_SAAS_PLAN.md) for the enterprise architecture, delivery phases, and acceptance gates.
 
 ## License
 MIT

@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 # Ensure the test uses the same app instance
 from skelion_agent.control_plane import app
 from skelion_agent.database import get_session, init_db
-from skelion_agent.models import Organization, ProxyNode
+from skelion_agent.models import Membership, Organization, ProxyNode
 
 client = TestClient(app)
 
@@ -42,6 +42,11 @@ def test_register_and_login():
         org = s.exec(select(Organization).where(Organization.id == org_id)).first()
         assert org is not None
         assert org.email == email
+        membership = s.exec(
+            select(Membership).where(Membership.org_id == org_id)
+        ).first()
+        assert membership is not None
+        assert membership.role == "owner"
 
     # Token (login)
     resp = client.post("/v1/auth/token", json={"email": email, "password": password})
@@ -64,3 +69,14 @@ def test_register_and_login():
 
         expected_hash = hash_api_key(api_key)
         assert node.api_key_hash == expected_hash
+
+
+def test_production_rejects_anonymous_org_resolution(monkeypatch):
+    from fastapi import HTTPException
+    from skelion_agent.auth_routes import get_org_from_jwt
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with Session(get_session()) as s:
+        with pytest.raises(HTTPException) as exc_info:
+            get_org_from_jwt(authorization=None, x_organization_id=None, session=s)
+    assert exc_info.value.status_code == 401

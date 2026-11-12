@@ -13,6 +13,7 @@
 """
 
 import hashlib
+import os
 from typing import Optional
 
 import httpx
@@ -28,7 +29,7 @@ from skelion_agent.auth import (
     verify_password,
 )
 from skelion_agent.database import get_db
-from skelion_agent.models import Organization, ProxyNode
+from skelion_agent.models import Membership, Organization, ProxyNode, User
 from skelion_agent.plan_config import PLAN_DEFINITIONS
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
@@ -72,12 +73,15 @@ def get_org_from_jwt(
     x_organization_id: Optional[str] = Header(None),
     session: Session = Depends(get_db),
 ) -> Organization:
-    # 1. Direct org header or fallback if provided
+    environment = os.getenv("ENVIRONMENT", "development").lower()
+    demo_auth_allowed = os.getenv(
+        "ALLOW_DEMO_AUTH", "true" if environment in {"development", "test"} else "false"
+    ).lower() in {"1", "true", "yes"}
     target_id = x_organization_id or "org_default"
 
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ", 1)[1]
-        if token in ("dev", "default", "test"):
+        if token in ("dev", "default", "test") and demo_auth_allowed:
             org = session.get(Organization, target_id)
             if not org:
                 import uuid
@@ -93,21 +97,30 @@ def get_org_from_jwt(
                 session.refresh(org)
             return org
 
-        # Support persistent API keys (skl_live_...) directly
+        # Machine keys are stored hashed in ProxyNode and never need raw-token lookup.
         if token.startswith("skl_live_"):
             org = session.exec(
-                select(Organization).where(Organization.token == token)
+                select(ProxyNode).where(
+                    ProxyNode.api_key_hash == hash_api_key(token),
+                    ProxyNode.is_active == True,  # noqa: E712
+                )
             ).first()
             if org:
-                return org
+                return session.get(Organization, org.org_id)
 
         try:
             payload = decode_access_token(token)
             sub = payload.get("sub")
             if sub:
-                target_id = sub
-        except Exception:
-            pass
+                org = session.get(Organization, sub)
+                if org:
+                    return org
+        except Exception as exc:
+            if not demo_auth_allowed:
+                raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
+
+    if not demo_auth_allowed:
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     org = session.get(Organization, target_id)
     if not org:
@@ -235,6 +248,23 @@ async def github_auth(req: GitHubAuthRequest, session: Session = Depends(get_db)
             session.commit()
             session.refresh(org)
 
+    if email:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user:
+            user = User(email=email, full_name=github_login, avatar_url=avatar_url)
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+        membership = session.exec(
+            select(Membership).where(
+                Membership.org_id == org.id,
+                Membership.user_id == user.id,
+            )
+        ).first()
+        if not membership:
+            session.add(Membership(org_id=org.id, user_id=user.id, role="owner"))
+            session.commit()
+
     # 3. Issue access JWT
     access_token = create_access_token({"sub": org.id, "plan": org.plan})
 
@@ -293,6 +323,12 @@ def register(req: RegisterRequest, session: Session = Depends(get_db)):
     session.add(org)
     session.commit()
     session.refresh(org)
+    user = User(email=req.email, full_name=org.name, is_verified=False)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    session.add(Membership(org_id=org.id, user_id=user.id, role="owner"))
+    session.commit()
     return {"status": "registered", "organization_id": org.id}
 
 
