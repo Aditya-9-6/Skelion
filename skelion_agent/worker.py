@@ -6,6 +6,7 @@ import os
 from sqlmodel import Session
 from skelion_agent.database import engine
 from skelion_agent.models import Organization, Incident, AgentRun
+from skelion_agent.credit_ledger import record_ledger_entry
 from skelion_agent.github_app import get_installation_access_token
 
 
@@ -49,8 +50,8 @@ def execute_sandboxed_autonomous_loop(org_id: str, incident_id: str):
                             "http_method": incident.http_method,
                             "route_path": incident.route_path,
                             "status_code": incident.status_code,
-                            "request_payload": incident.redacted_request_payload,
-                            "response_body": incident.redacted_response_body,
+                            "captured_headers": incident.captured_headers,
+                            "captured_body": incident.captured_body,
                             "latency_ms": incident.latency_ms,
                             "instructions": (
                                 "Reproduce this exact HTTP failure in a unit test, "
@@ -80,13 +81,21 @@ def execute_sandboxed_autonomous_loop(org_id: str, incident_id: str):
 
                 duration = round(time.time() - start_time, 2)
                 if result.returncode == 0:
-                    # Extract PR URL from stdout (simple heuristic)
                     pr_url = _extract_pr_url(result.stdout)
                     run_record.status = "succeeded"
                     run_record.pr_url = pr_url
                     run_record.execution_duration_sec = duration
-                    incident.status = "pr_opened"
-                    org.credits_used += 1
+                    incident.status = "pr_opened" if pr_url else "completed"
+                    record_ledger_entry(
+                        session=session,
+                        org_id=org.id,
+                        bucket="allowance",
+                        delta=-1,
+                        reason="usage",
+                        ref_type="run",
+                        ref_id=run_record.id,
+                        idempotency_key=f"agent-run:{run_record.id}",
+                    )
                 else:
                     run_record.status = "failed"
                     run_record.error_log = result.stderr[-2000:]
@@ -106,11 +115,11 @@ def execute_sandboxed_autonomous_loop(org_id: str, incident_id: str):
             session.commit()
 
 
-def _extract_pr_url(stdout: str) -> str:
+def _extract_pr_url(stdout: str) -> str | None:
     """Parse stdout for a GitHub Pull Request URL.
-    Returns a placeholder if none found.
+    Return ``None`` when the agent did not publish a PR URL.
     """
     for line in stdout.splitlines():
         if "https://github.com/" in line and "/pull/" in line:
             return line.strip()
-    return "PR_CREATED_CHECK_REPO"
+    return None
