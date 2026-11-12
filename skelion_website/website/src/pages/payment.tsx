@@ -240,7 +240,7 @@ export const PaymentPage: React.FC = () => {
 
     try {
       const options = {
-        key: 'rzp_test_TwvOwcT2gnvSnv',
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
         amount: plan.price * 100, // amount in smallest currency unit (paise)
         currency: plan.currency || 'INR',
         name: 'Skelion SaaS Platform',
@@ -364,7 +364,7 @@ export const PaymentPage: React.FC = () => {
             Upgrade Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-violet-500">Skelion AI Subscription</span>
           </h1>
           <p className="text-slate-400 text-sm sm:text-base">
-            Choose your tier, process secure INR payments via Razorpay (<code className="text-cyan-300 bg-black/40 px-1.5 py-0.5 rounded text-xs">rzp_test_TwvOwcT2gnvSnv</code>), and instantly allocate autonomous credit quotas.
+            Choose your tier and process secure INR payments via Razorpay using the deployment-configured public key.
           </p>
         </div>
 
@@ -576,7 +576,7 @@ export const PaymentPage: React.FC = () => {
             <span>Skelion SaaS Billing &bull; Razorpay Test Environment</span>
           </div>
           <div className="flex items-center space-x-4">
-            <span>Key: <code className="text-cyan-400">rzp_test_TwvOwcT2gnvSnv</code></span>
+            <span>Key: <code className="text-cyan-400">Deployment configured</code></span>
             <span>&bull;</span>
             <a href="/" className="hover:text-cyan-400 transition-colors">Terms of Service</a>
             <a href="/" className="hover:text-cyan-400 transition-colors">Privacy Policy</a>

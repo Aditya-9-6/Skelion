@@ -56,7 +56,7 @@ Authentication is performed via a serverless API route located under `api/auth/g
 The checkout experience is encapsulated in the `RazorpayModal` component. It supports three payment tabs (UPI/QR, Card, Net‑Banking) and simulates a Razorpay payment flow for testing.
 
 Important aspects:
-- Test mode key ID (`rzp_test_TwvOwcT2gnvSnv`).
+- A Razorpay test or live key ID supplied through `RAZORPAY_KEY_ID` (never committed to source).
 - Discount handling via coupon codes (`FOUNDING50`, `STUDENT_OSS`).
 - Simulated webhook verification that displays a receipt with invoice number, payment ID, order ID, and granted credits.
 

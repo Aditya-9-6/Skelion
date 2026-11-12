@@ -76,8 +76,8 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - RAZORPAY_KEY_ID=rzp_test_TwvOwcT2gnvSnv
-      - RAZORPAY_KEY_SECRET=u0SYjUylpWoR3bUuiDno4KCs
+      - RAZORPAY_KEY_ID=rzp_test_replace_me
+      - RAZORPAY_KEY_SECRET=replace_with_razorpay_key_secret
       - REDIS_URL=redis://redis:6379/0
 
   redis:
@@ -116,13 +116,13 @@ skelion logs --follow --tail 50`,
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-50 border border-cyan-200 text-cyan-800 mb-3 shadow-sm">
             <Code className="w-3.5 h-3.5 text-cyan-600" />
-            <span>DROP-IN ARCHITECTURE</span>
+            <span>DEVELOPER QUICKSTART</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-950 tracking-tight">
-            Production Drop-In Integration
+            Integrate in 60 Seconds
           </h2>
           <p className="mt-4 text-base sm:text-lg text-slate-600">
-            Native multi-language SDKs, zero code refactors, and simple fail-open reverse proxy middleware.
+            Native multi-language SDKs, zero code refactors, and simple drop-in middleware.
           </p>
         </div>
 
@@ -146,6 +146,18 @@ skelion logs --follow --tail 50`,
                 <span>{tab.toUpperCase()}</span>
               </button>
             ))}
+          </div>
+
+          {/* Quick Install Bar */}
+          <div className="p-3.5 rounded-xl bg-white/90 border border-slate-200 shadow-sm flex items-center justify-between gap-3 mb-4 font-mono text-xs">
+            <span className="text-slate-800 font-semibold">{current.cmd}</span>
+            <button
+              onClick={() => handleCopy(current.cmd)}
+              className="px-3 py-1 rounded bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 hover:border-slate-300 transition flex items-center gap-1.5 shadow-sm"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+              <span>Copy</span>
+            </button>
           </div>
 
           {/* Code Sandbox View */}

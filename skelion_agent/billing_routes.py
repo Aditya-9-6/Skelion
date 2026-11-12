@@ -6,8 +6,6 @@
 * ``POST /v1/billing/webhook`` – handle verified Razorpay webhook events to safely credit tokens.
 """
 
-import hashlib
-import hmac
 import json
 import uuid
 from datetime import timedelta
@@ -30,7 +28,11 @@ from skelion_agent.models import (
     utc_now,
 )
 from skelion_agent.plan_config import PLAN_DEFINITIONS, ADDONS
-from skelion_agent.razorpay_service import create_order, verify_signature
+from skelion_agent.razorpay_service import (
+    create_order,
+    verify_payment_signature,
+    verify_signature,
+)
 from skelion_agent.limits_service import get_token_status
 from skelion_agent.credit_ledger import (
     activate_plan_period,
@@ -242,7 +244,7 @@ async def checkout(
         "payment_order_id": order_row.id,
         "amount": amount_paise,
         "currency": "INR",
-        "key_id": rzp_order.get("key_id", "rzp_test_placeholder_key"),
+        "key_id": rzp_order.get("key_id") or settings.RAZORPAY_KEY_ID,
         "receipt": short_receipt,
     }
 
@@ -350,21 +352,12 @@ async def instant_addon(
 @router.post("/verify")
 def verify_payment(req: VerifyPaymentRequest, db: Session = Depends(get_db)):
     """Fast-path client signature verification with idempotent activation."""
-    expected_sig = hmac.new(
-        settings.RAZORPAY_KEY_SECRET.encode("utf-8"),
-        f"{req.razorpay_order_id}|{req.razorpay_payment_id}".encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-
-    if not hmac.compare_digest(expected_sig, req.razorpay_signature):
-        # In test mode fallback if secret placeholder
-        if (
-            "placeholder" in settings.RAZORPAY_KEY_SECRET
-            or "dummy" in settings.RAZORPAY_KEY_SECRET
-        ):
-            pass
-        else:
-            raise HTTPException(status_code=400, detail="Invalid payment signature")
+    if not verify_payment_signature(
+        req.razorpay_order_id,
+        req.razorpay_payment_id,
+        req.razorpay_signature,
+    ):
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
 
     order = db.exec(
         select(PaymentOrder).where(
@@ -469,18 +462,8 @@ async def webhook(request: Request):
         )
 
     # Constant-time signature verification
-    expected = hmac.new(
-        settings.RAZORPAY_KEY_SECRET.encode("utf-8"),
-        raw_payload,
-        hashlib.sha256,
-    ).hexdigest()
-
-    if not hmac.compare_digest(expected, signature):
-        # Fallback in local sandbox mode
-        if not verify_signature(raw_payload, signature):
-            raise HTTPException(
-                status_code=400, detail="Invalid HMAC webhook signature"
-            )
+    if not verify_signature(raw_payload, signature):
+        raise HTTPException(status_code=400, detail="Invalid HMAC webhook signature")
 
     engine = get_engine()
     with Session(engine) as db:

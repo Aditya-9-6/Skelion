@@ -627,7 +627,11 @@ def test_verify_payment_endpoint(test_client):
     r = test_client.post("/v1/billing/verify", json={
         "razorpay_order_id": "order_non_existent",
         "razorpay_payment_id": "pay_test_123",
-        "razorpay_signature": "dummy_sig"
+        "razorpay_signature": hmac.new(
+            (os.getenv("RAZORPAY_KEY_SECRET") or settings.RAZORPAY_KEY_SECRET).encode("utf-8"),
+            b"order_non_existent|pay_test_123",
+            hashlib.sha256,
+        ).hexdigest(),
     })
     assert r.status_code == 404
 
@@ -651,7 +655,11 @@ def test_verify_payment_endpoint(test_client):
     r = test_client.post("/v1/billing/verify", json={
         "razorpay_order_id": "order_verify_plan_prov",
         "razorpay_payment_id": "pay_verify_001",
-        "razorpay_signature": "dummy_sig"
+        "razorpay_signature": hmac.new(
+            (os.getenv("RAZORPAY_KEY_SECRET") or settings.RAZORPAY_KEY_SECRET).encode("utf-8"),
+            b"order_verify_plan_prov|pay_verify_001",
+            hashlib.sha256,
+        ).hexdigest(),
     })
     assert r.status_code == 200
     assert r.json()["status"] == "activated"
@@ -660,7 +668,11 @@ def test_verify_payment_endpoint(test_client):
     r_dup = test_client.post("/v1/billing/verify", json={
         "razorpay_order_id": "order_verify_plan_prov",
         "razorpay_payment_id": "pay_verify_001",
-        "razorpay_signature": "dummy_sig"
+        "razorpay_signature": hmac.new(
+            (os.getenv("RAZORPAY_KEY_SECRET") or settings.RAZORPAY_KEY_SECRET).encode("utf-8"),
+            b"order_verify_plan_prov|pay_verify_001",
+            hashlib.sha256,
+        ).hexdigest(),
     })
     assert r_dup.status_code == 200
     assert r_dup.json()["status"] == "already_activated"
@@ -682,7 +694,11 @@ def test_verify_payment_endpoint(test_client):
     r_topup = test_client.post("/v1/billing/verify", json={
         "razorpay_order_id": "order_verify_topup_prov",
         "razorpay_payment_id": "pay_verify_002",
-        "razorpay_signature": "dummy_sig"
+        "razorpay_signature": hmac.new(
+            (os.getenv("RAZORPAY_KEY_SECRET") or settings.RAZORPAY_KEY_SECRET).encode("utf-8"),
+            b"order_verify_topup_prov|pay_verify_002",
+            hashlib.sha256,
+        ).hexdigest(),
     })
     assert r_topup.status_code == 200
     assert r_topup.json()["status"] == "activated"

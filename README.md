@@ -129,5 +129,7 @@ pytest -q
 ```
 (There are currently no test files; add tests under `tests/` as needed.)
 
+See [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md) for the production payment, secret rotation, and deployment checklist.
+
 ## License
 MIT
