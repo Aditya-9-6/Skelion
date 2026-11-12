@@ -197,6 +197,14 @@ def require_member_role(*roles: str):
     return dependency
 
 
+def require_member_org(*roles: str):
+    """Resolve the organization after enforcing one or more membership roles."""
+    def dependency(actor=Depends(require_member_role(*roles))):
+        return actor[0]
+
+    return dependency
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------

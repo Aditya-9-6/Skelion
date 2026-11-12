@@ -8,10 +8,12 @@ REST Endpoints for:
 """
 
 from typing import Dict, Any, Optional, List
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from skelion_agent.mcp_manager import plugin_registry, MCPPlugin, ClaudeConfigImporter
+from skelion_agent.auth_routes import require_member_org
+from skelion_agent.models import Organization
 
 router = APIRouter(prefix="/v1/plugins", tags=["Universal Plugins & MCP"])
 
@@ -52,7 +54,7 @@ class ExecuteToolRequest(BaseModel):
 
 
 @router.get("")
-async def list_plugins():
+async def list_plugins(org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer"))):
     """Returns all registered plugins with their tools and connection status."""
     plugins = plugin_registry.list_plugins()
     claude_config_found = ClaudeConfigImporter.find_config()
@@ -66,7 +68,7 @@ async def list_plugins():
 
 
 @router.post("")
-async def add_plugin(req: AddPluginRequest):
+async def add_plugin(req: AddPluginRequest, org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Registers a new custom MCP or OpenAPI plugin."""
     plugin = MCPPlugin(
         id=req.id,
@@ -85,32 +87,32 @@ async def add_plugin(req: AddPluginRequest):
 
 
 @router.post("/toggle")
-async def toggle_plugin(req: TogglePluginRequest):
+async def toggle_plugin(req: TogglePluginRequest, org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Enables or disables an installed plugin."""
     return plugin_registry.toggle_plugin(req.plugin_id, req.enabled)
 
 
 @router.delete("/{plugin_id}")
-async def remove_plugin(plugin_id: str):
+async def remove_plugin(plugin_id: str, org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Uninstalls a plugin from the registry."""
     return plugin_registry.remove_plugin(plugin_id)
 
 
 @router.post("/import-claude")
-async def import_claude_plugins(req: Optional[ImportClaudeRequest] = None):
+async def import_claude_plugins(req: Optional[ImportClaudeRequest] = None, org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Scans and imports all MCP servers defined in Claude Code or Claude Desktop."""
     path = req.config_path if req else None
     return plugin_registry.import_claude_plugins(path)
 
 
 @router.post("/import-openapi")
-async def import_openapi_action(req: ImportOpenApiRequest):
+async def import_openapi_action(req: ImportOpenApiRequest, org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Imports OpenAPI 3.0/3.1 specs used in ChatGPT Custom Actions."""
     return plugin_registry.import_openapi_action(req.spec, title=req.title)
 
 
 @router.post("/connect-github-repo")
-async def connect_github_repo(req: ConnectGitHubRepoRequest):
+async def connect_github_repo(req: ConnectGitHubRepoRequest, org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Connects any open-source GitHub tool repo (e.g. morluto/rea) as an active MCP server."""
     return plugin_registry.import_github_tool_repo(
         req.repo_url, custom_command=req.command
@@ -118,13 +120,13 @@ async def connect_github_repo(req: ConnectGitHubRepoRequest):
 
 
 @router.get("/active-tools")
-async def get_active_tools():
+async def get_active_tools(org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer"))):
     """Lists all tools enabled across active plugins ready for LLM invocation."""
     tools = plugin_registry.get_all_active_tools()
     return {"status": "ok", "active_tool_count": len(tools), "tools": tools}
 
 
 @router.post("/execute-tool")
-async def execute_tool(req: ExecuteToolRequest):
+async def execute_tool(req: ExecuteToolRequest, org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Executes a tool from an active plugin."""
     return plugin_registry.execute_tool(req.tool_name, req.arguments)

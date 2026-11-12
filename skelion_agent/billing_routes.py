@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from skelion_agent.auth_routes import get_org_from_jwt
+from skelion_agent.auth_routes import get_org_from_jwt, require_member_org
 from skelion_agent.database import get_db, get_engine
 from skelion_agent.models import (
     Organization,
@@ -38,6 +38,7 @@ from skelion_agent.credit_ledger import (
     activate_plan_period,
     activate_token_pack,
 )
+from skelion_agent.billing_reconciliation import reconcile_billing
 from skelion_agent.config import settings
 
 router = APIRouter(prefix="/v1/billing", tags=["Billing & Subscriptions"])
@@ -49,13 +50,22 @@ INR_PER_CODING_TOKEN = 0.25
 INR_PER_AUTOFIX_TOKEN = 0.010  # ₹10.00 per 1,000 tokens
 
 
+@router.get("/reconciliation")
+def billing_reconciliation(
+    org: Organization = Depends(require_member_org("owner", "admin", "billing")),
+    db: Session = Depends(get_db),
+):
+    """Return local billing invariant findings for operator/customer support use."""
+    return reconcile_billing(db, org.id)
+
+
 class TopUpCalculateRequest(BaseModel):
     token_type: str  # "coding" or "autofix"
     amount_inr: float
 
 
 @router.get("/plan")
-async def get_plan(org: Organization = Depends(get_org_from_jwt)):
+async def get_plan(org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer", "billing"))):
     """Return plan, Antigravity-style token status, and available 24/7 loop add-ons."""
     limits = get_token_status(org)
     return {
@@ -86,7 +96,7 @@ async def get_plan(org: Organization = Depends(get_org_from_jwt)):
 
 
 @router.get("/addons")
-async def get_addons(org: Organization = Depends(get_org_from_jwt)):
+async def get_addons(org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer", "billing"))):
     """Return available 24/7 autonomous loop add-ons and activation status."""
     return {
         "addons": [
@@ -146,7 +156,7 @@ async def checkout(
     token_type: str = "plan",  # "plan", "topup_coding", or "topup_autofix"
     period: str = "monthly",  # "monthly" or "annual"
     custom_amount_inr: float = 0.0,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "billing")),
     db: Session = Depends(get_db),
 ):
     """Create server-validated PaymentOrder and Razorpay order (Billing v2)."""
@@ -259,7 +269,7 @@ class InstantTopUpRequest(BaseModel):
 @router.post("/topup-instant")
 async def instant_topup(
     req: InstantTopUpRequest,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "billing")),
     db: Session = Depends(get_db),
 ):
     """Credit top-up tokens instantly for local development and live demonstrations.
@@ -315,7 +325,7 @@ class InstantAddonRequest(BaseModel):
 @router.post("/addon-instant")
 async def instant_addon(
     req: InstantAddonRequest,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "billing")),
     db: Session = Depends(get_db),
 ):
     """Enable or disable 24/7 loop add-on instantly and credit tokens."""

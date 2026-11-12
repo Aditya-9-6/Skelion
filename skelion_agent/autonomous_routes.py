@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from skelion_agent.models import Organization
-from skelion_agent.auth_routes import get_org_from_jwt
+from skelion_agent.auth_routes import get_org_from_jwt, require_member_org
 from skelion_agent.autonomous_engine import autonomous_engine
 
 router = APIRouter(
@@ -34,7 +34,7 @@ class AcceptIssueRequest(BaseModel):
 
 
 @router.get("/status")
-def get_loop_status(org: Organization = Depends(get_org_from_jwt)):
+def get_loop_status(org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer"))):
     """Return live status of the autonomous loop and recent activity log."""
     remaining_tokens = max(0, org.autofix_tokens_total - org.autofix_tokens_used)
     return {
@@ -64,7 +64,7 @@ def check_autonomous_loop_entitlement(org: Organization) -> None:
 @router.post("/trigger")
 async def trigger_loop_cycle(
     req: Optional[TriggerLoopRequest] = None,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer")),
 ):
     """
     Triggers an autonomous cycle:
@@ -92,7 +92,7 @@ async def trigger_loop_cycle(
 @router.get("/plans")
 def get_discovered_plans(
     repo: Optional[str] = None,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer")),
 ):
     """Inspect and preview authentic implementation plan tasks discovered in the repository."""
     check_autonomous_loop_entitlement(org)
@@ -110,7 +110,7 @@ def get_discovered_plans(
 
 @router.post("/accept")
 async def accept_and_solve_issue(
-    req: AcceptIssueRequest, org: Organization = Depends(get_org_from_jwt)
+    req: AcceptIssueRequest, org: Organization = Depends(require_member_org("owner", "admin", "developer"))
 ):
     """
     Accepts an issue directly from the dashboard:
@@ -158,7 +158,7 @@ async def accept_and_solve_issue(
 
 
 @router.post("/generate-issue")
-def generate_issue(org: Organization = Depends(get_org_from_jwt)):
+def generate_issue(org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Generate a new architectural advancement issue on GitHub."""
     issue = autonomous_engine.generate_advancement_issue()
     if not issue:
