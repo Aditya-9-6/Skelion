@@ -91,6 +91,12 @@ def test_register_and_login():
         json={"label": "directory sync", "expires_in_days": 30},
     )
     assert scim_token_resp.status_code == 200
+    scim_token_id = scim_token_resp.json()["id"]
+    token_list_resp = client.get(
+        "/v1/org/scim-tokens", headers={"Authorization": bearer}
+    )
+    assert token_list_resp.status_code == 200
+    assert any(item["id"] == scim_token_id for item in token_list_resp.json()["tokens"])
     scim_bearer = {"Authorization": f"Bearer {scim_token_resp.json()['token']}"}
     scim_user_resp = client.post(
         "/scim/v2.0/Users",
@@ -99,6 +105,13 @@ def test_register_and_login():
     )
     assert scim_user_resp.status_code == 200
     scim_user_id = scim_user_resp.json()["id"]
+    filtered_users_resp = client.get(
+        "/scim/v2.0/Users",
+        headers=scim_bearer,
+        params={"filter": 'userName eq "scim-user@example.com"'},
+    )
+    assert filtered_users_resp.status_code == 200
+    assert filtered_users_resp.json()["totalResults"] == 1
     scim_patch_resp = client.patch(
         f"/scim/v2.0/Users/{scim_user_id}",
         headers=scim_bearer,
@@ -109,6 +122,15 @@ def test_register_and_login():
     assert client.delete(
         f"/scim/v2.0/Users/{scim_user_id}", headers=scim_bearer
     ).status_code == 204
+    rotate_resp = client.post(
+        f"/v1/org/scim-tokens/{scim_token_id}/rotate",
+        headers={"Authorization": bearer},
+        json={"expires_in_days": 30},
+    )
+    assert rotate_resp.status_code == 200
+    assert client.get(
+        "/scim/v2.0/Users", headers=scim_bearer
+    ).status_code == 401
     evidence_resp = client.get(
         "/v1/compliance/evidence", headers={"Authorization": bearer}
     )

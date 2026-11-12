@@ -35,3 +35,22 @@ async def test_enqueue_and_retry_dead_letters_after_limit():
     assert "skelion:jobs:dead" in dead_letter_call[1]
     payload = json.loads(dead_letter_call[1][1]["job"])
     assert payload["attempts"] == 5
+
+
+@pytest.mark.asyncio
+async def test_process_once_acknowledges_successful_handler():
+    redis = FakeRedis()
+    queue = DurableJobQueue(redis)
+    queue.claim = lambda *args, **kwargs: None
+    processed = []
+
+    async def handler(payload):
+        processed.append(payload["id"])
+
+    async def fake_claim(*args, **kwargs):
+        return [("1-0", Job("job_1", "test", {"id": "item-1"}))]
+
+    queue.claim = fake_claim
+    assert await queue.process_once("worker-1", {"test": handler}) == 1
+    assert processed == ["item-1"]
+    assert any(call[0] == "xack" for call in redis.calls)

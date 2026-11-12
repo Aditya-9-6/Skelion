@@ -37,6 +37,10 @@ class ScimTokenRequest(BaseModel):
     expires_in_days: int = 365
 
 
+class ScimTokenRotationRequest(BaseModel):
+    expires_in_days: int = 365
+
+
 class ScimUserRequest(BaseModel):
     userName: EmailStr
     displayName: Optional[str] = None
@@ -142,6 +146,111 @@ def create_scim_token(
     }
 
 
+@router.get("/v1/org/scim-tokens")
+def list_scim_tokens(
+    actor=Depends(require_member_role("owner", "admin")),
+    session: Session = Depends(get_db),
+):
+    org, _, _ = actor
+    tokens = session.exec(
+        select(ScimToken)
+        .where(ScimToken.org_id == org.id)
+        .order_by(ScimToken.created_at.desc())
+    ).all()
+    return {
+        "tokens": [
+            {
+                "id": token.id,
+                "label": token.label,
+                "active": token.is_active,
+                "last_used_at": token.last_used_at.isoformat()
+                if token.last_used_at
+                else None,
+                "expires_at": token.expires_at.isoformat()
+                if token.expires_at
+                else None,
+                "created_at": token.created_at.isoformat(),
+            }
+            for token in tokens
+        ]
+    }
+
+
+@router.post("/v1/org/scim-tokens/{token_id}/rotate")
+def rotate_scim_token(
+    token_id: str,
+    req: ScimTokenRotationRequest,
+    actor=Depends(require_member_role("owner")),
+    session: Session = Depends(get_db),
+):
+    if not 1 <= req.expires_in_days <= 3650:
+        raise HTTPException(status_code=422, detail="expires_in_days must be between 1 and 3650")
+    org, user, _ = actor
+    previous = session.exec(
+        select(ScimToken).where(
+            ScimToken.id == token_id,
+            ScimToken.org_id == org.id,
+        )
+    ).first()
+    if not previous:
+        raise HTTPException(status_code=404, detail="SCIM token not found")
+    previous.is_active = False
+    raw = f"scim_{secrets.token_urlsafe(32)}"
+    replacement = ScimToken(
+        org_id=org.id,
+        token_hash=_hash_token(raw),
+        label=previous.label,
+        expires_at=utc_now() + timedelta(days=req.expires_in_days),
+    )
+    session.add(previous)
+    session.add(replacement)
+    session.add(
+        AuditLog(
+            actor=user.id,
+            org_id=org.id,
+            action="scim_token.rotated",
+            meta_json=json.dumps({"revoked_token_id": previous.id}),
+        )
+    )
+    session.commit()
+    session.refresh(replacement)
+    return {
+        "id": replacement.id,
+        "label": replacement.label,
+        "token": raw,
+        "expires_at": replacement.expires_at.isoformat(),
+        "warning": "Store this token securely; it will not be shown again.",
+    }
+
+
+@router.delete("/v1/org/scim-tokens/{token_id}", status_code=204)
+def revoke_scim_token(
+    token_id: str,
+    actor=Depends(require_member_role("owner")),
+    session: Session = Depends(get_db),
+):
+    org, user, _ = actor
+    token = session.exec(
+        select(ScimToken).where(
+            ScimToken.id == token_id,
+            ScimToken.org_id == org.id,
+        )
+    ).first()
+    if not token:
+        raise HTTPException(status_code=404, detail="SCIM token not found")
+    token.is_active = False
+    session.add(token)
+    session.add(
+        AuditLog(
+            actor=user.id,
+            org_id=org.id,
+            action="scim_token.revoked",
+            meta_json=json.dumps({"token_id": token.id}),
+        )
+    )
+    session.commit()
+
+
 def _scim_org(
     authorization: Optional[str] = Header(None),
     session: Session = Depends(get_db),
@@ -171,12 +280,23 @@ def scim_list_users(
     session: Session = Depends(get_db),
     startIndex: int = Query(1, ge=1),
     count: int = Query(100, ge=1, le=1000),
+    filter: Optional[str] = Query(None),
 ):
     memberships = session.exec(
         select(Membership).where(Membership.org_id == org.id)
     ).all()
     users = [session.get(User, membership.user_id) for membership in memberships]
     users = [user for user in users if user]
+    if filter:
+        parts = filter.split(" ", 2)
+        if len(parts) != 3 or parts[0].lower() != "username" or parts[1].lower() != "eq":
+            raise HTTPException(status_code=400, detail="Only userName eq filters are supported")
+        expected = parts[2].strip().strip('"\'').lower()
+        users = [user for user in users if user.email.lower() == expected]
+    active_ids = {
+        membership.user_id
+        for membership in memberships
+    }
     page = users[startIndex - 1 : startIndex - 1 + count]
     return {
         "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
@@ -188,7 +308,7 @@ def scim_list_users(
                 "id": user.id,
                 "userName": user.email,
                 "displayName": user.full_name,
-                "active": True,
+                "active": user.id in active_ids,
                 "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
             }
             for user in page
@@ -218,6 +338,15 @@ def scim_create_user(
         if req.active:
             session.add(Membership(org_id=org.id, user_id=user.id, role="developer"))
         session.commit()
+    session.add(
+        AuditLog(
+            actor="scim",
+            org_id=org.id,
+            action="scim.user.provisioned",
+            meta_json=json.dumps({"user_id": user.id, "active": req.active}),
+        )
+    )
+    session.commit()
     return {
         "id": user.id,
         "userName": user.email,
@@ -259,6 +388,14 @@ async def scim_update_user(
         else:
             raise HTTPException(status_code=422, detail=f"Unsupported SCIM path: {path}")
     session.add(user)
+    session.add(
+        AuditLog(
+            actor="scim",
+            org_id=org.id,
+            action="scim.user.updated",
+            meta_json=json.dumps({"user_id": user.id}),
+        )
+    )
     session.commit()
     return {
         "id": user.id,
@@ -292,6 +429,14 @@ def scim_deactivate_user(
         raise HTTPException(status_code=404, detail="SCIM user not found")
     if membership:
         session.delete(membership)
+    session.add(
+        AuditLog(
+            actor="scim",
+            org_id=org.id,
+            action="scim.user.deactivated",
+            meta_json=json.dumps({"user_id": user.id}),
+        )
+    )
     session.commit()
 
 

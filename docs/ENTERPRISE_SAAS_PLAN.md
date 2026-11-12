@@ -119,10 +119,12 @@ URL; outbound webhooks use HMAC signatures, delivery IDs, bounded retries, and
 independent database sessions.
 Enterprise control-plane foundations now include owner-managed OIDC/SAML
 connection metadata, one-time hashed SCIM token issuance, SCIM user
-listing/provisioning, compliance evidence status, and deployment-region
-metadata. A Redis Streams queue primitive provides consumer groups, explicit
+listing/provisioning, filtering, token rotation/revocation, lifecycle audit
+events, compliance evidence status, and deployment-region metadata. A Redis
+Streams queue primitive provides consumer groups, explicit
 acknowledgement, bounded retries, and a dead-letter stream for horizontally
-scaled workers. Provider integrations fail closed when production credentials
+scaled workers, plus a handler-driven processing loop for worker integration.
+Provider integrations fail closed when production credentials
 or required configuration are absent.
 The remaining enterprise-critical work is actual OIDC callback/JWKS and SAML
 assertion verification, complete SCIM PATCH/deprovisioning semantics, applying

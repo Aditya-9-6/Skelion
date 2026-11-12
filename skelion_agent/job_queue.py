@@ -3,7 +3,7 @@
 import json
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable
 
 
 @dataclass(frozen=True)
@@ -116,3 +116,26 @@ class DurableJobQueue:
             approximate=True,
         )
         return True
+
+    async def process_once(
+        self,
+        consumer: str,
+        handlers: dict[str, Callable[[dict[str, Any]], Awaitable[None]]],
+        block_ms: int = 1000,
+        max_attempts: int = 5,
+    ) -> int:
+        """Claim and process one batch, acknowledging only successful jobs."""
+        processed = 0
+        for message_id, job in await self.claim(consumer, block_ms=block_ms, count=10):
+            handler = handlers.get(job.kind)
+            if handler is None:
+                await self.retry(message_id, job, max_attempts=max_attempts)
+                continue
+            try:
+                await handler(job.payload)
+            except Exception:
+                await self.retry(message_id, job, max_attempts=max_attempts)
+                continue
+            await self.ack(message_id)
+            processed += 1
+        return processed
