@@ -5,12 +5,15 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select, desc
 
 from skelion_agent.database import get_db
+from skelion_agent.auth_routes import get_current_actor
 from skelion_agent.models import (
     Organization,
     TransactionRecord,
@@ -22,7 +25,33 @@ from skelion_agent.plan_config import PLAN_DEFINITIONS
 from skelion_agent.limits_service import get_token_status
 from license.issuer import issue_license
 
-router = APIRouter(tags=["Admin Master Dashboard"])
+def require_platform_owner(actor=Depends(get_current_actor)):
+    """Allow only explicitly configured platform-owner identities."""
+    org, user, _ = actor
+    allowed_user_ids = {
+        value.strip()
+        for value in os.getenv("PLATFORM_OWNER_USER_IDS", "").split(",")
+        if value.strip()
+    }
+    allowed_emails = {
+        value.strip().lower()
+        for value in os.getenv("PLATFORM_OWNER_EMAILS", "").split(",")
+        if value.strip()
+    }
+    if not allowed_user_ids and not allowed_emails:
+        raise HTTPException(
+            status_code=503,
+            detail="Platform owner access is not configured",
+        )
+    if user.id not in allowed_user_ids and user.email.lower() not in allowed_emails:
+        raise HTTPException(status_code=403, detail="Platform owner access required")
+    return org, user
+
+
+router = APIRouter(
+    tags=["Admin Master Dashboard"],
+    dependencies=[Depends(require_platform_owner)],
+)
 
 
 # ---------------------------------------------------------------------------

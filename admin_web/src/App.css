@@ -150,6 +150,23 @@ body {
   color: var(--text-bright);
 }
 
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.analytics-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+  text-transform: capitalize;
+}
+
+.analytics-row strong { color: var(--text-bright); }
+
 .search-form {
   display: flex;
   gap: 1rem;
