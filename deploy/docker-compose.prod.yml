@@ -5,10 +5,24 @@ services:
     build: .
     ports:
       - '8002:8002'
-      - '8003:8002'
     environment:
       - PORT=8002
       - ENVIRONMENT=production
+    restart: always
+
+  skelion-admin-api:
+    build: .
+    command: ["uvicorn", "admin_api.main:app", "--host", "0.0.0.0", "--port", "8003"]
+    ports:
+      - '8003:8003'
+    environment:
+      - ENVIRONMENT=production
+      - ADMIN_DATABASE_URL=${ADMIN_DATABASE_URL}
+      - ADMIN_GITHUB_CLIENT_ID=${ADMIN_GITHUB_CLIENT_ID}
+      - ADMIN_GITHUB_SECRET=${ADMIN_GITHUB_SECRET}
+      - ADMIN_GITHUB_IDS=${ADMIN_GITHUB_IDS}
+      - ADMIN_OWNER_EMAILS=${ADMIN_OWNER_EMAILS}
+      - ADMIN_COOKIE_SECRET=${ADMIN_COOKIE_SECRET}
     restart: always
 
   spryzen-waf:

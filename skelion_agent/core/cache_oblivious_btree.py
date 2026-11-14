@@ -113,20 +113,18 @@ class CacheObliviousBTree:
     ) -> None:
         t = self.node_capacity // 2
         z = CacheObliviousBTreeNode(capacity=self.node_capacity, is_leaf=child.is_leaf)
-
-        z.keys = child.keys[t:]
+        original_keys = child.keys
+        z.keys = original_keys[t:]
         z.values = child.values[t:] if child.is_leaf else []
-
-        if not child.is_leaf:
+        if child.is_leaf:
+            child.keys = original_keys[:t]
+            child.values = child.values[:t]
+            median_key = z.keys[0]
+        else:
+            median_key = original_keys[t - 1]
+            child.keys = original_keys[: t - 1]
             z.children = child.children[t:]
             child.children = child.children[:t]
-
-        median_key = child.keys[t - 1]
-        median_val = child.values[t - 1] if child.is_leaf else None
-
-        child.keys = child.keys[: t - 1 if child.is_leaf else t]
-        if child.is_leaf:
-            child.values = child.values[: t - 1]
 
         parent.children.insert(index + 1, z)
         parent.keys.insert(index, median_key)
@@ -143,6 +141,7 @@ class CacheObliviousBTree:
         if idx < len(node.keys) and node.keys[idx] == key:
             if node.is_leaf:
                 return node.values[idx]
+            idx += 1
         if node.is_leaf:
             return None
         return self._search_node(node.children[idx], key)

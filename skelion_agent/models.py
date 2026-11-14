@@ -344,9 +344,11 @@ class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_log"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     actor: str = Field(default="system", index=True)
+    actor_github_id: Optional[str] = Field(default=None)
     org_id: Optional[str] = Field(default=None, index=True)
     action: str = Field(index=True)
     meta_json: str = Field(default="{}")
+    ts: datetime = Field(default_factory=utc_now, index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -360,6 +362,27 @@ class Alert(SQLModel, table=True):
     severity: str = Field(default="warning", index=True)
     message: str = Field(default="")
     meta_json: str = Field(default="{}")
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ComplianceEvidence(SQLModel, table=True):
+    __tablename__ = "compliance_evidence"
+    id: str = Field(default_factory=lambda: f"ev_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", index=True)
+    control: str = Field(index=True)
+    evidence_hash: str = Field(index=True)
+    payload_json: str = Field(default="{}")
+    collected_at: datetime = Field(default_factory=utc_now)
+
+
+class AccessReview(SQLModel, table=True):
+    __tablename__ = "access_reviews"
+    id: str = Field(default_factory=lambda: f"ar_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", index=True)
+    reviewer_id: str = Field(index=True)
+    status: str = Field(default="open", index=True)
+    reviewed_at: Optional[datetime] = Field(default=None)
+    notes: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -406,6 +429,7 @@ class ApiKey(SQLModel, table=True):
     scopes: str = Field(default="ingest,read")
     is_active: bool = Field(default=True, index=True)
     last_used_at: Optional[datetime] = Field(default=None)
+    expires_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -419,4 +443,32 @@ class WebhookSubscription(SQLModel, table=True):
     secret: str = Field(default_factory=lambda: f"whsec_{uuid.uuid4().hex}")
     events_json: str = Field(default='["incident.created","fix.verified"]')
     is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class SSOConnection(SQLModel, table=True):
+    __tablename__ = "sso_connections"
+    id: str = Field(default_factory=lambda: f"sso_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", unique=True, index=True)
+    provider: str = Field(default="oidc")  # oidc or saml
+    issuer_url: Optional[str] = Field(default=None)
+    client_id: Optional[str] = Field(default=None)
+    client_secret_ref: Optional[str] = Field(default=None)
+    certificate_pem_ref: Optional[str] = Field(default=None)
+    metadata_url: Optional[str] = Field(default=None)
+    entity_id: Optional[str] = Field(default=None)
+    enabled: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ScimToken(SQLModel, table=True):
+    __tablename__ = "scim_tokens"
+    id: str = Field(default_factory=lambda: f"scim_{uuid.uuid4().hex[:12]}", primary_key=True)
+    org_id: str = Field(foreign_key="organizations.id", index=True)
+    token_hash: str = Field(unique=True, index=True)
+    label: str = Field(default="SCIM provisioning token")
+    is_active: bool = Field(default=True, index=True)
+    last_used_at: Optional[datetime] = Field(default=None)
+    expires_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now)

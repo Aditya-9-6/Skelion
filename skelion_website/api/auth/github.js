@@ -61,6 +61,12 @@ function saveUserToFile(userProfile) {
 }
 
 export default async function handler(req, res) {
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || '';
+  const origin = req.headers?.origin;
+  if (allowedOrigin && origin === allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Vary', 'Origin');
+  }
   // Setup helper methods for environments where res is standard Node http.ServerResponse
   const sendJson = (statusCode, data) => {
     if (typeof res.status === 'function') {
@@ -123,7 +129,7 @@ export default async function handler(req, res) {
   }
 
   // Handle mock/test codes (useful for dev and CI environments)
-  if (code.startsWith('mock_') || code.startsWith('test_')) {
+  if (process.env.ALLOW_DEMO_AUTH === 'true' && (code.startsWith('mock_') || code.startsWith('test_'))) {
     const isErrorTest = code.includes('error');
     if (isErrorTest) {
       return sendJson(400, { error: 'Invalid or expired authorization code' });

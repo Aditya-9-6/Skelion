@@ -1,17 +1,20 @@
 # migrate_v2.py — Expand schema for Phase 2 / V2 Billing
-import sqlite3
+from sqlalchemy import inspect, text
 from sqlmodel import SQLModel
 from skelion_agent.database import get_engine
+from skelion_agent import models  # noqa: F401 - register application tables
 
-# 1. Create all newly defined tables
-SQLModel.metadata.create_all(get_engine())
+engine = get_engine()
+
+# 1. Create all newly defined tables using the configured database backend.
+SQLModel.metadata.create_all(engine)
 print("All tables created / verified.")
 
-# 2. Add columns to organizations
-conn = sqlite3.connect("helios.db")
-cursor = conn.cursor()
-cursor.execute("PRAGMA table_info(organizations)")
-existing_cols = [r[1] for r in cursor.fetchall()]
+# 2. Add compatibility columns to organizations on SQLite and PostgreSQL.
+inspector = inspect(engine)
+existing_cols = {
+    column["name"] for column in inspector.get_columns("organizations")
+}
 
 new_cols = [
     ("is_personal", "BOOLEAN DEFAULT 0"),
@@ -32,9 +35,10 @@ new_cols = [
 
 for col_name, col_type in new_cols:
     if col_name not in existing_cols:
-        cursor.execute(f"ALTER TABLE organizations ADD COLUMN {col_name} {col_type}")
+        with engine.begin() as connection:
+            connection.execute(
+                text(f"ALTER TABLE organizations ADD COLUMN {col_name} {col_type}")
+            )
         print(f"Added column {col_name} to organizations.")
 
-conn.commit()
-conn.close()
 print("V2 Migration successful!")

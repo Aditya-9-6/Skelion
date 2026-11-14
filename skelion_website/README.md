@@ -13,7 +13,7 @@ The official production website for **Skelion** — Autonomous SaaS Incident Int
 - **Fail-Open Resilience Proxy Showcase**: Sub-5ms edge telemetry, automatic circuit breakers, and zero-drop reliability guarantees.
 - **Multi-Provider LLM Key Pool**: Demonstrates transparent rotation across OpenAI, Claude 3.5 Sonnet, Gemini, Groq, and DeepSeek.
 - **Autonomous Cloud Agent Console & Web Platform**: Live browser-based IDE workspace, fail-open resilience proxy, and automated incident self-healing.
-- **Pocket-Friendly Pricing & Live Razorpay Checkout**: Fully functional test checkout simulating Razorpay payment flows with active credentials (`rzp_test_TwvOwcT2gnvSnv`) and live coupon code calculation (`FOUNDING50`).
+- **Pocket-Friendly Pricing & Razorpay Checkout**: Configure payment credentials only through deployment environment variables.
 - **CI / CD Ready**: Automated GitHub Actions workflow testing TypeScript types and verifying production builds.
 
 ---

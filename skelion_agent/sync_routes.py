@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from pydantic import BaseModel
 
 from skelion_agent.models import Organization
-from skelion_agent.auth_routes import get_org_from_jwt
+from skelion_agent.auth_routes import require_member_org
 from skelion_agent.cross_repo_syncer import cross_repo_syncer
 
 router = APIRouter(prefix="/v1/sync", tags=["Cross-Repo Upstream Auto-Sync"])
@@ -23,7 +23,7 @@ class TriggerSyncRequest(BaseModel):
 
 
 @router.get("/status")
-def get_sync_status(org: Organization = Depends(get_org_from_jwt)):
+def get_sync_status(org: Organization = Depends(require_member_org("owner", "admin", "developer"))):
     """Return status of upstream repositories (DevProxy & GossipMesh) and sync history."""
     updates = cross_repo_syncer.check_updates()
     return {
@@ -37,7 +37,7 @@ def get_sync_status(org: Organization = Depends(get_org_from_jwt)):
 @router.post("/trigger")
 def trigger_sync(
     req: Optional[TriggerSyncRequest] = None,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer")),
 ):
     """
     Triggers cross-repository synchronization:

@@ -1,0 +1,59 @@
+name: Launch Smoke Checks
+
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: launch-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend launch checks
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:///test_db.sqlite
+      DATABASE_URI: sqlite:///test_db.sqlite
+      RAZORPAY_WEBHOOK_SECRET: rzp_webhook_secret_placeholder
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest pytest-asyncio httpx
+      - name: Run launch-critical tests
+        run: |
+          python -m pytest -q \
+            tests/test_control_plane_readiness.py \
+            tests/test_config_secrets.py \
+            tests/test_billing_v2.py \
+            tests/test_razorpay_webhook.py \
+            tests/test_quota_telemetry.py
+      - name: Compile Python sources
+        run: python -m compileall -q skelion_agent
+
+  website:
+    name: Website launch checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: skelion_website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: skelion_website/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

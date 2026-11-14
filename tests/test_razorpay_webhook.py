@@ -436,6 +436,59 @@ def test_out_of_order_events(test_client):
         assert len(refunds) >= 1
 
 
+def test_refund_processed_event_is_idempotent(test_client):
+    engine = get_engine()
+    with Session(engine) as session:
+        org_id, order_id, provider_order_id = setup_org_and_order(
+            session, amount_paise=100000, kind="plan"
+        )
+
+    capture = make_payload(
+        event_id=f"evt_capture_{uuid.uuid4().hex}",
+        order_id=provider_order_id,
+        amount=100000,
+        event_type="payment.captured",
+    )
+    assert post_webhook(test_client, capture).status_code == 200
+
+    with Session(engine) as session:
+        payment = session.exec(
+            select(Payment).where(Payment.payment_order_id == order_id)
+        ).one()
+
+    refund_event_id = f"evt_refund_processed_{uuid.uuid4().hex}"
+    refund_id = f"rfnd_{uuid.uuid4().hex[:10]}"
+    payload = {
+        "event_id": refund_event_id,
+        "event": "refund.processed",
+        "event_type": "refund.processed",
+        "payload": {
+            "refund": {
+                "entity": {
+                    "id": refund_id,
+                    "payment_id": payment.provider_payment_id,
+                    "amount": 50000,
+                    "status": "processed",
+                    "notes": {"reason": "customer_request"},
+                }
+            }
+        },
+    }
+
+    first = post_webhook(test_client, payload)
+    second = post_webhook(test_client, payload)
+    assert first.status_code == 200
+    assert first.json()["status"] == "processed"
+    assert second.status_code == 200
+    assert second.json()["status"] == "duplicate"
+
+    with Session(engine) as session:
+        refunds = session.exec(select(Refund)).all()
+        assert len(refunds) == 1
+        assert refunds[0].provider_refund_id == refund_id
+        assert session.get(PaymentOrder, order_id).status == "refunded"
+
+
 def test_bad_signature(test_client):
     """Bad signature test returns 400 and writes nothing to DB."""
     engine = get_engine()
@@ -627,7 +680,11 @@ def test_verify_payment_endpoint(test_client):
     r = test_client.post("/v1/billing/verify", json={
         "razorpay_order_id": "order_non_existent",
         "razorpay_payment_id": "pay_test_123",
-        "razorpay_signature": "dummy_sig"
+        "razorpay_signature": hmac.new(
+            (os.getenv("RAZORPAY_KEY_SECRET") or settings.RAZORPAY_KEY_SECRET).encode("utf-8"),
+            b"order_non_existent|pay_test_123",
+            hashlib.sha256,
+        ).hexdigest(),
     })
     assert r.status_code == 404
 
@@ -651,7 +708,11 @@ def test_verify_payment_endpoint(test_client):
     r = test_client.post("/v1/billing/verify", json={
         "razorpay_order_id": "order_verify_plan_prov",
         "razorpay_payment_id": "pay_verify_001",
-        "razorpay_signature": "dummy_sig"
+        "razorpay_signature": hmac.new(
+            (os.getenv("RAZORPAY_KEY_SECRET") or settings.RAZORPAY_KEY_SECRET).encode("utf-8"),
+            b"order_verify_plan_prov|pay_verify_001",
+            hashlib.sha256,
+        ).hexdigest(),
     })
     assert r.status_code == 200
     assert r.json()["status"] == "activated"
@@ -660,7 +721,11 @@ def test_verify_payment_endpoint(test_client):
     r_dup = test_client.post("/v1/billing/verify", json={
         "razorpay_order_id": "order_verify_plan_prov",
         "razorpay_payment_id": "pay_verify_001",
-        "razorpay_signature": "dummy_sig"
+        "razorpay_signature": hmac.new(
+            (os.getenv("RAZORPAY_KEY_SECRET") or settings.RAZORPAY_KEY_SECRET).encode("utf-8"),
+            b"order_verify_plan_prov|pay_verify_001",
+            hashlib.sha256,
+        ).hexdigest(),
     })
     assert r_dup.status_code == 200
     assert r_dup.json()["status"] == "already_activated"
@@ -682,7 +747,11 @@ def test_verify_payment_endpoint(test_client):
     r_topup = test_client.post("/v1/billing/verify", json={
         "razorpay_order_id": "order_verify_topup_prov",
         "razorpay_payment_id": "pay_verify_002",
-        "razorpay_signature": "dummy_sig"
+        "razorpay_signature": hmac.new(
+            (os.getenv("RAZORPAY_KEY_SECRET") or settings.RAZORPAY_KEY_SECRET).encode("utf-8"),
+            b"order_verify_topup_prov|pay_verify_002",
+            hashlib.sha256,
+        ).hexdigest(),
     })
     assert r_topup.status_code == 200
     assert r_topup.json()["status"] == "activated"

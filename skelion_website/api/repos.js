@@ -18,18 +18,19 @@ export default async function handler(req, res) {
   const branch = searchParams.get('branch') || 'main';
   const filePath = searchParams.get('path') || '';
 
-  const fallbackToken =
-    process.env.GITHUB_TOKEN ||
-    process.env.GH_TOKEN ||
-    '';
-
   const clientAuth = req.headers.authorization;
-  const authHeader = clientAuth && !clientAuth.includes('mock') ? clientAuth : `token ${fallbackToken}`;
+  const configuredToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const authHeader =
+    clientAuth && !clientAuth.includes('mock')
+      ? clientAuth
+      : configuredToken
+        ? `Bearer ${configuredToken}`
+        : undefined;
 
   const defaultHeaders = {
     'User-Agent': 'Skelion-Web-Workspace/1.0',
     Accept: 'application/vnd.github.v3+json',
-    Authorization: authHeader,
+    ...(authHeader ? { Authorization: authHeader } : {}),
   };
 
   try {
@@ -140,48 +141,7 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: `Unknown action: ${action}` });
   } catch (err) {
-    console.warn('[Skelion API Repos] Using fallback data:', err.message);
-
-    // Realistic fallback data for Skelion ecosystem
-    if (action === 'list') {
-      return res.status(200).json({
-        success: true,
-        repos: [
-          { name: 'Skelion_website', full_name: 'Aditya-9-6/Skelion_website', description: 'Zero-downtime resilience web platform & console', default_branch: 'main', language: 'TypeScript', stars: 12, private: false },
-          { name: 'Skelion', full_name: 'Aditya-9-6/Skelion', description: 'Autonomous resilience agent with zero-restart eBPF self-healing', default_branch: 'main', language: 'Python', stars: 48, private: false },
-          { name: 'GossipMesh', full_name: 'Aditya-9-6/GossipMesh', description: 'Decentralized P2P mesh cluster with 0ms 429 key failover', default_branch: 'main', language: 'Rust', stars: 24, private: false },
-          { name: 'DevProxy', full_name: 'Aditya-9-6/DevProxy', description: 'Fail-open edge proxy with real-time PII redaction', default_branch: 'main', language: 'Go', stars: 19, private: false },
-        ],
-      });
-    }
-
-    if (action === 'tree') {
-      return res.status(200).json({
-        success: true,
-        tree: [
-          { path: 'src', type: 'dir' },
-          { path: 'src/services', type: 'dir' },
-          { path: 'src/services/resilienceGateway.ts', type: 'file' },
-          { path: 'src/services/keyPoolMesh.ts', type: 'file' },
-          { path: 'src/patches', type: 'dir' },
-          { path: 'src/patches/auto-remediation.ts', type: 'file' },
-          { path: 'src/components', type: 'dir' },
-          { path: 'src/components/ConsoleWorkspace.tsx', type: 'file' },
-          { path: 'package.json', type: 'file' },
-          { path: 'README.md', type: 'file' },
-          { path: 'tests/resilience.test.ts', type: 'file' },
-        ],
-      });
-    }
-
-    if (action === 'file') {
-      return res.status(200).json({
-        success: true,
-        path: filePath,
-        content: `// ${filePath}\n// Active file context loaded in Skelion IDE Workspace\nexport function verifyEdgeMesh() {\n  return { status: 'healthy', zeroDowntime: true };\n}`,
-      });
-    }
-
-    return res.status(500).json({ error: err.message });
+    console.error('[Skelion API Repos] GitHub request failed:', err);
+    return res.status(502).json({ error: 'GitHub API request failed.' });
   }
 }

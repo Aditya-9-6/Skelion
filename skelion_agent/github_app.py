@@ -29,15 +29,12 @@ def _create_jwt(app_id: str, private_key: str) -> str:
 
 def get_installation_access_token(installation_id: int) -> str:
     """Return a short‑lived installation access token (valid ~1 hour).
-    Uses placeholder credentials; returns a dummy token if environment variables
-    are not set.
+    Fails closed when GitHub App credentials are not configured.
     """
-    app_id = os.getenv("GITHUB_APP_ID", "placeholder_app_id")
-    private_key = os.getenv("GITHUB_APP_PRIVATE_KEY", "placeholder_private_key")
-    # In a real implementation, the private_key would be the PEM contents.
-    if app_id.startswith("placeholder") or private_key.startswith("placeholder"):
-        # Return a dummy token for development/testing.
-        return "ghp_dummy_token_for_testing"
+    app_id = os.getenv("GITHUB_APP_ID")
+    private_key = os.getenv("GITHUB_APP_PRIVATE_KEY")
+    if not app_id or not private_key or "placeholder" in private_key.lower():
+        raise RuntimeError("GitHub App credentials are not configured")
     jwt_token = _create_jwt(app_id, private_key)
     headers = {
         "Authorization": f"Bearer {jwt_token}",

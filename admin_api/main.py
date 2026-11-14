@@ -16,7 +16,7 @@ from typing import Optional
 import httpx
 from fastapi import FastAPI, Depends, Request, HTTPException, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.security import OAuth2AuthorizationCodeBearer
 from sqlmodel import Session, select, SQLModel
 
@@ -31,9 +31,13 @@ app = FastAPI(title="Skelion Admin API")
 # Helper dependencies & config
 # ---------------------------------------------------------------------------
 
-ADMIN_GITHUB_CLIENT_ID = os.getenv("ADMIN_GITHUB_CLIENT_ID", "test_client_id")
-ADMIN_GITHUB_SECRET = os.getenv("ADMIN_GITHUB_SECRET", "test_secret")
-ADMIN_COOKIE_SECRET = os.getenv("ADMIN_COOKIE_SECRET", "test_cookie_secret")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+ADMIN_GITHUB_CLIENT_ID = os.getenv("ADMIN_GITHUB_CLIENT_ID", "")
+ADMIN_GITHUB_SECRET = os.getenv("ADMIN_GITHUB_SECRET", "")
+ADMIN_COOKIE_SECRET = os.getenv(
+    "ADMIN_COOKIE_SECRET",
+    "test_cookie_secret" if ENVIRONMENT in {"development", "test"} else "",
+)
 SESSION_COOKIE = "admin_session"
 
 def get_db():
@@ -56,8 +60,18 @@ def verify_session_token(signed_token: str) -> Optional[str]:
 
 # Cloudflare Access middleware – simplified version
 def cf_access_check(request: Request):
-    if not request.headers.get("CF-Access-Authenticated-User-Email"):
+    email = request.headers.get("CF-Access-Authenticated-User-Email", "").strip().lower()
+    allowed = {
+        value.strip().lower()
+        for value in os.getenv("ADMIN_OWNER_EMAILS", "").split(",")
+        if value.strip()
+    }
+    if not email:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cloudflare Access required")
+    if ENVIRONMENT == "production" and (not allowed or email not in allowed):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner access required")
+    if ENVIRONMENT != "production" and allowed and email not in allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner access required")
     return True
 
 # ---------------------------------------------------------------------------
@@ -109,13 +123,68 @@ def get_current_session(request: Request, db: Session = Depends(get_db)) -> Admi
 def health():
     return {"status": "ok"}
 
+
+@app.post("/auth/logout")
+def logout(
+    request: Request,
+    response: Response,
+    session: AdminSession = Depends(get_current_session),
+    db: Session = Depends(get_db),
+):
+    session.revoked_at = datetime.now(timezone.utc)
+    db.add(session)
+    db.commit()
+    response.delete_cookie(SESSION_COOKIE)
+    return {"status": "logged_out"}
+
+
 @app.get("/dashboard")
 def dashboard(dep: bool = Depends(cf_access_check), session: AdminSession = Depends(get_current_session), db: Session = Depends(get_db)):
+    from skelion_agent.models import (
+        AgentRun,
+        Incident,
+        Organization,
+        PaymentOrder,
+        TransactionRecord,
+    )
+
+    try:
+        organizations = db.exec(select(Organization)).all()
+        transactions = db.exec(select(TransactionRecord)).all()
+        payment_orders = db.exec(select(PaymentOrder)).all()
+        incidents = db.exec(select(Incident)).all()
+        active_runs = db.exec(
+            select(AgentRun).where(AgentRun.status.in_(("running", "queued")))
+        ).all()
+    except Exception:
+        # The admin service can start before the application schema is migrated.
+        organizations, transactions, payment_orders, incidents, active_runs = (
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
+    revenue_inr = sum(item.amount_inr for item in transactions if item.status == "paid")
     return {
         "kpis": {
-            "mrr": 0,
-            "active_orgs": 0,
-            "failed_payments": 0,
+            "mrr": round(revenue_inr, 2),
+            "active_orgs": len(
+                [org for org in organizations if org.billing_status in {"active", "grace"}]
+            ),
+            "failed_payments": len(
+                [order for order in payment_orders if order.status == "failed"]
+            ),
+            "total_orgs": len(organizations),
+            "incidents": len(incidents),
+            "active_runs": len(active_runs),
+            "orders": len(payment_orders),
+        },
+        "system": {
+            "environment": ENVIRONMENT,
+            "region": os.getenv("SKELION_REGION", "primary"),
+            "deployment_ring": os.getenv("SKELION_DEPLOYMENT_RING", "stable"),
+            "read_only": os.getenv("SKELION_READ_ONLY", "false").lower() == "true",
         },
         "github_user_id": session.github_user_id,
     }
@@ -123,10 +192,22 @@ def dashboard(dep: bool = Depends(cf_access_check), session: AdminSession = Depe
 @app.get("/orgs/search")
 def org_search(q: str, dep: bool = Depends(cf_access_check), session: AdminSession = Depends(get_current_session), db: Session = Depends(get_db)):
     try:
-        from skelion_agent.pr_review_models import Repository
-        stmt = select(Repository).where(Repository.full_name.ilike(f"%{q}%"))
+        from skelion_agent.models import Organization
+        stmt = select(Organization).where(Organization.name.ilike(f"%{q}%"))
         results = db.exec(stmt).all()
-        return {"results": [r.dict() for r in results]}
+        return {
+            "results": [
+                {
+                    "id": item.id,
+                    "name": item.name,
+                    "email": item.email or item.billing_email,
+                    "plan": item.plan,
+                    "billing_status": item.billing_status,
+                    "created_at": item.created_at.isoformat(),
+                }
+                for item in results
+            ]
+        }
     except Exception:
         return {"results": []}
 
@@ -135,6 +216,53 @@ def audit(limit: int = 20, dep: bool = Depends(cf_access_check), session: AdminS
     stmt = select(AuditLog).order_by(AuditLog.ts.desc()).limit(limit)
     rows = db.exec(stmt).all()
     return {"audit": [row.dict() for row in rows]}
+
+
+@app.get("/analytics")
+def analytics(
+    dep: bool = Depends(cf_access_check),
+    session: AdminSession = Depends(get_current_session),
+    db: Session = Depends(get_db),
+):
+    from skelion_agent.models import (
+        AgentRun,
+        Incident,
+        Organization,
+        Payment,
+        PaymentOrder,
+        Refund,
+        TransactionRecord,
+    )
+
+    def counts(rows, attribute: str) -> dict[str, int]:
+        result: dict[str, int] = {}
+        for row in rows:
+            value = getattr(row, attribute)
+            result[value] = result.get(value, 0) + 1
+        return result
+
+    try:
+        return {
+            "organizations_by_plan": counts(db.exec(select(Organization)).all(), "plan"),
+            "incidents_by_status": counts(db.exec(select(Incident)).all(), "status"),
+            "runs_by_status": counts(db.exec(select(AgentRun)).all(), "status"),
+            "orders_by_status": counts(db.exec(select(PaymentOrder)).all(), "status"),
+            "payments_by_status": counts(db.exec(select(Payment)).all(), "status"),
+            "refunds_by_status": counts(db.exec(select(Refund)).all(), "status"),
+            "transactions_by_status": counts(
+                db.exec(select(TransactionRecord)).all(), "status"
+            ),
+        }
+    except Exception:
+        return {
+            "organizations_by_plan": {},
+            "incidents_by_status": {},
+            "runs_by_status": {},
+            "orders_by_status": {},
+            "payments_by_status": {},
+            "refunds_by_status": {},
+            "transactions_by_status": {},
+        }
 
 # ---------------------------------------------------------------------------
 # GitHub OAuth implementation
@@ -156,6 +284,8 @@ async def github_callback(request: Request, code: Optional[str] = None, db: Sess
 
     client_id = os.getenv("ADMIN_GITHUB_CLIENT_ID", ADMIN_GITHUB_CLIENT_ID)
     client_secret = os.getenv("ADMIN_GITHUB_SECRET", ADMIN_GITHUB_SECRET)
+    if not client_id or not client_secret or not ADMIN_COOKIE_SECRET:
+        raise HTTPException(status_code=503, detail="Admin authentication is not configured")
     redirect_uri = os.getenv("ADMIN_GITHUB_REDIRECT_URI", str(request.url_for("github_callback")))
 
     async with httpx.AsyncClient(timeout=10.0) as client:

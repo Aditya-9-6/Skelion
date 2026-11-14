@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from skelion_agent.auth_routes import get_org_from_jwt
+from skelion_agent.auth_routes import require_member_org
 from skelion_agent.database import get_db, get_engine
 from skelion_agent.models import Organization, Conversation, ChatMessageRecord, Incident
 from skelion_agent.limits_service import (
@@ -94,7 +94,7 @@ def extract_file_blocks_from_text(text: str) -> list[dict[str, str]]:
 
 @router.get("/limits/status")
 def get_limits_status(
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin")),
 ):
     """Retrieve full breakdown of quotas, windows, and autofix tokens."""
     return get_token_status(org)
@@ -103,7 +103,7 @@ def get_limits_status(
 @router.post("/limits/toggle-enforcement")
 def toggle_limit_enforcement(
     body: Dict[str, Any],
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer")),
     db: Session = Depends(get_db),
 ):
     """Toggle sliding window limit enforcement on/off."""
@@ -117,7 +117,7 @@ def toggle_limit_enforcement(
 
 @router.get("/conversations")
 def list_conversations(
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer")),
     db: Session = Depends(get_db),
 ):
     """List all previous conversations for the authenticated developer."""
@@ -144,7 +144,7 @@ def list_conversations(
 @router.get("/conversations/{conv_id}/messages")
 def get_conversation_messages(
     conv_id: str,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer")),
     db: Session = Depends(get_db),
 ):
     """Retrieve full message history for a specific conversation."""
@@ -175,7 +175,7 @@ def get_conversation_messages(
 @router.delete("/conversations/{conv_id}")
 def delete_conversation(
     conv_id: str,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer")),
     db: Session = Depends(get_db),
 ):
     """Delete a conversation and all its associated messages."""
@@ -196,7 +196,7 @@ def delete_conversation(
 
 @router.get("/incidents")
 def list_org_incidents(
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer")),
     db: Session = Depends(get_db),
 ):
     """List recent production incidents captured for the organization."""
@@ -249,7 +249,7 @@ def list_org_incidents(
 
 @router.get("/autofix/suggestions")
 def get_autofix_suggestions(
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer")),
     db: Session = Depends(get_db),
 ):
     """Return verified AST autofix suggestions with mathematical replay sandbox proof."""
@@ -325,7 +325,7 @@ def get_autofix_suggestions(
 @router.post("/autofix/apply")
 def apply_autofix_patch(
     req: AutofixApplyRequest,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer")),
     db: Session = Depends(get_db),
 ):
     """Apply an AST autofix patch to workspace and deduct dedicated autofix tokens."""
@@ -953,7 +953,7 @@ async def generate_smart_ai_response(
 @router.post("/chat")
 async def chat_stream(
     req: ChatRequest,
-    org: Organization = Depends(get_org_from_jwt),
+    org: Organization = Depends(require_member_org("owner", "admin", "developer")),
     db: Session = Depends(get_db),
 ):
     """Stream chat response, enforcing Antigravity 5h & weekly limits and model weights."""
@@ -1088,7 +1088,9 @@ async def chat_stream(
 
 
 @router.get("/limits/telemetry")
-async def get_limits_telemetry(org: Organization = Depends(get_org_from_jwt)):
+async def get_limits_telemetry(
+    org: Organization = Depends(require_member_org("owner", "admin", "developer", "viewer"))
+):
     """Return customer request telemetry, quota status, and Antigravity token limits."""
     return get_token_status(org)
 

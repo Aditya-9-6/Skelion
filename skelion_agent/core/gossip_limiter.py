@@ -53,7 +53,9 @@ class GossipTokenBucket:
             else:
                 allowed = False
 
-            remaining = self.tokens
+            remaining = round(max(0.0, self.tokens), 4)
+            if remaining < 1e-4:
+                remaining = 0.0
             # Calculate reset time if bucket is not full
             deficit = self.capacity - self.tokens
             reset_in = (deficit / self.refill_rate) if self.refill_rate > 0 else 0.0
@@ -150,5 +152,12 @@ class GossipRateLimiter:
         self.vector_clock.update(remote_clock)
 
         # Merge token bucket state
-        bucket = self._get_bucket(identifier)
+        with self._global_lock:
+            bucket = self._buckets.get(identifier)
+            if bucket is None:
+                bucket = GossipTokenBucket(self.capacity, self.refill_rate)
+                bucket.tokens = min(bucket.capacity, float(remote_tokens))
+                bucket.last_refill = time.monotonic()
+                self._buckets[identifier] = bucket
+                return
         bucket.merge(remote_tokens, remote_refill)

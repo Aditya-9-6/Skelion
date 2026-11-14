@@ -169,16 +169,15 @@ def run_autonomous_loop(org_id: str, incident_id: str) -> None:
                 capture_output=True,
             )
 
-            # Determine PR URL (placeholder – in real flow the agent would create PR)
-            pr_url = "PR_CREATED_DUMMY"
+            # A PR URL is populated only by the real GitHub publisher.
+            pr_url = None
 
         duration = round(__import__("time").time() - start_time, 2)
         # Update records
         run_record.status = "succeeded"
         run_record.pr_url = pr_url
         run_record.execution_duration_sec = duration
-        incident.status = "pr_opened"
-        org.prs_used_this_month += 1
+        incident.status = "pr_opened" if pr_url else "completed"
         session.add(run_record)
         session.add(incident)
         session.add(org)

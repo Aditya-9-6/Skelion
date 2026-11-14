@@ -10,9 +10,7 @@ import {
   ExternalLink,
   Loader2,
   AlertCircle,
-  Zap,
-  FileText,
-  Download
+  Zap
 } from 'lucide-react';
 import { UserProfile } from '../utils/auth';
 import { grantUserCredits } from '../utils/creditLedger';
@@ -43,7 +41,8 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
-  const [razorpayKeyId, setRazorpayKeyId] = useState('rzp_test_TwvOwcT2gnvSnv');
+  const [razorpayKeyId, setRazorpayKeyId] = useState('');
+  const sandboxEnabled = import.meta.env.VITE_ENABLE_PAYMENT_SANDBOX === 'true';
 
   // Load configured key from backend config on mount
   useEffect(() => {
@@ -54,22 +53,22 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
           setRazorpayKeyId(data.keyId);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setErrorMessage('Unable to load payment configuration. Please try again later.');
+      });
   }, []);
 
   const planPrices: Record<string, { name: string; amountINR: number; amountUSD: number; credits: string; creditsNum: number }> = {
-    pilot: { name: 'Developer Tier', amountINR: 0, amountUSD: 0, credits: '50 Credits (50k Tokens)', creditsNum: 50 },
-    hosted_lite: { name: 'Developer Tier', amountINR: 749, amountUSD: 9, credits: '1,000 Credits (1M Tokens)', creditsNum: 1000 },
-    hosted_developer: { name: 'Developer Tier', amountINR: 749, amountUSD: 9, credits: '1,000 Credits (1M Tokens)', creditsNum: 1000 },
-    pro: { name: 'Pro Developer Tier', amountINR: 1349, amountUSD: 16, credits: '3,500 Credits (3.5M Tokens)', creditsNum: 3500 },
-    hosted_team: { name: 'Engineering Team Tier', amountINR: 3799, amountUSD: 45, credits: '12,000 Credits (12M Tokens)', creditsNum: 12000 },
-    hosted_business: { name: 'Engineering Team Tier (Scale)', amountINR: 9999, amountUSD: 119, credits: '35,000 Credits (35M Tokens)', creditsNum: 35000 },
-    enterprise: { name: 'Custom Tier', amountINR: 25000, amountUSD: 299, credits: 'Custom Credits (100k+)', creditsNum: 100000 },
+    pilot: { name: 'Hosted Community', amountINR: 0, amountUSD: 0, credits: '50 Credits (50k Tokens)', creditsNum: 50 },
+    hosted_lite: { name: 'Developer Lite', amountINR: 749, amountUSD: 9, credits: '1,000 Credits (1M Tokens)', creditsNum: 1000 },
+    hosted_developer: { name: 'Developer Lite', amountINR: 749, amountUSD: 9, credits: '1,000 Credits (1M Tokens)', creditsNum: 1000 },
+    pro: { name: 'Pro Developer', amountINR: 1349, amountUSD: 16, credits: '3,500 Credits (3.5M Tokens)', creditsNum: 3500 },
+    hosted_team: { name: 'Engineering Team', amountINR: 3799, amountUSD: 45, credits: '12,000 Credits (12M Tokens)', creditsNum: 12000 },
+    hosted_business: { name: 'Business Scale', amountINR: 9999, amountUSD: 119, credits: '35,000 Credits (35M Tokens)', creditsNum: 35000 },
+    enterprise: { name: 'Enterprise Custom', amountINR: 39999, amountUSD: 499, credits: '100,000+ Credits (100M+ Tokens)', creditsNum: 100000 },
     topup_small: { name: 'Starter Pack', amountINR: 399, amountUSD: 5, credits: '500 Credits (500k Tokens)', creditsNum: 500 },
     topup_medium: { name: 'Growth Pack', amountINR: 999, amountUSD: 12, credits: '1,500 Credits (1.5M Tokens)', creditsNum: 1500 },
     topup_large: { name: 'Power Pack', amountINR: 2899, amountUSD: 35, credits: '5,000 Credits (5M Tokens)', creditsNum: 5000 },
-    autonomous_dev_loop: { name: 'Autonomous Dev Loop (24/7)', amountINR: 1499, amountUSD: 19, credits: '5,000 Credits (5M Tokens)', creditsNum: 5000 },
-    reverse_proxy_loop: { name: 'Reverse Proxy Loop (24/7)', amountINR: 999, amountUSD: 12, credits: '2,500 Credits (2.5M Tokens)', creditsNum: 2500 },
   };
 
   const isCustom = planId === 'custom' || typeof customAmount === 'number';
@@ -151,11 +150,13 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
           }),
         });
 
-        if (orderRes.ok) {
-          orderData = await orderRes.json();
+        const responseBody = await orderRes.json().catch(() => ({}));
+        if (!orderRes.ok) {
+          throw new Error(responseBody.error || `Unable to create payment order (${orderRes.status})`);
         }
+        orderData = responseBody;
       } catch (err) {
-        console.warn('Backend order call fell back to direct client checkout', err);
+        throw err;
       }
 
       // If free tier
@@ -187,6 +188,9 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
       }
 
       const activeKey = orderData.keyId || razorpayKeyId;
+      if (!activeKey || !orderData.orderId) {
+        throw new Error('Payment gateway is not configured for this environment.');
+      }
 
       // 2. Configure official Razorpay Checkout options
       const options: any = {
@@ -219,14 +223,18 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 razorpay_order_id: response.razorpay_order_id || orderData.orderId,
                 razorpay_signature: response.razorpay_signature,
                 planId,
+                couponCode: isCustom ? '' : couponCode,
                 currency,
                 customAmount: isCustom ? finalAmount : undefined,
                 customCredits: isCustom ? selectedCreditsNum : undefined,
               }),
             });
 
-            const verifyResult = verifyRes.ok ? await verifyRes.json() : null;
-            const invNum = verifyResult?.invoiceNumber || `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+            const verifyResult = await verifyRes.json().catch(() => ({}));
+            if (!verifyRes.ok || !verifyResult.success || !verifyResult.verified) {
+              throw new Error(verifyResult.error || 'Payment verification failed. Credits were not activated.');
+            }
+            const invNum = verifyResult.invoiceNumber;
 
             // Grant credits into persistent ledger
             const updatedLedger = grantUserCredits({
@@ -254,29 +262,8 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
             });
           } catch (vErr) {
             console.error('Signature verification error', vErr);
-            const invNum = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-            const updatedLedger = grantUserCredits({
-              credits: selectedCreditsNum,
-              planOrPackName: selectedName,
-              amountPaid: finalAmount,
-              currency,
-              invoiceNumber: invNum,
-              type: isCustom ? 'custom_refill' : planId.startsWith('topup_') ? 'topup' : 'subscription',
-            });
             setIsProcessing(false);
-            setIsSuccess(true);
-            setReceiptData({
-              paymentId: response.razorpay_payment_id,
-              orderId: response.razorpay_order_id || 'order_direct',
-              invoiceNumber: invNum,
-              timestamp: new Date().toLocaleTimeString(),
-              credits: selectedCredits,
-              creditsNum: selectedCreditsNum,
-              newBalance: updatedLedger.balance,
-              amount: finalAmount,
-              currency,
-              method: 'Razorpay Gateway',
-            });
+            setErrorMessage(vErr instanceof Error ? vErr.message : 'Payment verification failed. Credits were not activated.');
           }
         },
         modal: {
@@ -423,7 +410,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
               <div className="text-right">
                 <span className="text-[10px] font-mono uppercase text-slate-500 block">Total Due</span>
                 <span className="text-2xl font-extrabold text-slate-950">
-                  {planId === 'enterprise' ? '+' : ''}{currencySymbol}{finalAmount.toLocaleString('en-IN')}
+                  {currencySymbol}{finalAmount.toLocaleString('en-IN')}
                 </span>
                 {!isCustom && discountMultiplier < 1 && (
                   <span className="text-[10px] text-emerald-700 font-mono font-semibold block">
@@ -572,20 +559,22 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 ) : (
                   <>
                     <Lock className="w-4 h-4" />
-                    <span>Pay {planId === 'enterprise' ? '+' : ''}{currencySymbol}{finalAmount.toLocaleString('en-IN')} with Razorpay</span>
+                    <span>Pay {currencySymbol}{finalAmount.toLocaleString('en-IN')} with Razorpay</span>
                     <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                   </>
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={handleSimulatePayment}
-                disabled={isProcessing}
-                className="w-full py-2 rounded-xl text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
-              >
-                Or test via Instant Sandbox Simulator (1-Click)
-              </button>
+              {sandboxEnabled && (
+                <button
+                  type="button"
+                  onClick={handleSimulatePayment}
+                  disabled={isProcessing}
+                  className="w-full py-2 rounded-xl text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
+                >
+                  Or test via Instant Sandbox Simulator (1-Click)
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -638,27 +627,12 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
               <span>Instantly synced with Console IDE and persistent ledger across sessions.</span>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const receiptUrl = `/api/receipt?invoiceNumber=${encodeURIComponent(receiptData.invoiceNumber)}&paymentId=${encodeURIComponent(receiptData.paymentId)}&orderId=${encodeURIComponent(receiptData.orderId)}&amount=${receiptData.amount}&currency=${receiptData.currency}&credits=${receiptData.creditsNum}&userName=${encodeURIComponent(user?.name || user?.username || 'Skelion Developer')}&userEmail=${encodeURIComponent(user?.email || 'developer@skelion.ai')}`;
-                  window.open(receiptUrl, '_blank');
-                }}
-                className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-              >
-                <FileText className="w-4 h-4 text-cyan-600" />
-                <span>Download / Print Receipt</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white transition shadow-md cursor-pointer"
-              >
-                Continue to Console
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white transition shadow-md cursor-pointer"
+            >
+              Continue to Console
+            </button>
           </div>
         )}
       </div>

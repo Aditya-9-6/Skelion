@@ -15,6 +15,7 @@ function App() {
   
   // Audit log state
   const [auditLogs, setAuditLogs] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState(null);
   
   // Step-up modal state
   const [showStepUpModal, setShowStepUpModal] = useState(false);
@@ -60,6 +61,15 @@ function App() {
         .then(r => r.json())
         .then(data => setAuditLogs(data.audit || []))
         .catch(() => setAuditLogs([]));
+    }
+  }, [activeTab, session]);
+
+  useEffect(() => {
+    if (activeTab === 'analytics' && session) {
+      fetch('/analytics', { credentials: 'include' })
+        .then(r => r.json())
+        .then(setAnalyticsData)
+        .catch(() => setAnalyticsData(null));
     }
   }, [activeTab, session]);
 
@@ -173,7 +183,11 @@ function App() {
         </div>
         <div className="user-info">
           <span>GitHub ID: {session.github_user_id}</span>
-          <button className="btn-outline" onClick={() => { setSession(null); window.location.href = '/'; }}>Logout</button>
+          <button className="btn-outline" onClick={async () => {
+            await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+            setSession(null);
+            window.location.href = '/';
+          }}>Logout</button>
         </div>
       </header>
 
@@ -181,6 +195,7 @@ function App() {
         <button className={activeTab === 'dashboard' ? 'tab active' : 'tab'} onClick={() => setActiveTab('dashboard')}>Dashboard & KPIs</button>
         <button className={activeTab === 'orgs' ? 'tab active' : 'tab'} onClick={() => setActiveTab('orgs')}>Organization Profile</button>
         <button className={activeTab === 'audit' ? 'tab active' : 'tab'} onClick={() => setActiveTab('audit')}>Audit Log Viewer</button>
+        <button className={activeTab === 'analytics' ? 'tab active' : 'tab'} onClick={() => setActiveTab('analytics')}>Analytics</button>
         <button className={activeTab === 'actions' ? 'tab active' : 'tab'} onClick={() => setActiveTab('actions')}>Write Actions</button>
       </nav>
 
@@ -256,6 +271,25 @@ function App() {
                   ))}
                   {auditLogs.length === 0 && (
                     <tr><td colSpan="6" className="muted">No audit logs recorded yet.</td></tr>
+                  )}
+
+                  {activeTab === 'analytics' && (
+                    <div className="panel">
+                      <h3>Operational Analysis</h3>
+                      <div className="analytics-grid">
+                        {Object.entries(analyticsData || {}).map(([name, values]) => (
+                          <div className="kpi-card" key={name}>
+                            <h4>{name.replaceAll('_', ' ')}</h4>
+                            {Object.entries(values).map(([key, value]) => (
+                              <p className="analytics-row" key={key}>
+                                <span>{key}</span><strong>{value}</strong>
+                              </p>
+                            ))}
+                          </div>
+                        ))}
+                        {!analyticsData && <p className="muted">Loading analytics…</p>}
+                      </div>
+                    </div>
                   )}
                 </tbody>
               </table>

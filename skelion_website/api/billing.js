@@ -4,23 +4,21 @@
 
 import crypto from 'crypto';
 
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_TwvOwcT2gnvSnv';
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '';
 
 const PLAN_PRICES = {
-  pilot: { name: 'Developer Tier', amountINR: 0, amountUSD: 0, credits: '50 Credits', creditsNum: 50 },
-  hosted_lite: { name: 'Developer Tier', amountINR: 749, amountUSD: 9, credits: '1,000 Credits', creditsNum: 1000 },
-  hosted_developer: { name: 'Developer Tier', amountINR: 749, amountUSD: 9, credits: '1,000 Credits', creditsNum: 1000 },
-  pro: { name: 'Pro Developer Tier', amountINR: 1349, amountUSD: 16, credits: '3,500 Credits', creditsNum: 3500 },
-  hosted_team: { name: 'Engineering Team Tier', amountINR: 3799, amountUSD: 45, credits: '12,000 Credits', creditsNum: 12000 },
-  hosted_business: { name: 'Engineering Team Tier (Scale)', amountINR: 9999, amountUSD: 119, credits: '35,000 Credits', creditsNum: 35000 },
-  enterprise: { name: 'Custom Tier', amountINR: 25000, amountUSD: 299, credits: 'Custom Credits (100k+)', creditsNum: 100000 },
-  custom: { name: 'Custom Tier', amountINR: 25000, amountUSD: 299, credits: 'Custom Credits (100k+)', creditsNum: 100000 },
+  pilot: { name: 'Hosted Community', amountINR: 0, amountUSD: 0, credits: '50 Credits', creditsNum: 50 },
+  hosted_lite: { name: 'Developer Lite', amountINR: 749, amountUSD: 9, credits: '1,000 Credits', creditsNum: 1000 },
+  hosted_developer: { name: 'Developer Lite', amountINR: 749, amountUSD: 9, credits: '1,000 Credits', creditsNum: 1000 },
+  pro: { name: 'Pro Developer', amountINR: 1349, amountUSD: 16, credits: '3,500 Credits', creditsNum: 3500 },
+  hosted_team: { name: 'Engineering Team', amountINR: 3799, amountUSD: 45, credits: '12,000 Credits', creditsNum: 12000 },
+  hosted_business: { name: 'Business Scale', amountINR: 9999, amountUSD: 119, credits: '35,000 Credits', creditsNum: 35000 },
+  enterprise: { name: 'Enterprise Custom', amountINR: 39999, amountUSD: 499, credits: '100,000+ Credits', creditsNum: 100000 },
   topup_small: { name: 'Starter Pack (500 Credits)', amountINR: 399, amountUSD: 5, credits: '500 Credits', creditsNum: 500 },
   topup_medium: { name: 'Growth Pack (1,500 Credits)', amountINR: 999, amountUSD: 12, credits: '1,500 Credits', creditsNum: 1500 },
   topup_large: { name: 'Power Pack (5,000 Credits)', amountINR: 2899, amountUSD: 35, credits: '5,000 Credits', creditsNum: 5000 },
-  autonomous_dev_loop: { name: 'Autonomous Dev Loop (24/7)', amountINR: 1499, amountUSD: 19, credits: '5,000 Credits', creditsNum: 5000 },
-  reverse_proxy_loop: { name: 'Reverse Proxy Loop (24/7)', amountINR: 999, amountUSD: 12, credits: '2,500 Credits', creditsNum: 2500 },
 };
 
 const COUPONS = {
@@ -29,26 +27,91 @@ const COUPONS = {
   EARLYBIRD: 0.8, // 20% off
 };
 
-export default async function handler(req, res) {
-  if (!res.status) {
-    res.status = function(code) {
-      this.statusCode = code;
-      return this;
-    };
+function setCorsHeaders(req, res) {
+  const origin = req.headers?.origin;
+  if (ALLOWED_ORIGIN && origin === ALLOWED_ORIGIN) {
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+    res.setHeader('Vary', 'Origin');
   }
-  if (!res.json) {
-    res.json = function(data) {
-      this.setHeader('Content-Type', 'application/json');
-      this.end(JSON.stringify(data));
-      return this;
-    };
-  }
-
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+function isRazorpayConfigured() {
+  return Boolean(
+    RAZORPAY_KEY_ID &&
+      RAZORPAY_KEY_SECRET &&
+      !RAZORPAY_KEY_ID.includes('placeholder') &&
+      !RAZORPAY_KEY_SECRET.includes('placeholder')
+  );
+}
+
+function parseBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === 'object') return req.body;
+  try {
+    const parsed = JSON.parse(req.body);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    const error = new Error('Request body must be valid JSON');
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+function calculatePurchase({ planId, couponCode, currency, customAmount }) {
+  const normalizedCurrency = currency === 'USD' ? 'USD' : 'INR';
+  const normalizedCoupon = String(couponCode || '').trim().toUpperCase();
+  const isCustom = planId === 'custom' || customAmount !== undefined;
+
+  if (isCustom) {
+    const requestedAmount = Number(customAmount);
+    const minAmount = normalizedCurrency === 'USD' ? 2 : 100;
+    if (!Number.isFinite(requestedAmount) || requestedAmount < minAmount) {
+      const error = new Error(`Custom purchases must be at least ${minAmount} ${normalizedCurrency}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const finalAmount = Math.round(requestedAmount);
+    const ratePerCredit = normalizedCurrency === 'USD' ? 0.013 : 1;
+    const creditsNum = Math.floor(finalAmount / ratePerCredit);
+    return {
+      currency: normalizedCurrency,
+      finalAmount,
+      planDisplayName: 'Custom On-Demand Refill',
+      creditsNum,
+      creditsDisplay: `${creditsNum.toLocaleString()} Credits (${(creditsNum * 1000).toLocaleString()} Tokens)`,
+      couponCode: '',
+    };
+  }
+
+  const selectedPlan = PLAN_PRICES[planId];
+  if (!selectedPlan) {
+    const error = new Error(`Unknown plan: ${planId}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const couponMultiplier = COUPONS[normalizedCoupon] || 1;
+  const baseAmount = normalizedCurrency === 'USD' ? selectedPlan.amountUSD : selectedPlan.amountINR;
+  return {
+    currency: normalizedCurrency,
+    finalAmount: Math.round(baseAmount * couponMultiplier),
+    planDisplayName: selectedPlan.name,
+    creditsNum: selectedPlan.creditsNum,
+    creditsDisplay: selectedPlan.credits,
+    couponCode: normalizedCoupon,
+  };
+}
+
+export default async function handler(req, res) {
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
+    if (ALLOWED_ORIGIN && req.headers?.origin !== ALLOWED_ORIGIN) {
+      return res.status(403).json({ error: 'Origin not allowed' });
+    }
     return res.status(200).end();
   }
 
@@ -56,22 +119,11 @@ export default async function handler(req, res) {
   const action = searchParams.get('action') || 'config';
 
   try {
-    // 0. Get Public Rates Configuration
-    if ((action === 'rates' || action === 'credit-rates') && req.method === 'GET') {
-      return res.status(200).json({
-        rates: {
-          INR: { creditPerCurrency: 1, pricePerCredit: 1.0, currencySymbol: "₹" },
-          USD: { creditPerCurrency: 1, pricePerCredit: 0.013, currencySymbol: "$" }
-        },
-        creditToToken: 1000,
-        description: "Base rates for purchasing credits. No bulk discounts are applied for custom on‑demand refills."
-      });
-    }
-
     // 1. Get Public Razorpay Configuration
     if (action === 'config' && req.method === 'GET') {
       return res.status(200).json({
-        keyId: RAZORPAY_KEY_ID,
+        configured: isRazorpayConfigured(),
+        keyId: isRazorpayConfigured() ? RAZORPAY_KEY_ID : null,
         defaultCurrency: 'INR',
         supportedCurrencies: ['INR', 'USD'],
         testMode: RAZORPAY_KEY_ID.startsWith('rzp_test_'),
@@ -81,39 +133,15 @@ export default async function handler(req, res) {
 
     // 2. Create Razorpay Order
     if (action === 'create-order' && req.method === 'POST') {
-      let body = {};
-      try {
-        body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
-      } catch (_) {
-        body = {};
-      }
-
-      const { planId = 'pro', couponCode = '', notes = {}, customAmount, customCredits } = body;
-      const currency = (body.currency || 'INR').toUpperCase() === 'USD' ? 'USD' : 'INR';
-
-      let finalAmount = 0;
-      let planDisplayName = '';
-      let creditsDisplay = '';
-      let creditsNum = 0;
-
-      // Handle custom on-demand refill amounts
-      if (planId === 'custom' || customAmount) {
-        const minAmount = currency === 'USD' ? 2 : 100;
-        finalAmount = Math.max(minAmount, Math.round(Number(customAmount) || minAmount));
-        // Custom rate: ₹1.00 / credit in INR, $0.013 / credit in USD (no discounts)
-        const ratePerCredit = currency === 'USD' ? 0.013 : 1.0;
-        creditsNum = customCredits ? Math.round(Number(customCredits)) : Math.floor(finalAmount / ratePerCredit);
-        planDisplayName = 'Custom On-Demand Refill';
-        creditsDisplay = `${creditsNum.toLocaleString()} Credits (${(creditsNum * 1000).toLocaleString()} Tokens)`;
-      } else {
-        const selectedPlan = PLAN_PRICES[planId] || PLAN_PRICES['pro'];
-        const couponMultiplier = COUPONS[couponCode?.toUpperCase()] || 1.0;
-        const baseAmount = currency === 'USD' ? selectedPlan.amountUSD : selectedPlan.amountINR;
-        finalAmount = Math.round(baseAmount * couponMultiplier);
-        planDisplayName = selectedPlan.name;
-        creditsDisplay = selectedPlan.credits;
-        creditsNum = selectedPlan.creditsNum || 1000;
-      }
+      const body = parseBody(req);
+      const { planId = 'pro', couponCode = '', notes = {}, customAmount } = body;
+      const purchase = calculatePurchase({
+        planId,
+        couponCode,
+        currency: String(body.currency || 'INR').toUpperCase(),
+        customAmount,
+      });
+      const { currency, finalAmount, planDisplayName, creditsDisplay, creditsNum } = purchase;
 
       const amountInSubunits = finalAmount * 100;
 
@@ -126,57 +154,51 @@ export default async function handler(req, res) {
           plan: planDisplayName,
           credits: creditsDisplay,
           creditsNum,
-          keyId: RAZORPAY_KEY_ID,
+          keyId: isRazorpayConfigured() ? RAZORPAY_KEY_ID : null,
           isFree: true,
         });
       }
 
-      // If Razorpay secret is present in environment, create official order via Razorpay API
-      if (RAZORPAY_KEY_SECRET) {
-        const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
-        const rzpResponse = await fetch('https://api.razorpay.com/v1/orders', {
-          method: 'POST',
-          headers: {
-            Authorization: `Basic ${auth}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            amount: amountInSubunits,
-            currency,
-            receipt: `rcpt_${Date.now().toString(36)}`,
-            notes: {
-              planId,
-              couponCode: couponCode || 'NONE',
-              currency,
-              credits: creditsDisplay,
-              creditsNum,
-              ...notes,
-            },
-          }),
+      if (!isRazorpayConfigured()) {
+        return res.status(503).json({
+          error: 'Payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET before accepting purchases.',
         });
-
-        if (rzpResponse.ok) {
-          const rzpOrder = await rzpResponse.json();
-          return res.status(200).json({
-            orderId: rzpOrder.id,
-            amount: finalAmount,
-            amountInPaise: rzpOrder.amount,
-            currency: rzpOrder.currency,
-            plan: planDisplayName,
-            credits: creditsDisplay,
-            creditsNum,
-            keyId: RAZORPAY_KEY_ID,
-          });
-        }
       }
 
-      // Fallback for test mode: generate standard test order
-      const fallbackOrderId = `order_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+      const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+      const rzpResponse = await fetch('https://api.razorpay.com/v1/orders', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amountInSubunits,
+          currency,
+          receipt: `rcpt_${Date.now().toString(36)}`,
+          notes: {
+            planId,
+            couponCode: purchase.couponCode || 'NONE',
+            currency,
+            credits: creditsDisplay,
+            creditsNum,
+            ...notes,
+          },
+        }),
+      });
+
+      if (!rzpResponse.ok) {
+        const providerError = await rzpResponse.text();
+        console.error('[Billing API Error] Razorpay order creation failed:', providerError);
+        return res.status(502).json({ error: 'Payment provider could not create the order.' });
+      }
+
+      const rzpOrder = await rzpResponse.json();
       return res.status(200).json({
-        orderId: fallbackOrderId,
+        orderId: rzpOrder.id,
         amount: finalAmount,
-        amountInPaise: amountInSubunits,
-        currency,
+        amountInPaise: rzpOrder.amount,
+        currency: rzpOrder.currency,
         plan: planDisplayName,
         credits: creditsDisplay,
         creditsNum,
@@ -186,12 +208,7 @@ export default async function handler(req, res) {
 
     // 3. Verify Payment Signature & Issue Entitlement
     if (action === 'verify-payment' && req.method === 'POST') {
-      let body = {};
-      try {
-        body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
-      } catch (_) {
-        body = {};
-      }
+      const body = parseBody(req);
 
       const {
         razorpay_payment_id,
@@ -199,53 +216,52 @@ export default async function handler(req, res) {
         razorpay_signature,
         planId = 'pro',
         currency = 'INR',
+        couponCode = '',
         customAmount,
-        customCredits,
       } = body;
 
-      let planDisplayName = '';
-      let creditsDisplay = '';
-      let creditsNum = 0;
-      let finalAmount = 0;
-
-      if (planId === 'custom' || customAmount) {
-        finalAmount = Math.round(Number(customAmount) || 100);
-        creditsNum = customCredits ? Math.round(Number(customCredits)) : (currency === 'USD' ? Math.floor(finalAmount / 0.013) : finalAmount);
-        planDisplayName = 'Custom On-Demand Refill';
-        creditsDisplay = `${creditsNum.toLocaleString()} Credits`;
-      } else {
-        const selectedPlan = PLAN_PRICES[planId] || PLAN_PRICES['pro'];
-        planDisplayName = selectedPlan.name;
-        creditsDisplay = selectedPlan.credits;
-        creditsNum = selectedPlan.creditsNum || 1000;
-        finalAmount = currency === 'USD' ? selectedPlan.amountUSD : selectedPlan.amountINR;
+      if (!isRazorpayConfigured()) {
+        return res.status(503).json({ error: 'Payment verification is not configured.' });
       }
 
-      let isVerified = false;
-
-      // Verify HMAC-SHA256 signature if secret is available
-      if (RAZORPAY_KEY_SECRET) {
-        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-          isVerified = false;
-        } else {
-          const text = `${razorpay_order_id}|${razorpay_payment_id}`;
-          const generatedSignature = crypto
-            .createHmac('sha256', RAZORPAY_KEY_SECRET)
-            .update(text)
-            .digest('hex');
-          isVerified = (generatedSignature === razorpay_signature);
-        }
-      } else {
-        // Test mode simulation: accept unless explicitly marked invalid
-        isVerified = Boolean(razorpay_payment_id && razorpay_order_id && razorpay_signature !== 'invalid_signature');
-      }
-
-      if (!isVerified) {
+      if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
         return res.status(400).json({
-          success: false,
-          verified: false,
-          error: 'Invalid or missing Razorpay payment signature',
+          error: 'Payment verification requires payment ID, order ID, and signature.',
         });
+      }
+
+      const purchase = calculatePurchase({ planId, couponCode, currency, customAmount });
+      const expectedSignature = crypto
+        .createHmac('sha256', RAZORPAY_KEY_SECRET)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+      const providedSignature = Buffer.from(String(razorpay_signature), 'utf8');
+      const expectedSignatureBuffer = Buffer.from(expectedSignature, 'utf8');
+      const isVerified =
+        providedSignature.length === expectedSignatureBuffer.length &&
+        crypto.timingSafeEqual(expectedSignatureBuffer, providedSignature);
+      if (!isVerified) {
+        return res.status(400).json({ error: 'Payment signature verification failed.' });
+      }
+
+      const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+      const orderResponse = await fetch(
+        `https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpay_order_id)}`,
+        {
+          headers: { Authorization: `Basic ${auth}` },
+        }
+      );
+      if (!orderResponse.ok) {
+        console.error('[Billing API Error] Unable to retrieve Razorpay order:', orderResponse.status);
+        return res.status(502).json({ error: 'Payment provider order could not be verified.' });
+      }
+
+      const providerOrder = await orderResponse.json();
+      if (
+        providerOrder.amount !== purchase.finalAmount * 100 ||
+        providerOrder.currency !== purchase.currency
+      ) {
+        return res.status(400).json({ error: 'Payment order does not match the selected purchase.' });
       }
 
       const invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${Math.floor(
@@ -255,14 +271,14 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         verified: true,
-        paymentId: razorpay_payment_id || `pay_${Date.now().toString(36)}`,
-        orderId: razorpay_order_id || `order_${Date.now().toString(36)}`,
+        paymentId: razorpay_payment_id,
+        orderId: razorpay_order_id,
         invoiceNumber,
-        plan: planDisplayName,
-        credits: creditsDisplay,
-        creditsNum,
-        amount: finalAmount,
-        currency,
+        plan: purchase.planDisplayName,
+        credits: purchase.creditsDisplay,
+        creditsNum: purchase.creditsNum,
+        amount: purchase.finalAmount,
+        currency: purchase.currency,
         timestamp: new Date().toLocaleTimeString(),
       });
     }
@@ -270,6 +286,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Unknown action: ${action}` });
   } catch (err) {
     console.error('[Billing API Error]', err);
-    return res.status(500).json({ error: err.message || 'Billing transaction failed' });
+    const statusCode = Number.isInteger(err.statusCode) ? err.statusCode : 500;
+    return res.status(statusCode).json({ error: err.message || 'Billing transaction failed' });
   }
 }

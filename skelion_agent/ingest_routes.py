@@ -1,15 +1,22 @@
 # skelion_agent/ingest_routes.py — SaaS Telemetry Ingestion, Scoped API Keys & Webhooks
 
 import hashlib
+import hmac
+import asyncio
 import json
+import logging
+import os
 import uuid
+from datetime import timedelta
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from skelion_agent.database import get_db
+from skelion_agent.database import engine
 from skelion_agent.models import (
+    AuditLog,
     Organization,
     Incident,
     ApiKey,
@@ -19,11 +26,15 @@ from skelion_agent.models import (
 from skelion_agent.api_key_service import (
     get_org_from_api_key_or_jwt,
     generate_scoped_api_key,
+    require_scope,
 )
 from skelion_agent.email_service import email_service
+from skelion_agent.config import get_async_redis
+from skelion_agent.job_queue import DurableJobQueue
 from core.redact import redact_headers, redact_text as redact_payload
 
 router = APIRouter(prefix="/v1", tags=["SaaS Ingress & Keys"])
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +58,7 @@ class CreateApiKeyRequest(BaseModel):
     name: str = "Production API Key"
     environment: str = "live"  # "live" or "test"
     scopes: Optional[List[str]] = ["ingest", "read"]
+    expires_in_days: Optional[int] = 90
 
 
 class CreateWebhookRequest(BaseModel):
@@ -65,29 +77,67 @@ async def dispatch_webhooks(
     """Dispatch webhook event to all active endpoints registered by the organization."""
     import httpx
 
-    webhooks = db_session.exec(
-        select(WebhookSubscription).where(
-            WebhookSubscription.org_id == org_id, WebhookSubscription.is_active == True
-        )
-    ).all()
+    # Background tasks must not reuse the request-scoped session after the response.
+    with Session(engine) as delivery_session:
+        webhooks = delivery_session.exec(
+            select(WebhookSubscription).where(
+                WebhookSubscription.org_id == org_id,
+                WebhookSubscription.is_active == True,
+            )
+        ).all()
 
-    for wh in webhooks:
-        try:
-            events = json.loads(wh.events_json) if wh.events_json else []
-            if event_type in events or "*" in events:
+        for wh in webhooks:
+            try:
+                events = json.loads(wh.events_json) if wh.events_json else []
+                if event_type not in events and "*" not in events:
+                    continue
+                body = json.dumps(
+                    {
+                        "event": event_type,
+                        "timestamp": utc_now().isoformat(),
+                        "data": payload,
+                    },
+                    separators=(",", ":"),
+                ).encode("utf-8")
+                signature = hmac.new(
+                    wh.secret.encode("utf-8"), body, hashlib.sha256
+                ).hexdigest()
+                delivery_id = f"whd_{uuid.uuid4().hex}"
                 async with httpx.AsyncClient(timeout=5.0) as client:
-                    await client.post(
-                        wh.url,
-                        json={
-                            "event": event_type,
-                            "timestamp": utc_now().isoformat(),
-                            "data": payload,
-                        },
-                        headers={"X-Skelion-Event": event_type},
-                    )
-        except Exception:
-            # Webhook dispatch failures never disrupt production
-            pass
+                    delivered = False
+                    for attempt in range(3):
+                        try:
+                            response = await client.post(
+                                wh.url,
+                                content=body,
+                                headers={
+                                    "Content-Type": "application/json",
+                                    "X-Skelion-Event": event_type,
+                                    "X-Skelion-Delivery": delivery_id,
+                                    "X-Skelion-Signature": f"sha256={signature}",
+                                },
+                            )
+                            if 200 <= response.status_code < 300:
+                                delivered = True
+                                break
+                        except httpx.HTTPError:
+                            pass
+                        if attempt < 2:
+                            await asyncio.sleep(2**attempt)
+                    if not delivered:
+                        logger.warning(
+                            "Webhook delivery failed: org=%s subscription=%s event=%s",
+                            org_id,
+                            wh.id,
+                            event_type,
+                        )
+            except Exception:
+                logger.exception(
+                    "Webhook dispatch error: org=%s subscription=%s event=%s",
+                    org_id,
+                    wh.id,
+                    event_type,
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +149,7 @@ async def dispatch_webhooks(
 async def ingest_production_incident(
     req: IngestIncidentRequest,
     background_tasks: BackgroundTasks,
-    org: Organization = Depends(get_org_from_api_key_or_jwt),
+    org: Organization = Depends(require_scope("ingest")),
     db: Session = Depends(get_db),
 ):
     """
@@ -161,6 +211,20 @@ async def ingest_production_incident(
         db.commit()
         db.refresh(new_inc)
         status_msg = "incident_created"
+
+        try:
+            queue = DurableJobQueue(get_async_redis())
+            await queue.enqueue(
+                "incident.process",
+                {"org_id": org.id, "incident_id": incident_id},
+            )
+        except Exception as exc:
+            logger.exception("Durable incident enqueue failed: %s", exc)
+            if os.getenv("ENVIRONMENT", "development").lower() == "production":
+                raise HTTPException(
+                    status_code=503,
+                    detail="Durable incident processing is unavailable",
+                ) from exc
 
         # Dispatch webhook alert in background
         background_tasks.add_task(
@@ -225,6 +289,7 @@ def list_api_keys(
             if k.created_at
             else utc_now().isoformat(),
             "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+            "expires_at": k.expires_at.isoformat() if k.expires_at else None,
         }
         for k in keys
     ]
@@ -241,9 +306,27 @@ def create_api_key(
     The raw key is returned ONCE upon creation.
     """
     prefix = "skl_live_" if req.environment == "live" else "skl_test_"
+    requested_scopes = set(req.scopes or ["ingest", "read"])
+    from skelion_agent.api_key_service import VALID_SCOPES
+
+    invalid_scopes = requested_scopes - VALID_SCOPES
+    if invalid_scopes:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported API key scopes: {', '.join(sorted(invalid_scopes))}",
+        )
+    if req.expires_in_days is not None and not 1 <= req.expires_in_days <= 3650:
+        raise HTTPException(
+            status_code=422, detail="expires_in_days must be between 1 and 3650"
+        )
     raw_key, key_prefix, key_hash = generate_scoped_api_key(prefix=prefix)
 
-    scopes_str = ",".join(req.scopes) if req.scopes else "ingest,read"
+    scopes_str = ",".join(sorted(requested_scopes))
+    expires_at = (
+        utc_now() + timedelta(days=req.expires_in_days)
+        if req.expires_in_days is not None
+        else None
+    )
     api_key = ApiKey(
         org_id=org.id,
         name=req.name,
@@ -251,10 +334,22 @@ def create_api_key(
         key_hash=key_hash,
         scopes=scopes_str,
         is_active=True,
+        expires_at=expires_at,
     )
     db.add(api_key)
     db.commit()
     db.refresh(api_key)
+    db.add(
+        AuditLog(
+            actor=org.id,
+            org_id=org.id,
+            action="api_key.created",
+            meta_json=json.dumps(
+                {"key_id": api_key.id, "scopes": sorted(requested_scopes)}
+            ),
+        )
+    )
+    db.commit()
 
     return {
         "id": api_key.id,
@@ -263,6 +358,7 @@ def create_api_key(
         "prefix": key_prefix,
         "scopes": req.scopes,
         "created_at": api_key.created_at.isoformat(),
+        "expires_at": api_key.expires_at.isoformat() if api_key.expires_at else None,
         "warning": "Copy this key now. You will not be able to retrieve it again.",
     }
 
@@ -280,6 +376,14 @@ def revoke_api_key(
 
     api_key.is_active = False
     db.add(api_key)
+    db.add(
+        AuditLog(
+            actor=org.id,
+            org_id=org.id,
+            action="api_key.revoked",
+            meta_json=json.dumps({"key_id": api_key.id}),
+        )
+    )
     db.commit()
 
     return {"status": "revoked", "id": key_id}

@@ -28,37 +28,12 @@ export interface UserCreditState {
 const STORAGE_KEY = 'skelion_user_credit_state_v1';
 
 const INITIAL_DEFAULT_STATE: UserCreditState = {
-  balance: 1250,
-  tokens: 1250000,
-  totalPurchased: 2000,
-  activePlan: 'Developer Lite',
+  balance: 0,
+  tokens: 0,
+  totalPurchased: 0,
+  activePlan: 'None',
   lastUpdated: new Date().toISOString(),
-  transactions: [
-    {
-      id: 'tx_init_01',
-      date: new Date(Date.now() - 12 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      type: 'subscription',
-      credits: 1000,
-      tokens: 1000000,
-      amountPaid: 749,
-      currency: 'INR',
-      invoiceNumber: 'INV-202611-1042',
-      description: 'Developer Lite Monthly Plan',
-      status: 'verified',
-    },
-    {
-      id: 'tx_init_02',
-      date: new Date(Date.now() - 5 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      type: 'topup',
-      credits: 250,
-      tokens: 250000,
-      amountPaid: 249,
-      currency: 'INR',
-      invoiceNumber: 'INV-202611-1823',
-      description: 'On-Demand Refill Pack',
-      status: 'verified',
-    },
-  ],
+  transactions: [],
 };
 
 /**

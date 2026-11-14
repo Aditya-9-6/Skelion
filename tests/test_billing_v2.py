@@ -1,6 +1,8 @@
 # tests/test_billing_v2.py — Acceptance Tests for Billing v2 & Append-Only Credit Ledger
 
 import pytest
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, SQLModel, create_engine
 from sqlalchemy.pool import StaticPool
@@ -12,6 +14,16 @@ from skelion_agent.credit_ledger import (
     activate_plan_period,
     activate_token_pack,
 )
+from skelion_agent.config import settings
+
+
+def payment_signature(order_id: str, payment_id: str) -> str:
+    secret = settings.RAZORPAY_KEY_SECRET
+    return hmac.new(
+        secret.encode("utf-8"),
+        f"{order_id}|{payment_id}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 @pytest.fixture
@@ -233,7 +245,7 @@ def test_addon_billing_api_routes(test_db):
         json={
             "razorpay_order_id": order_id,
             "razorpay_payment_id": "pay_addon_test_123",
-            "razorpay_signature": "sig_dummy",
+            "razorpay_signature": payment_signature(order_id, "pay_addon_test_123"),
         },
     )
     assert verify_res.status_code == 200
@@ -245,7 +257,7 @@ def test_addon_billing_api_routes(test_db):
         json={
             "razorpay_order_id": order_id2,
             "razorpay_payment_id": "pay_addon_test_456",
-            "razorpay_signature": "sig_dummy",
+            "razorpay_signature": payment_signature(order_id2, "pay_addon_test_456"),
         },
     )
     assert verify_res2.status_code == 200
