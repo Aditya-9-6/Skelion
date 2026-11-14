@@ -555,8 +555,10 @@ async def webhook(request: Request):
         )
         db.add(whe)
 
-        if event_type == "payment.refunded":
+        if event_type in ("payment.refunded", "refund.processed"):
             ref_ent = data.get("payload", {}).get("refund", {}).get("entity", {})
+            if not ref_ent:
+                ref_ent = data.get("payload", {}).get("payment", {}).get("entity", {})
             provider_refund_id = ref_ent.get("id")
             pay_id = ref_ent.get("payment_id")
             rfnd_amt = ref_ent.get("amount", 0)
@@ -618,10 +620,18 @@ async def webhook(request: Request):
             db.commit()
             return {"status": "ignored", "event": event_type}
 
-        entity = data.get("payload", {}).get("payment", {}).get("entity", {})
-        provider_order_id = entity.get("order_id")
-        provider_payment_id = entity.get("id", f"pay_{uuid.uuid4().hex[:10]}")
+        payment_entity = data.get("payload", {}).get("payment", {}).get("entity", {})
+        order_entity = data.get("payload", {}).get("order", {}).get("entity", {})
+        entity = payment_entity or order_entity
+        provider_order_id = entity.get("order_id") or order_entity.get("id")
+        provider_payment_id = payment_entity.get("id")
         amount_paid = entity.get("amount", 0)
+        if not provider_payment_id or not amount_paid:
+            whe.status = "failed"
+            whe.error = "Payment event omitted provider payment or amount"
+            db.add(whe)
+            db.commit()
+            raise HTTPException(status_code=422, detail=whe.error)
 
         # Look up authoritative PaymentOrder
         order = (

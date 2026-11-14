@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # Third-Party Integrations
     RAZORPAY_KEY_ID: str = "rzp_test_placeholder_key"
     RAZORPAY_KEY_SECRET: str = "rzp_test_dummy_secret"
+    RAZORPAY_WEBHOOK_SECRET: str = "rzp_webhook_secret_placeholder"
     STRIPE_API_KEY: str = "sk_test_mock"
     STRIPE_WEBHOOK_SECRET: str = "whsec_testmock"
     GITHUB_APP_ID: str = "0"

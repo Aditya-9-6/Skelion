@@ -24,7 +24,7 @@ services:
     environment:
       - ENVIRONMENT=production
       - PORT=8002
-      - DATABASE_URL=postgresql://skelion:skelion_secret@postgres:5432/skelion_db
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379/0
       - GROQ_API_KEY=${GROQ_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
@@ -33,12 +33,32 @@ services:
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
     ports:
       - "8002:8002"
-      - "8003:8002"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+
+  skelion-admin-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile.saas
+    container_name: skelion-admin-api
+    restart: always
+    command: ["uvicorn", "admin_api.main:app", "--host", "0.0.0.0", "--port", "8003"]
+    environment:
+      - ENVIRONMENT=production
+      - ADMIN_DATABASE_URL=${ADMIN_DATABASE_URL}
+      - ADMIN_GITHUB_CLIENT_ID=${ADMIN_GITHUB_CLIENT_ID}
+      - ADMIN_GITHUB_SECRET=${ADMIN_GITHUB_SECRET}
+      - ADMIN_GITHUB_IDS=${ADMIN_GITHUB_IDS}
+      - ADMIN_OWNER_EMAILS=${ADMIN_OWNER_EMAILS}
+      - ADMIN_COOKIE_SECRET=${ADMIN_COOKIE_SECRET}
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   postgres:
     image: postgres:16-alpine
@@ -46,7 +66,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: skelion
-      POSTGRES_PASSWORD: skelion_secret
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: skelion_db
     volumes:
       - pgdata:/var/lib/postgresql/data

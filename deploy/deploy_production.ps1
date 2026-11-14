@@ -10,11 +10,11 @@ Write-Host "=================================================" -ForegroundColor 
 # 1. Environment Verification
 Write-Host ""
 Write-Host "[1/4] Checking Production Configuration..." -ForegroundColor Yellow
-if (-not (Test-Path ".env.skelion")) {
-    Write-Host "  Copying .env.skelion.example to .env.skelion..."
-    Copy-Item ".env.skelion.example" ".env.skelion"
+if (-not (Test-Path ".env.production")) {
+    Write-Error "  Missing .env.production. Create it from .env.production.example and inject secrets via your secret manager."
+    exit 1
 }
-Write-Host "  [OK] Environment file ready (.env.skelion)" -ForegroundColor Green
+Write-Host "  [OK] Production environment file present (.env.production)" -ForegroundColor Green
 
 # 2. Package Artifacts Verification
 Write-Host ""
@@ -51,10 +51,10 @@ try {
 
 Write-Host ""
 Write-Host "=================================================" -ForegroundColor Green
-Write-Host "  Skelion SaaS Platform is Production-Ready!     " -ForegroundColor Green
+Write-Host "  Skelion SaaS pre-flight checks completed.       " -ForegroundColor Green
 Write-Host "=================================================" -ForegroundColor Green
-Write-Host "  Landing Page:    http://127.0.0.1:8002/"
-Write-Host "  Customer Portal: http://127.0.0.1:8002/portal"
-Write-Host "  Admin Console:   http://127.0.0.1:8002/admin"
-Write-Host "  API Docs:        http://127.0.0.1:8002/docs"
+Write-Host "  Landing Page:    https://$Domain/"
+Write-Host "  Customer Portal: https://$Domain/portal"
+Write-Host "  Admin Console:   Configure separately behind private access"
+Write-Host "  API Docs:        https://$Domain/docs"
 Write-Host "  Legal Pages:     /terms, /privacy, /refund"
